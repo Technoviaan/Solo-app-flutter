@@ -183,7 +183,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                       page == 0 ? "Next" : "Get Started",
                       style: TextStyle(
                         fontSize: AppSize.sp(20),
-                        color: const Color(0xFF002C3E)
+                        color: const Color(0xFF5A6C7D)
                             .withValues(alpha: isNameEntered || page > 0 ? 0.8 : 0.2),                        fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -223,6 +223,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                       TextSpan(
                         text: "Privacy Policy",
                         style: const TextStyle(
+                            color:  Color(0xFF5A6C7D),
                             decoration: TextDecoration.underline,
                             fontWeight: FontWeight.w600
                             ),
@@ -238,6 +239,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                       TextSpan(
                         text: "Terms of Service",
                         style: const TextStyle(
+                            color:  Color(0xFF5A6C7D),
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.underline),
                         recognizer: TapGestureRecognizer()
@@ -416,7 +418,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                   text: "SOLO",
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.bold,
                     fontSize: AppSize.sp(36),
                   ),
                 ),
@@ -426,7 +428,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: AppSize.sp(36),
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const TextSpan(text: "\nI’ll be here for you\n"),

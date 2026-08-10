@@ -89,7 +89,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
 
     if (res["status"] == 1) {
       await TokenStorage.saveEmailCompleted(true);
-      
+
       final subscriptionStatus = await TokenStorage.getSubscriptionStatus();
 
       if (subscriptionStatus == 0) {
@@ -116,6 +116,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
   Widget build(BuildContext context) {
     AppSize.init(context);
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+    final emailFilled = emailController.text.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF7),
@@ -139,60 +140,62 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                   ),
                   SizedBox(height: AppSize.h(30)),
                   Container(
-                          width: double.infinity, 
-                            height: AppSize.h(56),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(34),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.03),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 4),
-                                ),
-                                const BoxShadow(
-                                  color: Color(0xFFB8C2C8),
-                                  blurRadius: 0,
-                                  offset: Offset(5, 8),
-                                ),
-                              ],
+                    width: double.infinity,
+                    height: AppSize.h(56),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(34),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 15,
+                          offset: const Offset(0, 4),
+                        ),
+                        BoxShadow(
+                          color: Colors.grey.withValues(alpha: 0.12),
+                          blurRadius: 0,
+                          offset: const Offset(5, 8),
+
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: emailController,
+                      textAlign: TextAlign.start,
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (_) => setState(() {}),
+                      style: TextStyle(
+                          color: const Color(0xFF5A6C7D),
+                          fontSize: AppSize.sp(16),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w400),
+                      decoration: InputDecoration(
+                        hintText: "Email",
+                        hintStyle: const TextStyle(
+                          color: Color(0xFF5A6C7D),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w400,
+                        ),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Container(
+                            width: 35,
+                            height: 42,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF002C3E),
+                              shape: BoxShape.circle,
                             ),
-                   child: TextField(
-                              controller: emailController,
-                              textAlign: TextAlign.start,
-                              keyboardType: TextInputType.emailAddress,
-                              style: TextStyle(
-                                  color: const Color(0xFF5A6C7D),
-                                  fontSize: AppSize.sp(16),
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400),
-                              decoration: InputDecoration(
-                                hintText: "Email",
-                                hintStyle: const TextStyle(
-                                  color: Color(0xFF5A6C7D),
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                prefixIcon: Padding(
-                                  padding: const EdgeInsets.all(10.0),
-                                  child: Container(
-                                    width: 35,
-                                    height: 42,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF002C3E),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.email_outlined,
-                                        color: Colors.white, size: 20),
-                                  ),
-                                ),
-                                border: InputBorder.none,
-                                suffixIcon: const SizedBox(width: 40),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
+                            child: const Icon(Icons.email_outlined,
+                                color: Colors.white, size: 20),
+                          ),
+                        ),
+                        border: InputBorder.none,
+                        suffixIcon: const SizedBox(width: 40),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                        ),
+                      ),
+                    ),
                   ),
                   SizedBox(height: AppSize.h(14)),
                   Padding(
@@ -227,11 +230,11 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                             ),
                             child: agree
                                 ? Container(
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Color(0xFF78BCC4),
-                                    ),
-                                  )
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0xFF78BCC4),
+                              ),
+                            )
                                 : null,
                           ),
                         ),
@@ -246,6 +249,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                 text: "Privacy Policy",
                                 recognizer: _privacyRecognizer,
                                 style: const TextStyle(
+                                  color:  Color(0xFF5A6C7D),
                                   decoration: TextDecoration.underline,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -255,6 +259,8 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                 text: "Terms of Service",
                                 recognizer: _termsRecognizer,
                                 style: const TextStyle(
+                                  color:  Color(0xFF5A6C7D),
+
                                   decoration: TextDecoration.underline,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -286,45 +292,48 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                         child: Text(
                           "Sign In",
                           style: TextStyle(
-                            color: const Color(0xFF002C3E).withValues(alpha: 0.2),
-                            fontSize: AppSize.sp(20),
-                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF8A99A6).withValues(alpha: 0.2),
+                            fontSize: AppSize.sp(18),
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
                       Row(
                         children: [
-                          Text(
-                            "Sign Up",
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
                             style: TextStyle(
-                              color: const Color(0xFF002C3E).withValues(alpha: 0.2),
+                              color: emailFilled
+                                  ? const Color(0xFF8A99A6)
+                                  : const Color(0xFF8A99A6).withValues(alpha: 0.2),
                               fontSize: AppSize.sp(20),
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w400,
                             ),
+                            child: const Text("Sign Up"),
                           ),
                           SizedBox(width: AppSize.w(18)),
                           GestureDetector(
                             onTap: loading ? null : submitEmail,
                             child: loading
                                 ? Container(
-                                    width: AppSize.w(62),
-                                    height: AppSize.w(62),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFB7D43A),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        color: Color(0xFF002C3E),
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  )
+                              width: AppSize.w(62),
+                              height: AppSize.w(62),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFB7D43A),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF002C3E),
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
                                 : SvgPicture.asset(
-                                    "assets/svg/nextbutton.svg",
-                                    width: AppSize.w(62),
-                                    height: AppSize.w(62),
-                                  ),
+                              "assets/svg/nextbutton.svg",
+                              width: AppSize.w(62),
+                              height: AppSize.w(62),
+                            ),
                           ),
                         ],
                       ),

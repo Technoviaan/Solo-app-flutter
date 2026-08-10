@@ -57,9 +57,9 @@ class _CheckinScreenState extends State<CheckinScreen> {
   void _calculateRemainingTime() {
     final now = DateTime.now();
     final deadline = widget.scheduledTime.add(Duration(hours: widget.alertWindowHours));
-    
+
     totalSeconds = widget.alertWindowHours * 60 * 60;
-    
+
     if (now.isBefore(widget.scheduledTime)) {
       remainingSeconds = widget.scheduledTime.difference(now).inSeconds;
       state = "waiting";
@@ -76,14 +76,14 @@ class _CheckinScreenState extends State<CheckinScreen> {
       setState(() {
         final now = DateTime.now();
         final deadline = widget.scheduledTime.add(Duration(hours: widget.alertWindowHours));
-        
+
         if (now.isBefore(widget.scheduledTime)) {
           state = "waiting";
           remainingSeconds = widget.scheduledTime.difference(now).inSeconds;
         } else {
           remainingSeconds = deadline.difference(now).inSeconds;
           _updateStateByTime();
-          
+
           if (remainingSeconds <= 0) {
             state = "alert";
             remainingSeconds = 0;
@@ -120,7 +120,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
     } catch (e) {
       print("Error playing check-in sound: $e");
     }
-    
+
     await CheckinApi.confirmCheckin();
     await LocalStorage.savePreviousCheckinTime(DateTime.now());
 
@@ -367,8 +367,8 @@ class _CheckinScreenState extends State<CheckinScreen> {
                   state == "alert"
                       ? "Your contacts have been alerted"
                       : isSOSPending
-                          ? "Tap SOS again to confirm"
-                          : "Check-in confirmed\nGlad you’re OK",
+                      ? "Tap SOS again to confirm"
+                      : "Check-in confirmed\nGlad you’re OK",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: const Color(0xFFD1D9E0),
@@ -475,18 +475,50 @@ class _CheckinScreenState extends State<CheckinScreen> {
                       ),
                       alignment: Alignment.center,
                       child: isSOSPending
-                          ? Text(
+                          ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "S",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22.sp,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(width: 3.w),
+                          Container(
+                            width: 26.w,
+                            height: 26.w,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
                               "$sosSeconds",
                               style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22.sp,
-                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF002C3E),
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w900,
                               ),
-                            )
-                          : SvgPicture.asset(
-                              "assets/svg/sos.svg",
-                              width: 60.w,
                             ),
+                          ),
+                          SizedBox(width: 3.w),
+                          Text(
+                            "S",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22.sp,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      )
+                          : SvgPicture.asset(
+                        "assets/svg/sos.svg",
+                        width: 60.w,
+                      ),
                     ),
                   ),
                 ],
@@ -498,4 +530,3 @@ class _CheckinScreenState extends State<CheckinScreen> {
     );
   }
 }
-

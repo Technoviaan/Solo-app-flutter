@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:http/http.dart' as http;
 import 'package:country_code_picker/country_code_picker.dart';
+import 'package:libphonenumber_plugin/libphonenumber_plugin.dart';
+import 'package:http/http.dart' as http;
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/home_page.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
@@ -13,7 +14,6 @@ import 'package:solo_app/subscription/subscription_page.dart';
 import 'auth_bloc.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
-import 'verify_otp_page.dart';
 import '../widgets/solo_eye.dart';
 import '../core/utils/app_size.dart';
 import 'package:flutter/services.dart';
@@ -27,8 +27,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String defaultDialCode = ""; 
-  bool isFetchingCountry = true;
+  String selectedDialCode = "+91"; // Initial Default
 
   String phone = "";
   String otp = "";
@@ -38,97 +37,123 @@ class _LoginPageState extends State<LoginPage> {
   String lastUsedDialCode = "";
   String lastUsedPhone = "";
 
+  // 🚀 Full World Major ISO-to-DialCode Mapping
+  static const Map<String, String> _worldIsoToDialCode = {
+    'IN': '+91',  'US': '+1',   'CA': '+1',   'NP': '+977', 'GB': '+44',
+    'AU': '+61',  'AE': '+971', 'SA': '+966', 'PK': '+92',  'BD': '+880',
+    'LK': '+94',  'DE': '+49',  'FR': '+33',  'JP': '+81',  'CN': '+86',
+    'RU': '+7',   'BR': '+55',  'MX': '+52',  'ZA': '+27',  'IT': '+39',
+    'ES': '+34',  'SG': '+65',  'MY': '+60',  'ID': '+62',  'TH': '+66',
+    'PH': '+63',  'VN': '+84',  'KR': '+82',  'NZ': '+64',  'EG': '+20',
+    'NG': '+234', 'KE': '+254', 'AR': '+54',  'CL': '+56',  'CO': '+57',
+    'TR': '+90',  'UA': '+380', 'PL': '+48',  'NL': '+31',  'SE': '+46',
+    'NO': '+47',  'FI': '+358', 'DK': '+45',  'CH': '+41',  'AT': '+43',
+  };
+
   @override
   void initState() {
     super.initState();
-    _fetchCountryCode();
+    _fetchDefaultCountryCode(); // App start hote hi user country detect karega
   }
 
-  Future<void> _fetchCountryCode() async {
-    if (!mounted) return;
-    setState(() {
-      isFetchingCountry = true;
-    });
+  // 🚀 App Start: Detect device country location / IP region
+  Future<void> _fetchDefaultCountryCode() async {
     try {
-      final response = await http.get(Uri.parse('http://ip-api.com/json')).timeout(const Duration(seconds: 5));
+      // Step 1: Device Locale (Instant & Offline)
+      final locale = View.of(context).platformDispatcher.locale;
+      final countryCode = locale.countryCode;
+
+      if (countryCode != null && _worldIsoToDialCode.containsKey(countryCode.toUpperCase())) {
+        if (mounted) {
+          setState(() {
+            selectedDialCode = _worldIsoToDialCode[countryCode.toUpperCase()]!;
+          });
+        }
+        return;
+      }
+
+      // Step 2: Fallback to Fast IP Geolocation
+      final response = await http.get(Uri.parse('http://ip-api.com/json')).timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final countryCode = data['countryCode']; 
-        final match = codes.firstWhere((c) => c['code'] == countryCode, orElse: () => {});
-        if (match.isNotEmpty) {
+        final ipCountry = data['countryCode'];
+        if (ipCountry != null && _worldIsoToDialCode.containsKey(ipCountry.toString().toUpperCase())) {
           if (mounted) {
             setState(() {
-              defaultDialCode = match['dial_code']!;
-              isFetchingCountry = false;
+              selectedDialCode = _worldIsoToDialCode[ipCountry.toString().toUpperCase()]!;
             });
           }
-          return;
         }
       }
-    } catch (e) {
-      // ignore
-    }
-    
-    if (mounted) {
-      setState(() {
-        defaultDialCode = "+1";
-        isFetchingCountry = false;
-      });
+    } catch (_) {
+      // Default retained (+91) if detection fails
     }
   }
 
-  String get activeDialCode {
-    if (phone.startsWith('+')) {
-      final matches = codes.where((c) => phone.startsWith(c['dial_code']!)).toList();
-      if (matches.isNotEmpty) {
-        matches.sort((a, b) => b['dial_code']!.length.compareTo(a['dial_code']!.length));
-        return matches.first['dial_code']!;
-      }
-      return ""; 
-    }
-    
-    if (phone.isNotEmpty) {
-      final matches = codes.where((c) {
-        String codeDigits = c['dial_code']!.replaceAll('+', '');
-        return phone.startsWith(codeDigits);
-      }).toList();
-      if (matches.isNotEmpty) {
-        matches.sort((a, b) => b['dial_code']!.length.compareTo(a['dial_code']!.length));
-        return matches.first['dial_code']!;
-      }
-    }
-    
-    return defaultDialCode;
-  }
+  // 🚀 Dynamic Auto-Detect Logic on keypress
+  Future<void> _autoDetectCountryCode(String inputNumber) async {
+    if (inputNumber.isEmpty) return;
 
-  String get displayPhone {
-    if (phone.isEmpty) return "";
-    String code = activeDialCode;
-    if (phone.startsWith('+')) {
-      if (code.isNotEmpty && phone.startsWith(code)) {
-        return phone.substring(code.length);
+    // Fast local rule check
+    if (inputNumber.length == 1) {
+      if (['6', '7', '8', '9'].contains(inputNumber)) {
+        setState(() => selectedDialCode = "+91");
+        return;
+      } else if (inputNumber == '1') {
+        setState(() => selectedDialCode = "+1");
+        return;
       }
-      return phone; 
-    } else {
-      if (code.isNotEmpty && code != defaultDialCode) {
-        String codeDigits = code.replaceAll('+', '');
-        if (phone.startsWith(codeDigits)) {
-          return phone.substring(codeDigits.length);
+    }
+
+    // Nepal Mobiles (980x, 981x, 982x, 984x, 986x)
+    if (inputNumber.length >= 3) {
+      if (inputNumber.startsWith('980') ||
+          inputNumber.startsWith('981') ||
+          inputNumber.startsWith('982') ||
+          inputNumber.startsWith('984') ||
+          inputNumber.startsWith('986')) {
+        setState(() => selectedDialCode = "+977");
+        return;
+      }
+    }
+
+    // Australia Mobiles
+    if (inputNumber.startsWith('4') && inputNumber.length >= 2) {
+      setState(() => selectedDialCode = "+61");
+      return;
+    }
+
+    try {
+      final regionInfo = await PhoneNumberUtil.getRegionInfo(
+        inputNumber,
+        'IN',
+      );
+
+      final isoCode = regionInfo.isoCode;
+
+      if (isoCode != null && isoCode.isNotEmpty) {
+        final dialCode = _worldIsoToDialCode[isoCode.toUpperCase()];
+        if (dialCode != null && mounted) {
+          setState(() {
+            selectedDialCode = dialCode;
+          });
         }
       }
+    } catch (_) {
+      // Ignore
     }
-    return phone;
   }
 
   void addDigit(String digit) {
     if (context.read<AuthBloc>().state is AuthLoading) return;
-    
+
     HapticFeedback.lightImpact();
     setState(() {
       error = "";
       if (!isOtpSent) {
-        if (phone.length < 16) {
+        if (phone.length < 15) {
           phone += digit;
+          _autoDetectCountryCode(phone);
         }
       } else {
         if (otp.length < 6) {
@@ -145,13 +170,16 @@ class _LoginPageState extends State<LoginPage> {
 
   void deleteDigit() {
     if (context.read<AuthBloc>().state is AuthLoading) return;
-    
+
     HapticFeedback.lightImpact();
     setState(() {
       error = "";
       if (!isOtpSent) {
         if (phone.isNotEmpty) {
           phone = phone.substring(0, phone.length - 1);
+          if (phone.isNotEmpty) {
+            _autoDetectCountryCode(phone);
+          }
         }
       } else {
         if (otp.isNotEmpty) {
@@ -167,40 +195,19 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    String finalDialCode = defaultDialCode;
-    String finalPhone = phone;
-
-    String code = activeDialCode;
-    if (code.isNotEmpty) {
-      finalDialCode = code;
-      if (phone.startsWith('+')) {
-        finalPhone = phone.substring(code.length);
-      } else {
-        if (code != defaultDialCode) {
-          String codeDigits = code.replaceAll('+', '');
-          if (phone.startsWith(codeDigits)) {
-            finalPhone = phone.substring(codeDigits.length);
-          }
-        }
-      }
-    } else if (phone.startsWith('+')) {
-      setState(() => error = "Invalid country code");
-      return;
-    }
-
-    if (finalPhone.length < 5) {
+    if (phone.length < 5) {
       setState(() => error = "Invalid phone number");
       return;
     }
 
     error = "";
-    lastUsedDialCode = finalDialCode;
-    lastUsedPhone = finalPhone;
-    FocusScope.of(context).unfocus(); 
+    lastUsedDialCode = selectedDialCode;
+    lastUsedPhone = phone;
+    FocusScope.of(context).unfocus();
     context.read<AuthBloc>().add(
       SendOtpEvent(
-        finalDialCode,
-        finalPhone,
+        lastUsedDialCode,
+        lastUsedPhone,
       ),
     );
   }
@@ -211,7 +218,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
     error = "";
-    FocusScope.of(context).unfocus(); 
+    FocusScope.of(context).unfocus();
     context.read<AuthBloc>().add(
       VerifyOtpEvent(
         lastUsedDialCode,
@@ -235,9 +242,9 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget numberButton(
-    String number, {
-    VoidCallback? onTap,
-  }) {
+      String number, {
+        VoidCallback? onTap,
+      }) {
     return Material(
       color: const Color(0xFF16374E),
       shape: const CircleBorder(),
@@ -304,339 +311,356 @@ class _LoginPageState extends State<LoginPage> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF002C3E),
+        body: BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is OtpSent) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    isOtpSent = true;
+                    error = "";
+                  });
+                }
+              });
+            }
 
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-
-          if (state is OtpSent) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() {
-                  isOtpSent = true;
-                  error = "";
-                });
-              }
-            });
-          }
-
-          if (state is AuthVerified) {
-            NotificationService.getAndSaveFCMToken();
-            WidgetsBinding.instance.addPostFrameCallback((_) async {
-              if (!mounted) return;
-              if (!state.nameCompleted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NameOnboardingPage(),
-                  ),
-                );
-              } else if (!state.emailCompleted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const RegistrationEmailPage(),
-                  ),
-                );
-              } else {
-                final subStatus = await TokenStorage.getSubscriptionStatus();
+            if (state is AuthVerified) {
+              NotificationService.getAndSaveFCMToken();
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
                 if (!mounted) return;
-                if (subStatus == 0) {
+                if (!state.nameCompleted) {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const SubscriptionPage(),
+                      builder: (_) => const NameOnboardingPage(),
+                    ),
+                  );
+                } else if (!state.emailCompleted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RegistrationEmailPage(),
                     ),
                   );
                 } else {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const HomePage(),
-                    ),
-                  );
+                  final subStatus = await TokenStorage.getSubscriptionStatus();
+                  if (!mounted) return;
+                  if (subStatus == 0) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SubscriptionPage(),
+                      ),
+                    );
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HomePage(),
+                      ),
+                    );
+                  }
                 }
-              }
-            });
-          }
+              });
+            }
 
-          if (state is AuthError) {
-            setState(() {
-              error = state.message;
-            });
-          }
+            if (state is AuthError) {
+              setState(() {
+                error = state.message;
+              });
+            }
+          },
+          child: SafeArea(
+            child: Column(
+              children: [
+                SizedBox(height: 42.h),
 
-        },
-
-        child: SafeArea(
-          child: Column(
-            children: [
-
-              SizedBox(height: 42.h),
-
-              Center(
-                child: Hero(
-                  tag: 'logo_hero',
-                  child: Material(
-                    color: Colors.transparent,
-                    child: SoloLogoWidget(size: 72.w),
+                Center(
+                  child: Hero(
+                    tag: 'logo_hero',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: SoloLogoWidget(size: 72.w),
+                    ),
                   ),
                 ),
-              ),
- 
-              SizedBox(height: 120.h),
 
-              if (isOtpSent)
-                Column(
-                  children: [
-                    Text(
-                      error.isNotEmpty
-                          ? "Incorrect code, please try again"
-                          : (otp.isEmpty ? "Enter 6 Digit Code" : otp),
-                      style: TextStyle(
-                        color: error.isNotEmpty
-                            ? Colors.red
-                            : (otp.isEmpty ? const Color(0xFF859BAD) : const Color(0xFFF5F5F5)),
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.w400,
+                SizedBox(height: 120.h),
+
+                if (isOtpSent)
+                  Column(
+                    children: [
+                      Text(
+                        error.isNotEmpty
+                            ? "Incorrect code, please try again"
+                            : (otp.isEmpty ? "Enter 6 Digit Code" : otp),
+                        style: TextStyle(
+                          color: error.isNotEmpty
+                              ? Colors.red
+                              : (otp.isEmpty
+                              ? const Color(0xFF859BAD)
+                              : const Color(0xFFF5F5F5)),
+                          fontSize: 20.sp,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 10.h),
-                    Container(
-                      width: 322.w,
-                      height: 1,
-                      color: otp.isNotEmpty ? const Color(0xFFF5F5F5) : const Color(0xFF294256),
-                    ),
-                    SizedBox(height: 8.h),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 30.w),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Code sent to $lastUsedDialCode ${lastUsedPhone.length > 4 ? "${lastUsedPhone.substring(0, 4)} ${lastUsedPhone.substring(4)}" : lastUsedPhone}",
-                            style: TextStyle(
-                              color: const Color(0xFF8A99A6),
-                              fontSize: 11.sp,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: resendOtp,
-                            child: Text(
-                              "Resend",
+                      SizedBox(height: 10.h),
+                      Container(
+                        width: 322.w,
+                        height: 1,
+                        color: otp.isNotEmpty
+                            ? const Color(0xFFF5F5F5)
+                            : const Color(0xFF294256),
+                      ),
+                      SizedBox(height: 8.h),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 30.w),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Code sent to $lastUsedDialCode ${lastUsedPhone.length > 4 ? "${lastUsedPhone.substring(0, 4)} ${lastUsedPhone.substring(4)}" : lastUsedPhone}",
                               style: TextStyle(
                                 color: const Color(0xFF8A99A6),
                                 fontSize: 11.sp,
-                                decoration: TextDecoration.underline,
-                                decorationColor: const Color(0xFF8A99A6),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              else
-                Column(
-                  children: [
-                    if (error.isNotEmpty)
-                      Text(
-                        error,
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 14.sp,
-                        ),
-                      )
-                    else
-                      SizedBox(height: 14.h),
-                    SizedBox(height: 14.h),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (isFetchingCountry && phone.isNotEmpty)
-                          SizedBox(
-                            width: 20.w,
-                            height: 20.w,
-                            child: const CircularProgressIndicator(
-                              color: Color(0xFF859BAD),
-                              strokeWidth: 2,
+                            GestureDetector(
+                              onTap: resendOtp,
+                              child: Text(
+                                "Resend",
+                                style: TextStyle(
+                                  color: const Color(0xFF8A99A6),
+                                  fontSize: 11.sp,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: const Color(0xFF8A99A6),
+                                ),
+                              ),
                             ),
-                          )
-                        else if (phone.isNotEmpty)
-                          Text(
-                            activeDialCode.isNotEmpty ? activeDialCode : defaultDialCode,
-                            style: TextStyle(
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    children: [
+                      if (error.isNotEmpty)
+                        Text(
+                          error,
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14.sp,
+                          ),
+                        )
+                      else
+                        SizedBox(height: 14.h),
+                      SizedBox(height: 14.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          CountryCodePicker(
+                            onChanged: (country) {
+                              setState(() {
+                                selectedDialCode = country.dialCode ?? "+91";
+                              });
+                            },
+                            initialSelection: selectedDialCode,
+                            favorite: const ['+91', 'IN', '+1', 'US', '+977', 'NP'],
+                            showCountryOnly: false,
+                            showOnlyCountryWhenClosed: false,
+                            alignLeft: false,
+                            textStyle: TextStyle(
                               color: const Color(0xFFF5F5F5),
                               fontSize: 20.sp,
                               fontWeight: FontWeight.w400,
                             ),
+                            dialogTextStyle: TextStyle(
+                              fontSize: 16.sp,
+                              color: Colors.black,
+                            ),
+                            searchDecoration: const InputDecoration(
+                              hintText: "Search Country",
+                            ),
+                            padding: EdgeInsets.zero,
                           ),
-                        if (phone.isNotEmpty) SizedBox(width: 10.w),
-                        Text(
-                          phone.isEmpty
-                              ? "Your Phone Number"
-                              : (displayPhone.length > 4
-                                  ? "${displayPhone.substring(0, 4)} ${displayPhone.substring(4)}"
-                                  : displayPhone),
+                          SizedBox(width: 4.w),
+                          Text(
+                            phone.isEmpty ? "Your Phone Number" : phone,
+                            style: TextStyle(
+                              color: phone.isNotEmpty
+                                  ? const Color(0xFFF5F5F5)
+                                  : const Color(0xFF859BAD),
+                              fontSize: 20.5.sp,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8.h),
+                      Container(
+                        width: 322.w,
+                        height: 1,
+                        color: phone.isNotEmpty
+                            ? const Color(0xFFF5F5F5)
+                            : const Color(0xFF294256),
+                      ),
+                    ],
+                  ),
+
+                SizedBox(height: 15.h),
+
+                Padding(
+                  padding:
+                  EdgeInsets.symmetric(horizontal: 30.w, vertical: 10.h),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          numberButton("1"),
+                          numberButton("2"),
+                          numberButton("3"),
+                          numberButton("4"),
+                        ],
+                      ),
+                      SizedBox(height: 25.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          numberButton("5"),
+                          numberButton("6"),
+                          numberButton("7"),
+                          numberButton("8"),
+                        ],
+                      ),
+                      SizedBox(height: 25.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          numberButton("+",
+                              onTap: (isOtpSent || phone.isNotEmpty)
+                                  ? null
+                                  : () => addDigit("+")),
+                          numberButton("9"),
+                          numberButton("0"),
+                          iconKeyButton(
+                            icon: Icons.backspace_outlined,
+                            onTap: deleteDigit,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Spacer(),
+
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: AppSize.bottom(24),
+                    right: 24.w,
+                    left: 24.w,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const EmailPage(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          "Email Sign In",
                           style: TextStyle(
-                            color: phone.isNotEmpty ? const Color(0xFFF5F5F5) : const Color(0xFF859BAD),
-                            fontSize: 20.5.sp,
+                            color: const Color(0xFF6E97AE),
+                            fontSize: 16.sp,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
-                      ],
-                    ),
-                    SizedBox(height: 8.h),
-                    Container(
-                      width: 322.w,
-                      height: 1,
-                      color: phone.isNotEmpty ? const Color(0xFFF5F5F5) : const Color(0xFF294256),
-                    ),
-                  ],
-                ),
-
-              SizedBox(height: 15.h),
-
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 10.h),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        numberButton("1"),
-                        numberButton("2"),
-                        numberButton("3"),
-                        numberButton("4"),
-                      ],
-                    ),
-                    SizedBox(height: 25.h),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        numberButton("5"),
-                        numberButton("6"),
-                        numberButton("7"),
-                        numberButton("8"),
-                      ],
-                    ),
-                    SizedBox(height: 25.h),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        numberButton("+", onTap: (isOtpSent || phone.isNotEmpty) ? null : () => addDigit("+")),
-                        numberButton("9"),
-                        numberButton("0"),
-                        iconKeyButton(
-                          icon: Icons.backspace_outlined,
-                          onTap: deleteDigit,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const Spacer(),
-
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: AppSize.bottom(24),
-                  right: 24.w,
-                  left: 24.w,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const EmailPage(),
-                          ),
-                        );
-                      },
-                      child: Text( 
-                        "Email Sign In",
-                        style: TextStyle(
-                          color: const Color(0xFF6E97AE),
-                          fontSize: 16.sp, 
-                          fontWeight: FontWeight.w400,
-                        ),
                       ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          "Next",
-                          style: TextStyle(
-                            color: (!isOtpSent && phone.length >= 5) || (isOtpSent && otp.length == 6)
-                                ? const Color(0xFF6E97AE)
-                                : const Color(0xFF6E97AE).withOpacity(0.5),
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.w300,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            "Next",
+                            style: TextStyle(
+                              color: (!isOtpSent && phone.length >= 5) ||
+                                  (isOtpSent && otp.length == 6)
+                                  ? const Color(0xFF6E97AE)
+                                  : const Color(0xFF6E97AE).withOpacity(0.5),
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w300,
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 14.w),
-                        GestureDetector(
-                          onTap: () {
-                            if (context.read<AuthBloc>().state is AuthLoading) return;
-                            if (!isOtpSent) {
-                              if (phone.length >= 5) validateAndSend();
-                            } else {
-                              if (otp.length == 6) verifyOtp();
-                            }
-                          },
-                          child: BlocBuilder<AuthBloc, AuthState>(
-                            builder: (context, state) {
-                              final isEnabled = (!isOtpSent && phone.length >= 5) || (isOtpSent && otp.length == 6);
-                              
-                              if (state is AuthLoading) {
-                                return Container(
-                                  width: 60.w,
-                                  height: 60.w,
-                                  decoration: BoxDecoration(
-                                    color: isEnabled ? const Color(0xFFB5D43C) : const Color(0xFFB5D43C).withOpacity(0.4),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 24.w,
-                                      height: 24.w,
-                                      child: const CircularProgressIndicator(
-                                        color: Color(0xFF0A3D56),
-                                        strokeWidth: 2,
+                          SizedBox(width: 14.w),
+                          GestureDetector(
+                            onTap: () {
+                              if (context.read<AuthBloc>().state is AuthLoading) {
+                                return;
+                              }
+                              if (!isOtpSent) {
+                                if (phone.length >= 5) validateAndSend();
+                              } else {
+                                if (otp.length == 6) verifyOtp();
+                              }
+                            },
+                            child: BlocBuilder<AuthBloc, AuthState>(
+                              builder: (context, state) {
+                                final isEnabled =
+                                    (!isOtpSent && phone.length >= 5) ||
+                                        (isOtpSent && otp.length == 6);
+
+                                if (state is AuthLoading) {
+                                  return Container(
+                                    width: 60.w,
+                                    height: 60.w,
+                                    decoration: BoxDecoration(
+                                      color: isEnabled
+                                          ? const Color(0xFFB5D43C)
+                                          : const Color(0xFFB5D43C)
+                                          .withOpacity(0.4),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 24.w,
+                                        height: 24.w,
+                                        child: const CircularProgressIndicator(
+                                          color: Color(0xFF0A3D56),
+                                          strokeWidth: 2,
+                                        ),
                                       ),
                                     ),
+                                  );
+                                }
+
+                                return Opacity(
+                                  opacity: isEnabled ? 1.0 : 0.4,
+                                  child: SvgPicture.asset(
+                                    "assets/svg/nextbutton.svg",
+                                    width: 60.w,
+                                    height: 60.w,
                                   ),
                                 );
-                              }
-                              
-                              return Opacity(
-                                opacity: isEnabled ? 1.0 : 0.4,
-                                child: SvgPicture.asset(
-                                  "assets/svg/nextbutton.svg",
-                                  width: 60.w,
-                                  height: 60.w,
-                                ),
-                              );
-                            },
+                              },
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
-            ],
+              ],
+            ),
           ),
         ),
       ),
-      )
     );
   }
-  
 }
