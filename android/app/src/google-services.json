@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "711733022771",
+    "project_id": "solo-8d2ea",
+    "storage_bucket": "solo-8d2ea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711733022771:android:fcfbf865f28385b8125346",
+        "android_client_info": {
+          "package_name": "com.solo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0_sejmwX_l0V6TA0T23dyTE_4mNG3Fhk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
