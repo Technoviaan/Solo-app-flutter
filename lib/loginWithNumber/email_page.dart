@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/home/home_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
-import 'package:solo_app/loginWithNumber/login_page.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import '../core/utils/app_size.dart';
 import 'auth_api.dart';
@@ -170,14 +169,14 @@ class _EmailPageState extends State<EmailPage> {
                               borderRadius: BorderRadius.circular(34),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.03),
+                                  color: Colors.black.withValues(alpha: 0.03),
                                   blurRadius: 15,
                                   offset: const Offset(0, 4),
                                 ),
-                                BoxShadow(
-                                  color: const Color(0xFFB8C2C8),
+                                const BoxShadow(
+                                  color: Color(0xFFB8C2C8),
                                   blurRadius: 0,
-                                  offset: const Offset(5, 8),
+                                  offset: Offset(5, 8),
                                 ),
                               ],
                             ),
@@ -259,14 +258,14 @@ class _EmailPageState extends State<EmailPage> {
                               borderRadius: BorderRadius.circular(34),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.03),
+                                  color: Colors.black.withValues(alpha: 0.03),
                                   blurRadius: 15,
                                   offset: const Offset(0, 4),
                                 ),
-                                BoxShadow(
-                                  color: const Color(0xFFB8C2C8),
+                                const BoxShadow(
+                                  color: Color(0xFFB8C2C8),
                                   blurRadius: 0,
-                                  offset: const Offset(5, 8),
+                                  offset: Offset(5, 8),
                                 ),
                               ],
                             ),
@@ -300,7 +299,7 @@ class _EmailPageState extends State<EmailPage> {
                                       hintText: "Enter 6-digit Code",
                                       hintStyle: TextStyle(
                                         color: const Color(0xFF5A6C7D)
-                                            .withOpacity(0.5),
+                                            .withValues(alpha: 0.5),
                                         fontSize: AppSize.sp(18),
                                         fontFamily: 'Inter',
                                         fontWeight: FontWeight.w400,
@@ -369,14 +368,14 @@ class _EmailPageState extends State<EmailPage> {
                 children: [
                   Text("Sign up",
                       style: TextStyle(
-                          color: const Color(0xFF002C3E).withOpacity(0.2),
+                          color: const Color(0xFF002C3E).withValues(alpha: 0.2),
                           fontSize: AppSize.sp(19),
                           fontWeight: FontWeight.w500)),
                   Row(
                     children: [
                       Text("Sign In",
                           style: TextStyle(
-                            color: const Color(0xFF002C3E).withOpacity(0.7),
+                            color: const Color(0xFF002C3E).withValues(alpha: 0.7),
                             fontSize: AppSize.sp(20),
                             fontWeight: FontWeight.w600,
                           )),

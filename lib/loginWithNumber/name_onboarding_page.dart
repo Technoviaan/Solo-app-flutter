@@ -4,7 +4,6 @@ import 'package:solo_app/core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
 import '../home/privacy_policy_page.dart';
 import '../home/terms_of_use_page.dart';
-import '../widgets/solo_animation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'user_name_api.dart';
 import 'registration_email_page.dart';
@@ -90,7 +89,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   }
 
   void next() {
-    FocusScope.of(context).unfocus(); 
+    FocusScope.of(context).unfocus();
     if (page == 0) {
       submitName();
       return;
@@ -146,7 +145,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF88C9D3),
+      backgroundColor: const Color(0xFF88C7CF),
       body: Stack(
         children: [
           PageView(
@@ -185,8 +184,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                       style: TextStyle(
                         fontSize: AppSize.sp(20),
                         color: const Color(0xFF002C3E)
-                            .withOpacity(isNameEntered || page > 0 ? 0.8 : 0.2),
-                        fontWeight: FontWeight.w500,
+                            .withValues(alpha: isNameEntered || page > 0 ? 0.8 : 0.2),                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     SizedBox(width: AppSize.w(15)),
@@ -288,7 +286,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 // SizedBox(height: AppSize.h(60)),
                 Positioned(
                   bottom: -AppSize.h(53),
-               
+
                   // Moves Hello up into the mascot area
                   left: 0,
                   child: Text(
@@ -316,7 +314,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 15,
                   offset: const Offset(0, 8),
                 ),
@@ -342,7 +340,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                     decoration: InputDecoration(
                       hintText: "Add First Name",
                       hintStyle: TextStyle(
-                        color: Color(0xFF8A99A6),
+                        color: const Color(0xFF8A99A6),
                         fontSize: AppSize.sp(16),
                       ),
                       border: InputBorder.none,
@@ -417,7 +415,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 TextSpan(
                   text: "SOLO",
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontWeight: FontWeight.w700,
                     fontSize: AppSize.sp(36),
                   ),
@@ -426,7 +424,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 TextSpan(
                   text: "Check-in Buddy",
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontSize: AppSize.sp(36),
                     fontWeight: FontWeight.w700,
                   ),
@@ -482,7 +480,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               children: [
                 TextSpan(
                   text: "SOLO",
-                  style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9)),
                 ),
                 const TextSpan(text: " works"),
               ],

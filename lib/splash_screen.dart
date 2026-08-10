@@ -11,7 +11,6 @@ import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/subscription/subscription_api.dart';
 
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -69,7 +68,8 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LoginPage(),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const LoginPage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
               opacity: CurvedAnimation(
@@ -93,7 +93,8 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const NameOnboardingPage(),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const NameOnboardingPage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
               opacity: CurvedAnimation(
@@ -113,7 +114,8 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const EmailPage(),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const EmailPage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
               opacity: CurvedAnimation(
@@ -132,17 +134,19 @@ class _SplashScreenState extends State<SplashScreen> {
     /// ================= FINAL ENTRY =================
     // Fetch fresh subscription status from the backend to ensure we have up-to-date status
     try {
-      await SubscriptionApi.getSubscriptionStatus().timeout(const Duration(seconds: 4));
+      await SubscriptionApi.getSubscriptionStatus()
+          .timeout(const Duration(seconds: 4));
     } catch (e) {
       debugPrint("Subscription Status Fetch Error: $e");
     }
 
     final subscriptionStatus = await TokenStorage.getSubscriptionStatus();
-    
+
     // 🚀 CRITICAL: If an alarm is ringing and we are already navigating to CheckinScreen,
     // don't push HomePage which would overwrite it.
     if (NotificationService.isHandlingAlarm) {
-      print("🚀 Alarm is being handled, SplashScreen skipping default navigation.");
+      print(
+          "🚀 Alarm is being handled, SplashScreen skipping default navigation.");
       return;
     }
 
@@ -168,7 +172,8 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Center(
         child: Hero(
           tag: 'logo_hero',
-          child: Material( // Material is needed for Text styles to transition correctly
+          child: Material(
+            // Material is needed for Text styles to transition correctly
             color: Colors.transparent,
             child: _buildLogoPhase(),
           ),
@@ -192,12 +197,14 @@ class _SplashScreenState extends State<SplashScreen> {
               child: SvgPicture.asset(
                 'assets/svg/s.svg',
                 height: 72.17.h,
-                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                colorFilter:
+                    const ColorFilter.mode(Colors.white, BlendMode.srcIn),
               ),
             ),
             if (_phase >= 3) SizedBox(width: 8.w),
 
             // O (TEAL - Layered with two circles and eyes)
+
             _smoothElement(
               visible: _phase >= 1,
               child: Stack(
@@ -208,7 +215,8 @@ class _SplashScreenState extends State<SplashScreen> {
                     width: 94.36.w,
                     height: 94.36.w,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1CB9B3).withOpacity(0.8), // Slightly lighter background teal
+                      color: const Color(0xFF1CB9B3)
+                          .withValues(alpha: 0.8), // Slightly lighter background teal
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -250,7 +258,8 @@ class _SplashScreenState extends State<SplashScreen> {
               child: SvgPicture.asset(
                 'assets/svg/L.svg',
                 height: 72.17.h,
-                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                colorFilter:
+                    const ColorFilter.mode(Colors.white, BlendMode.srcIn),
               ),
             ),
             if (_phase >= 3) SizedBox(width: 8.w),
@@ -282,6 +291,7 @@ class _SplashScreenState extends State<SplashScreen> {
             "Your Daily Check-In Buddy",
             textAlign: TextAlign.center,
             style: TextStyle(
+              fontFamily: 'Poppins',
               color: Colors.white,
               fontSize: 20.6.sp,
               fontWeight: FontWeight.w500,
@@ -343,13 +353,13 @@ class _ClockHandsPainter extends CustomPainter {
 
     // Minute hand (pointing towards 2 o'clock - roughly)
     canvas.drawLine(center, center + const Offset(18, -6), navyPaint);
-    
+
     // Hour hand (pointing towards 7 o'clock - roughly)
     canvas.drawLine(center, center + const Offset(-10, 20), navyPaint);
-    
+
     // Dark outer pivot circle
     canvas.drawCircle(center, 7, navyPaint);
-    
+
     // White small center circle
     canvas.drawCircle(center, 3, whitePaint);
   }
@@ -357,4 +367,3 @@ class _ClockHandsPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/core/utils/app_size.dart';
-import 'package:solo_app/home/checkin/check_in_page.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
-import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/checkin/checkin_api.dart';
 import 'package:solo_app/home/contact/contacts_page.dart';
 import 'package:solo_app/home/profile/profile_api.dart';
@@ -93,202 +91,204 @@ class _SchedulePageState extends State<SchedulePage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Container(
-              height: 440,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(40),
-                  topRight: Radius.circular(40),
+            return SafeArea(
+              child: Container(
+                height: 440,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(40),
+                    topRight: Radius.circular(40),
+                  ),
                 ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 24),
-              child: Column(
-                children: [
-                  // HEADER
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                          //color: Color(0xFFE0F2F1), // Light teal background
-                          //shape: BoxShape.circle, 
-                        ),
-                        child: Center(
-                          child: SvgPicture.asset(
-                            'assets/svg/schudel.svg',
-                            width: 36,
-                            height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 24),
+                child: Column(
+                  children: [
+                    // HEADER
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: const BoxDecoration(
+                            //color: Color(0xFFE0F2F1), // Light teal background
+                            //shape: BoxShape.circle, 
+                          ),
+                          child: Center(
+                            child: SvgPicture.asset(
+                              'assets/svg/schudel.svg',
+                              width: 36,
+                              height: 36,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 7),
-                      const Text(
-                        "Set Your Check-in Time",
-                        style: TextStyle(
-                          fontSize: 23,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF002C3E), 
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Divider(color: Color(0xFF8A99A6), thickness: 1),
-                  
-                  // WHEEL PICKER AREA
-                  Expanded(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Selection Indicators (Dark Navy Lines)
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(height: 1.2, color: Color(0xFF8A99A6)),
-                            const SizedBox(height: 60),
-                            Container(height: 1.2, color: Color(0xFF8A99A6)),
-                          ],
-                        ),
-                        // THE PICKER
-                        ShaderMask(
-                          shaderCallback: (rect) {
-                            return const LinearGradient( 
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, Color(0xFF8A99A6),Color(0xFF8A99A6), Colors.transparent],
-                              stops: [0.0, 0.2, 0.8, 1.0],
-                            ).createShader(rect);
-                          },
-                          blendMode: BlendMode.dstIn,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // HOURS
-                              _timeColumn(
-                                count: 12,
-                                selectedIndex: selectedHourIndex,
-                                controller: hourController,
-                                onChanged: (val) {
-                                  setModalState(() {
-                                    selectedHourIndex = val % 12;
-                                    tempHour = selectedHourIndex + 1;
-                                  });
-                                },
-                                isHour: true,
-                              ),
-                              const Text(" : ", style: TextStyle(fontSize: 34, fontWeight: FontWeight.w400, color: Color(0xFF002C3E))),
-                              // MINUTES
-                              _timeColumn(
-                                count: 60,
-                                selectedIndex: selectedMinuteIndex,
-                                controller: minuteController,
-                                onChanged: (val) {
-                                  setModalState(() {
-                                    selectedMinuteIndex = val % 60;
-                                    tempMinute = selectedMinuteIndex;
-                                  });
-                                },
-                                isHour: false,
-                              ),
-                              const SizedBox(width: 15),
-                              // PERIOD
-                              SizedBox(
-                                width: 70,
-                                height: 180, // Explicit height for the picker
-                                child: ListWheelScrollView(
-                                  itemExtent: 60,
-                                  physics: const FixedExtentScrollPhysics(),
-                                  controller: periodController,
-                                  onSelectedItemChanged: (i) {
-                                    setModalState(() {
-                                      selectedPeriodIndex = i;
-                                      tempPeriod = i == 0 ? "AM" : "PM";
-                                    });
-                                  },
-                                  children: [
-                                    _pickerText("AM", isSelected: selectedPeriodIndex == 0),
-                                    _pickerText("PM", isSelected: selectedPeriodIndex == 1),
-                                  ],
-                                ),
-                              ),
-                            ],
+                        const SizedBox(width: 7),
+                        const Text(
+                          "Set Your Check-in Time",
+                          style: TextStyle(
+                            fontSize: 23,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF002C3E), 
                           ),
                         ),
                       ],
                     ),
-                  ),
-
-                  // BUTTONS
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Cancel — outlined
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF002C3E),
-                            side: const BorderSide(
-                              color: Color(0xFF002C3E),
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(50),
-                            ),
-                            padding: EdgeInsets.zero,
+                    const SizedBox(height: 6),
+                    const Divider(color: Color(0xFF8A99A6), thickness: 1),
+                    
+                    // WHEEL PICKER AREA
+                    Expanded(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Selection Indicators (Dark Navy Lines)
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(height: 1.2, color: const Color(0xFF8A99A6)),
+                              const SizedBox(height: 60),
+                              Container(height: 1.2, color: const Color(0xFF8A99A6)),
+                            ],
                           ),
-                          child: const Text(
-                            "Cancel",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                          // THE PICKER
+                          ShaderMask(
+                            shaderCallback: (rect) {
+                              return const LinearGradient( 
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.transparent, Color(0xFF8A99A6),Color(0xFF8A99A6), Colors.transparent],
+                                stops: [0.0, 0.2, 0.8, 1.0],
+                              ).createShader(rect);
+                            },
+                            blendMode: BlendMode.dstIn,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // HOURS
+                                _timeColumn(
+                                  count: 12,
+                                  selectedIndex: selectedHourIndex,
+                                  controller: hourController,
+                                  onChanged: (val) {
+                                    setModalState(() {
+                                      selectedHourIndex = val % 12;
+                                      tempHour = selectedHourIndex + 1;
+                                    });
+                                  },
+                                  isHour: true,
+                                ),
+                                const Text(" : ", style: TextStyle(fontSize: 34, fontWeight: FontWeight.w400, color: Color(0xFF002C3E))),
+                                // MINUTES
+                                _timeColumn(
+                                  count: 60,
+                                  selectedIndex: selectedMinuteIndex,
+                                  controller: minuteController,
+                                  onChanged: (val) {
+                                    setModalState(() {
+                                      selectedMinuteIndex = val % 60;
+                                      tempMinute = selectedMinuteIndex;
+                                    });
+                                  },
+                                  isHour: false,
+                                ),
+                                const SizedBox(width: 15),
+                                // PERIOD
+                                SizedBox(
+                                  width: 70,
+                                  height: 180, // Explicit height for the picker
+                                  child: ListWheelScrollView(
+                                    itemExtent: 60,
+                                    physics: const FixedExtentScrollPhysics(),
+                                    controller: periodController,
+                                    onSelectedItemChanged: (i) {
+                                      setModalState(() {
+                                        selectedPeriodIndex = i;
+                                        tempPeriod = i == 0 ? "AM" : "PM";
+                                      });
+                                    },
+                                    children: [
+                                      _pickerText("AM", isSelected: selectedPeriodIndex == 0),
+                                      _pickerText("PM", isSelected: selectedPeriodIndex == 1),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+              
+                    // BUTTONS
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Cancel — outlined
+                        SizedBox(
+                          width: AppSize.w(111),
+                          height: AppSize.h(46),
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF002C3E),
+                              side: const BorderSide(
+                                color: Color(0xFF002C3E),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(width: AppSize.w(12)),
-
-                      // Confirm — filled navy
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF002C3E),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(50),
+                        SizedBox(width: AppSize.w(12)),
+              
+                        // Confirm — filled navy
+                        SizedBox(
+                          width: AppSize.w(111),
+                          height: AppSize.h(46),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF002C3E),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              padding: EdgeInsets.zero,
                             ),
-                            padding: EdgeInsets.zero,
-                          ),
-                          onPressed: () async {
-                            int finalHour = tempHour;
-                            if (tempPeriod == "PM" && finalHour < 12) finalHour += 12;
-                            if (tempPeriod == "AM" && finalHour == 12) finalHour = 0;
-                            final time = TimeOfDay(hour: finalHour, minute: tempMinute);
-                            setState(() {
-                              checkins[index] = time;
-                              enabled[index] = true;
-                            });
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            "Confirm",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                            onPressed: () async {
+                              int finalHour = tempHour;
+                              if (tempPeriod == "PM" && finalHour < 12) finalHour += 12;
+                              if (tempPeriod == "AM" && finalHour == 12) finalHour = 0;
+                              final time = TimeOfDay(hour: finalHour, minute: tempMinute);
+                              setState(() {
+                                checkins[index] = time;
+                                enabled[index] = true;
+                              });
+                              Navigator.pop(context);
+                            },
+                            child: const Text(
+                              "Confirm",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -350,7 +350,7 @@ class _SchedulePageState extends State<SchedulePage> {
     return Container(
       //margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.only(left: 0, right: 0, top: 14, bottom: 14),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
        // color: (index == 1 && subscriptionStatus == 1) ? Colors.black.withOpacity(0.02) : Colors.transparent,
         //borderRadius: BorderRadius.circular(16),
        // border: Border.all(color: Colors.black.withOpacity(0.05)),
@@ -461,6 +461,7 @@ class _SchedulePageState extends State<SchedulePage> {
                         fontSize: 14.sp,
                         color: const Color(0xFF5A6C7D),
                         height: 1.4,
+                        fontWeight: FontWeight.w400
                       ),
                     ),
                     SizedBox(height: 16.h),
@@ -568,7 +569,7 @@ class _SchedulePageState extends State<SchedulePage> {
                               SizedBox(height: 5.h),
                               Text(
                                 "Choose a voice for your check-in reminder",
-                                style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp),
+                                style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp,fontWeight: FontWeight.w400),
                               ),
                               SizedBox(height: 5.h),
                               Row(

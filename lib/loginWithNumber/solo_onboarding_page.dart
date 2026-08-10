@@ -131,7 +131,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
                       "Next",
                       style: TextStyle(
                         fontSize: AppSize.sp(22),
-                        color: const Color(0xFF0B3948).withOpacity(0.5),
+                        color: const Color(0xFF0B3948).withValues(alpha: 0.5),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -179,7 +179,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: AppSize.sp(12),
-                    color: const Color(0xFF0B3948).withOpacity(0.6),
+                    color: const Color(0xFF0B3948).withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -219,12 +219,12 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
 
        //   SizedBox(height: AppSize.h(10)),
 
-          Text(
+          const Text(
             "Hello",
             style: TextStyle(
               fontSize: 60,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF0B3948),
+              color: Color(0xFF0B3948),
             ),
           ),
 
@@ -239,7 +239,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -263,8 +263,9 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
                     decoration: InputDecoration(
                       hintText: "Add First Name",
                       hintStyle: TextStyle(
-                        color: Colors.grey.withOpacity(0.8),
-                        fontSize: AppSize.sp(18),
+                        color: Colors.grey.withValues(alpha: 0.8),
+                        fontSize: AppSize.sp(16),
+                        fontWeight: FontWeight.w400
                       ),
                       border: InputBorder.none,
                     ),
@@ -300,8 +301,8 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
           Text(
             "Hello Ehtesham...",
             style: TextStyle(
-              fontSize: AppSize.sp(36),
-              fontWeight: FontWeight.bold,
+              fontSize: AppSize.sp(60),
+              fontWeight: FontWeight.w600,
               color: const Color(0xFF0B3948),
             ),
           ),
@@ -332,8 +333,8 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
           Text(
             "I’m SOLO your daily\nCheck-in Buddy",
             style: TextStyle(
-              fontSize: AppSize.sp(28),
-              fontWeight: FontWeight.bold,
+              fontSize: AppSize.sp(36),
+              fontWeight: FontWeight.w600,
               color: const Color(0xFF0B3948),
             ),
           ),
@@ -343,8 +344,9 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
           Text(
             "I’ll be here for you",
             style: TextStyle(
-              fontSize: AppSize.sp(20),
-              color: const Color(0xFF0B3948).withOpacity(0.8),
+              fontSize: AppSize.sp(36),
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF0B3948).withValues(alpha: 0.8),
             ),
           ),
 

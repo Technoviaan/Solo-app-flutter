@@ -5,7 +5,6 @@ import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
 import '../home/shedule/schedule_page.dart';
 import '../home/checkin/local_storage.dart';
-import '../home/profile/profile_api.dart';
 import 'stripe_api.dart';
 import 'subscription_api.dart';
 import '../home/home_page.dart';
@@ -682,7 +681,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               color: Color(0xFF78BCC4),
                               fontSize: 44,
                               height: 1.1,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -691,6 +690,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                             style: TextStyle(
                               color: Color(0xFFD1D9E0),
                               fontSize: 22,
+                              fontWeight: FontWeight.w400
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -718,16 +718,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                           ),
                           const SizedBox(height: 24),
                           const Divider(color: Colors.white24),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   "Plans",
                                   style: TextStyle(color: Colors.white54, fontSize: 18, fontWeight: FontWeight.w600),
                                 ),
-                                const Text(
+                                Text(
                                   "Add Credits",
                                   style: TextStyle(
                                     color: Colors.white,
@@ -949,10 +949,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       color: const Color(0xFF002C3E),
                       child: Row(
                         children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back, color: Colors.white70, size: 28),
-                          ),
+                          // IconButton(
+                          //   onPressed: () => Navigator.pop(context),
+                          //   icon: const Icon(Icons.arrow_back, color: Colors.white70, size: 28),
+                          // ),
+                          const SizedBox(),
                           const Spacer(),
                           Text(
                             buttonText,
@@ -996,16 +997,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             ),
             if (_isLoading)
               Container(
-                color: Colors.black.withOpacity(0.6),
-                child: Center(
+                color: Colors.black.withValues(alpha: 0.6),
+                child: const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const CircularProgressIndicator(
+                      CircularProgressIndicator(
                         color: Color(0xFF78BCC4),
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
+                      SizedBox(height: 16),
+                      Text(
                         "Connecting with Stripe...",
                         style: TextStyle(
                           color: Colors.white,

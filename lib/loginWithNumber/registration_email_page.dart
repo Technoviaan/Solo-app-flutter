@@ -146,14 +146,14 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                               borderRadius: BorderRadius.circular(34),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.03),
+                                  color: Colors.black.withValues(alpha: 0.03),
                                   blurRadius: 15,
                                   offset: const Offset(0, 4),
                                 ),
-                                BoxShadow(
-                                  color: const Color(0xFFB8C2C8),
+                                const BoxShadow(
+                                  color: Color(0xFFB8C2C8),
                                   blurRadius: 0,
-                                  offset: const Offset(5, 8),
+                                  offset: Offset(5, 8),
                                 ),
                               ],
                             ),
@@ -286,7 +286,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                         child: Text(
                           "Sign In",
                           style: TextStyle(
-                            color: const Color(0xFF002C3E).withOpacity(0.2),
+                            color: const Color(0xFF002C3E).withValues(alpha: 0.2),
                             fontSize: AppSize.sp(20),
                             fontWeight: FontWeight.w500,
                           ),
@@ -297,7 +297,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                           Text(
                             "Sign Up",
                             style: TextStyle(
-                              color: const Color(0xFF002C3E).withOpacity(0.2),
+                              color: const Color(0xFF002C3E).withValues(alpha: 0.2),
                               fontSize: AppSize.sp(20),
                               fontWeight: FontWeight.w500,
                             ),

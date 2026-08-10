@@ -8,8 +8,7 @@ import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/contact/resume_checkin_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
-import 'package:solo_app/home/checkin/check_in_page.dart';
-import 'package:solo_app/home/checkin/notification_service.dart';
+
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -330,13 +329,14 @@ class _ContactsPageState extends State<ContactsPage> {
                         color: Color(0xFF5A6C7D),
                         fontSize: 14,
                         height: 1.55,
+                        fontWeight: FontWeight.w400
                       ), 
                     ),
                      SizedBox(height: 16.h),
 
                     // ── Contact rows card ──
                     Container(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                        // color: Colors.white,
                        // borderRadius: BorderRadius.circular(14),
                         //border: Border.all(color: _divider, width: 1),
@@ -384,7 +384,7 @@ class _ContactsPageState extends State<ContactsPage> {
             Container(
               //padding: EdgeInsets.fromLTRB(24, 12, 24, AppSize.bottom(20)),
                padding: EdgeInsets.only(left: 24.w, right: 24.w),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 //color: _bg,
                // border: Border(top: BorderSide(color: _divider, width: 1)),
               ),
@@ -420,7 +420,7 @@ class _ContactsPageState extends State<ContactsPage> {
                             style: TextStyle(
                               color: canProceed
                                   ? _headingColor
-                                  : _headingColor.withOpacity(0.3),
+                                  : _headingColor.withValues(alpha: 0.3),
                               fontSize: 20,
                               fontWeight: FontWeight.w400,
                             ),
@@ -488,7 +488,7 @@ class _ContactsPageState extends State<ContactsPage> {
                   style: TextStyle(
                     color: _contactLabel,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0.2,
                   ),
                 ),

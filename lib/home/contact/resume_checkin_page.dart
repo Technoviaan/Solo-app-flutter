@@ -244,10 +244,10 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                                   height: 22.w,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
+                                const Text(
                                   "Edit Scedule First",
                                   style: TextStyle(
-                                    color: const Color(0xFF5A6C7D),
+                                    color: Color(0xFF5A6C7D),
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -278,7 +278,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         "Checkin Status",
                         style: TextStyle(
                           color: Color(0xFFA8B6C2),
@@ -311,7 +311,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                     children: [
                       Text(
                         _isResumed ? "Next" : "Last",
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFFA8B6C2),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -341,7 +341,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                                           ? _formatTime(_previousCheckinTime)
                                           : _lastCheckinDisplay))
                                   .split(" ")[1]}",
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Color(0xFFF5F5F5),
                                 fontSize: 24,
                                 fontWeight: FontWeight.w600,

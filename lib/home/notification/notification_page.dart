@@ -85,19 +85,19 @@ class _NotificationPageState extends State<NotificationPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
                           "Missed Check-in Notification",
                           style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
                             color: Color(0xFF002C3E),
                           ),
                         ),
-                        SizedBox(height: 6),
+                        SizedBox(height: 4),
                         Text(
                           "Get a push notification after a missed check-in,\nbefore the alert is sent.",
                           style: TextStyle(

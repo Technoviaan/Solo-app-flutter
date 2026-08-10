@@ -227,7 +227,7 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
           Container(
             width: 2,
             height: 26,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
           const Expanded(
             flex: 22,
@@ -246,7 +246,7 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
           Container(
             width: 2,
             height: 26,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
           const Expanded(
             flex: 38,
@@ -265,7 +265,7 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
           Container(
             width: 2,
             height: 26,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
           const Expanded(
             flex: 20,

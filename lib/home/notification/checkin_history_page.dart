@@ -230,7 +230,7 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
           Container(
             width: 2,
             height: 26,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
           const Expanded(
             flex: 30,
@@ -249,7 +249,7 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
           Container(
             width: 2,
             height: 26,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
           const Expanded(
             flex: 45,

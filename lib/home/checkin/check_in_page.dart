@@ -11,7 +11,6 @@ import 'package:solo_app/home/notification/notification_api.dart';
 import 'package:solo_app/home/checkin/checkin_api.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/core/utils/app_size.dart';
-import 'package:solo_app/splash_screen.dart';
 
 class CheckinScreen extends StatefulWidget {
   final String userName;

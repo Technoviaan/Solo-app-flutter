@@ -179,7 +179,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           border: Border.all(color: _teal, width: 3),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               spreadRadius: 2,
                             ),
@@ -211,7 +211,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             border: Border.all(color: _divider, width: 1),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.12),
+                                color: Colors.black.withValues(alpha: 0.12),
                                 blurRadius: 6,
                               ),
                             ],

@@ -84,7 +84,7 @@ class _MorePageState extends State<MorePage> {
                   ),
                 ]),
 
-                SizedBox(height: AppSize.h(20)),
+                SizedBox(height: AppSize.h(24)),
 
                 /// PREFERENCES
                 sectionTitle("Preferences"),
@@ -117,7 +117,7 @@ class _MorePageState extends State<MorePage> {
                   ),
                 ]),
 
-                SizedBox(height: AppSize.h(20)),
+                SizedBox(height: AppSize.h(24)),
 
                 /// SUPPORT
                 sectionTitle("Support"),
@@ -206,8 +206,8 @@ class _MorePageState extends State<MorePage> {
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
           color: Color(0xFF002C3E),
         ),
       ),
@@ -233,15 +233,15 @@ class _MorePageState extends State<MorePage> {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               title,
               style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
                 color: Colors.white,
               ),
             ),
@@ -260,7 +260,7 @@ class _MorePageState extends State<MorePage> {
   void showSignOutDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.45),
+      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.white,
@@ -404,7 +404,7 @@ class _MorePageState extends State<MorePage> {
   void showDeleteDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.45),
+      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.white,
