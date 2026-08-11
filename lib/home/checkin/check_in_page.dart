@@ -17,12 +17,22 @@ class CheckinScreen extends StatefulWidget {
   final DateTime scheduledTime;
   final int alertWindowHours;
 
+  /// 🧪 DEV/TEST ONLY. When set (non-null), overrides [alertWindowHours]
+  /// with a short seconds-based window so the countdown UI matches a quick
+  /// test run instead of waiting hours. Always null during real usage.
+  final int? testWindowSeconds;
+
   const CheckinScreen({
     super.key,
     required this.userName,
     required this.scheduledTime,
     this.alertWindowHours = 2,
+    this.testWindowSeconds,
   });
+
+  Duration get _alertWindowDuration => testWindowSeconds != null
+      ? Duration(seconds: testWindowSeconds!)
+      : Duration(hours: alertWindowHours);
 
   @override
   State<CheckinScreen> createState() => _CheckinScreenState();
@@ -56,9 +66,9 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
   void _calculateRemainingTime() {
     final now = DateTime.now();
-    final deadline = widget.scheduledTime.add(Duration(hours: widget.alertWindowHours));
+    final deadline = widget.scheduledTime.add(widget._alertWindowDuration);
 
-    totalSeconds = widget.alertWindowHours * 60 * 60;
+    totalSeconds = widget._alertWindowDuration.inSeconds;
 
     if (now.isBefore(widget.scheduledTime)) {
       remainingSeconds = widget.scheduledTime.difference(now).inSeconds;
@@ -75,7 +85,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
       if (!mounted) return;
       setState(() {
         final now = DateTime.now();
-        final deadline = widget.scheduledTime.add(Duration(hours: widget.alertWindowHours));
+        final deadline = widget.scheduledTime.add(widget._alertWindowDuration);
 
         if (now.isBefore(widget.scheduledTime)) {
           state = "waiting";
@@ -466,59 +476,81 @@ class _CheckinScreenState extends State<CheckinScreen> {
                   ),
                   GestureDetector(
                     onTap: onSOS,
-                    child: Container(
-                      width: 90.w,
-                      height: 40.h,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8695C),
-                        borderRadius: BorderRadius.circular(30.w),
-                      ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       alignment: Alignment.center,
-                      child: isSOSPending
-                          ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "S",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22.sp,
-                              fontWeight: FontWeight.w800,
-                            ),
+                      children: [
+                        Container(
+                          width: 90.w,
+                          height: 40.h,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8695C),
+                            borderRadius: BorderRadius.circular(30.w),
                           ),
-                          SizedBox(width: 3.w),
-                          Container(
-                            width: 26.w,
-                            height: 26.w,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              "$sosSeconds",
-                              style: TextStyle(
-                                color: const Color(0xFF002C3E),
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w900,
+                          alignment: Alignment.center,
+                          child: isSOSPending
+                              ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "S",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22.sp,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
+                              SizedBox(width: 3.w),
+                              Container(
+                                width: 26.w,
+                                height: 26.w,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  "$sosSeconds",
+                                  style: TextStyle(
+                                    color: const Color(0xFF002C3E),
+                                    fontSize: 13.sp,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 3.w),
+                              Text(
+                                "S",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22.sp,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          )
+                              : SvgPicture.asset(
+                            "assets/svg/sos.svg",
+                            width: 60.w,
+                          ),
+                        ),
+                        // 📶 Signal wave — only appears once the state turns
+                        // to "alert" (red face) — either from an SOS press
+                        // or a missed check-in alert. Hidden during
+                        // normal/warning (green/yellow face) states.
+                        if (state == "alert")
+                          Positioned(
+                            top: -10.h,
+                            left: -4.w,
+                            child: _SosSignalWave(
+                              active: isSOSPending,
+                              color: isSOSPending
+                                  ? const Color(0xFFE8695C)
+                                  : const Color(0xFF5A6C7D),
+                              size: 22.w,
                             ),
                           ),
-                          SizedBox(width: 3.w),
-                          Text(
-                            "S",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22.sp,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      )
-                          : SvgPicture.asset(
-                        "assets/svg/sos.svg",
-                        width: 60.w,
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -526,6 +558,74 @@ class _CheckinScreenState extends State<CheckinScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 📶 Pulsing "broadcasting" signal icon shown above the SOS button.
+/// Lights up (colour + pulse) while an SOS is actively counting down to
+/// confirm, and sits dim/static once an alert has already gone out or
+/// before any SOS has been triggered.
+class _SosSignalWave extends StatefulWidget {
+  final bool active;
+  final Color color;
+  final double size;
+
+  const _SosSignalWave({
+    required this.active,
+    required this.color,
+    this.size = 22,
+  });
+
+  @override
+  State<_SosSignalWave> createState() => _SosSignalWaveState();
+}
+
+class _SosSignalWaveState extends State<_SosSignalWave>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.active) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SosSignalWave oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.active) {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: widget.active
+          ? Tween<double>(begin: 0.45, end: 1.0).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      )
+          : const AlwaysStoppedAnimation(0.4),
+      child: SvgPicture.asset(
+        "assets/svg/wifi.svg",
+        width: widget.size,
+        height: widget.size * 0.75,
+        colorFilter: ColorFilter.mode(widget.color, BlendMode.srcIn),
       ),
     );
   }

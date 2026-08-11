@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import '../core/network/api_config.dart';
 import '../core/storage/token_storage.dart';
@@ -11,14 +12,24 @@ class AuthApi {
       String phone,
       ) async {
 
+    final url = "${ApiConfig.baseUrl}/auth/send-otp";
+    final requestBody = {
+      "countryCode": countryCode,
+      "phone": phone,
+    };
+
+    // 🐛 DEBUG: confirm exactly what is being sent to the backend
+    debugPrint("📤 [AuthApi.sendOtp] POST $url");
+    debugPrint("📤 [AuthApi.sendOtp] body: ${jsonEncode(requestBody)}");
+
     final res = await http.post(
-      Uri.parse("${ApiConfig.baseUrl}/auth/send-otp"),
+      Uri.parse(url),
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "countryCode": countryCode,
-        "phone": phone,
-      }),
+      body: jsonEncode(requestBody),
     );
+
+    debugPrint("📥 [AuthApi.sendOtp] status: ${res.statusCode}");
+    debugPrint("📥 [AuthApi.sendOtp] response: ${res.body}");
 
     final data = jsonDecode(res.body);
 
@@ -34,16 +45,26 @@ class AuthApi {
 
     final lang = await TokenStorage.getLanguage() ?? "en";
 
+    final url = "${ApiConfig.baseUrl}/auth/verify-otp";
+    final requestBody = {
+      "countryCode": countryCode,
+      "phone": phone,
+      "otp": otp,
+      "language": lang,
+    };
+
+    // 🐛 DEBUG: confirm exactly what is being sent to the backend
+    debugPrint("📤 [AuthApi.verifyOtp] POST $url");
+    debugPrint("📤 [AuthApi.verifyOtp] body: ${jsonEncode(requestBody)}");
+
     final res = await http.post(
-      Uri.parse("${ApiConfig.baseUrl}/auth/verify-otp"),
+      Uri.parse(url),
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "countryCode": countryCode,
-        "phone": phone,
-        "otp": otp,
-        "language": lang,
-      }),
+      body: jsonEncode(requestBody),
     );
+
+    debugPrint("📥 [AuthApi.verifyOtp] status: ${res.statusCode}");
+    debugPrint("📥 [AuthApi.verifyOtp] response: ${res.body}");
 
     final data = jsonDecode(res.body);
 
@@ -59,13 +80,20 @@ class AuthApi {
       String email,
       ) async {
 
+    final url = "${ApiConfig.baseUrl}/auth/send-email-otp";
+    debugPrint("📤 [AuthApi.sendEmailOtp] POST $url");
+    debugPrint("📤 [AuthApi.sendEmailOtp] body: ${jsonEncode({"email": email})}");
+
     final res = await http.post(
-      Uri.parse("${ApiConfig.baseUrl}/auth/send-email-otp"),
+      Uri.parse(url),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "email": email,
       }),
     );
+
+    debugPrint("📥 [AuthApi.sendEmailOtp] status: ${res.statusCode}");
+    debugPrint("📥 [AuthApi.sendEmailOtp] response: ${res.body}");
 
     return jsonDecode(res.body);
   }
@@ -76,14 +104,19 @@ class AuthApi {
       String otp,
       ) async {
 
+    final url = "${ApiConfig.baseUrl}/auth/verify-email-otp";
+    final requestBody = {"email": email, "otp": otp};
+    debugPrint("📤 [AuthApi.verifyEmailOtp] POST $url");
+    debugPrint("📤 [AuthApi.verifyEmailOtp] body: ${jsonEncode(requestBody)}");
+
     final res = await http.post(
-      Uri.parse("${ApiConfig.baseUrl}/auth/verify-email-otp"),
+      Uri.parse(url),
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": email,
-        "otp": otp,
-      }),
+      body: jsonEncode(requestBody),
     );
+
+    debugPrint("📥 [AuthApi.verifyEmailOtp] status: ${res.statusCode}");
+    debugPrint("📥 [AuthApi.verifyEmailOtp] response: ${res.body}");
 
     return jsonDecode(res.body);
   }

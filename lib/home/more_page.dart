@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/core/network/delete_account_api.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/core/widgets/solo_logo.dart';
@@ -24,6 +26,27 @@ class MorePage extends StatefulWidget {
 class _MorePageState extends State<MorePage> {
 
   bool deleting = false;
+
+  Future<void> _runQuickTestAlert(
+    BuildContext context,
+    int delaySeconds,
+    int windowSeconds,
+  ) async {
+    await NotificationService.triggerQuickTestAlert(
+      delaySeconds: delaySeconds,
+      windowSeconds: windowSeconds,
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        content: Text(
+          "Test alert set — check-in screen fires in ${delaySeconds}s. "
+          "Lock the phone (or kill the app) now.",
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +141,35 @@ class _MorePageState extends State<MorePage> {
                 ]),
 
                 SizedBox(height: AppSize.h(24)),
+
+                // ── DEVELOPER TOOLS (debug builds only — never shown in release) ──
+                if (kDebugMode) ...[
+                  sectionTitle("Developer Tools"),
+                  settingsBox([
+                    settingTile(
+                      "Test Alert (15s)",
+                      onTap: () => _runQuickTestAlert(context, 15, 90),
+                    ),
+                    settingTile(
+                      "Test Alert (60s)",
+                      onTap: () => _runQuickTestAlert(context, 60, 180),
+                    ),
+                    settingTile(
+                      "Clear Test Alert",
+                      onTap: () async {
+                        await NotificationService.clearQuickTestAlert();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Test alert cleared."),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ]),
+                  SizedBox(height: AppSize.h(24)),
+                ],
 
                 /// SUPPORT
                 sectionTitle("Support"),

@@ -200,9 +200,32 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    // 🛠️ GUARD: the "+" key can only be pressed as the very first digit
+    // (see numberButton("+", ...) above), so `phone` could end up holding a
+    // manually-typed leading "+" (and even the dial code itself) even
+    // though `selectedDialCode` is already sent as a separate field. Strip
+    // that here so the backend never receives the country code twice.
+    String sanitizedPhone = phone;
+    if (sanitizedPhone.startsWith('+')) {
+      debugPrint(
+        "⚠️ [LoginPage] phone had a manually-typed '+' ($sanitizedPhone) — "
+            "stripping it so countryCode isn't duplicated in the request.",
+      );
+      sanitizedPhone = sanitizedPhone.replaceFirst(RegExp(r'^\+'), '');
+      // If the user typed the dial code digits themselves too (e.g. dial
+      // code +91 and phone "919876543210"), drop that duplicate prefix.
+      final dialDigits = selectedDialCode.replaceFirst('+', '');
+      if (sanitizedPhone.startsWith(dialDigits)) {
+        sanitizedPhone = sanitizedPhone.substring(dialDigits.length);
+      }
+    }
+
     error = "";
     lastUsedDialCode = selectedDialCode;
-    lastUsedPhone = phone;
+    lastUsedPhone = sanitizedPhone;
+    debugPrint(
+      "📞 [LoginPage] sending OTP with countryCode=$lastUsedDialCode phone=$lastUsedPhone",
+    );
     FocusScope.of(context).unfocus();
     context.read<AuthBloc>().add(
       SendOtpEvent(

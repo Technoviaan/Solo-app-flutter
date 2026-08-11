@@ -29,7 +29,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _checkBatteryOptimization() async {
-    // Check Battery Optimization
     final isIgnored = await Permission.ignoreBatteryOptimizations.isGranted;
     if (!isIgnored && mounted) {
       _showPermissionSnackBar(
@@ -38,7 +37,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // Check Exact Alarm (Android 12+)
     final isExactAlarmGranted = await Permission.scheduleExactAlarm.isGranted;
     if (!isExactAlarmGranted && mounted) {
       _showPermissionSnackBar(
@@ -47,7 +45,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // Check Overlay Permission (for auto-opening screen)
     final isOverlayGranted = await Permission.systemAlertWindow.isGranted;
     if (!isOverlayGranted && mounted) {
       _showPermissionSnackBar(
@@ -71,7 +68,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadUser() async {
-    // Load from local storage first for immediate display
     final localName = await TokenStorage.getUserName();
     if (mounted) {
       setState(() {
@@ -79,7 +75,6 @@ class _HomePageState extends State<HomePage> {
       });
     }
 
-    // Then update from API
     final data = await ProfileApi.getProfile();
     if (data != null) {
       final userMap = data["user"] ?? data;
@@ -111,55 +106,58 @@ class _HomePageState extends State<HomePage> {
     AppSize.init(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9F5), // Light gray/off-white bottom
+      backgroundColor: const Color(0xFFF8F9F5),
       body: Column(
         children: [
           // TOP SECTION (NAVY WITH CURVE)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(
-              top: 76, // Exact Figma top
-              left: 28, // Exact Figma left
-              right: 30,
-              bottom: 40,
-            ),
-            decoration: const BoxDecoration(
-              color: Color(0xFF002C3E),
-              borderRadius: BorderRadius.only(
-                bottomRight: Radius.circular(100),
+          Expanded(
+            flex: 6,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(28.w, 56.h, 28.w, 24.h),
+              decoration: const BoxDecoration(
+                color: Color(0xFF002C3E),
+                borderRadius: BorderRadius.only(
+                  bottomRight: Radius.circular(90),
+                ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SoloLogoWidget(size: 74),
-                SizedBox(height: AppSize.h(90)),
-                Text(
-                  userName.isNotEmpty ? "$_greeting,\n$userName" : "$_greeting,",
-                  style: const TextStyle(
-                    color: Color(0xFF78BCC4), // Teal color from design
-                    fontSize: 44,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SoloLogoWidget(size: 70),
+                  const Spacer(),
+                  Text(
+                    userName.isNotEmpty ? "$_greeting,\n$userName" : "$_greeting,",
+                    style: TextStyle(
+                      color: const Color(0xFF78BCC4),
+                      fontSize: 36.sp,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
+                    ),
                   ),
-                ),
-                const Text(
-                  "How can we\nsupport you\ntoday?",
-                  style: TextStyle(
-                    color: Color(0xFF78BCC4),
-                    fontSize: 44,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
+                  SizedBox(height: 6.h),
+                  Text(
+                    "How can we\nsupport you\ntoday?",
+                    style: TextStyle(
+                      color: const Color(0xFF78BCC4),
+                      fontSize: 36.sp,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(height: 8.h),
+                ],
+              ),
             ),
           ),
 
+          // BOTTOM CARDS SECTION WITH BALANCED PADDING
           Expanded(
+            flex: 4,
             child: Container(
-              padding: EdgeInsets.fromLTRB(AppSize.w(24), 20, AppSize.w(24), 0),
+              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -190,14 +188,14 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  SizedBox(height: AppSize.h(6)),
+                  SizedBox(height: 14.h),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       imageActionCard(
                         imagePath: 'assets/images/subcription.png',
                         label: 'Subscription',
-                        color: const Color(0xFF00C9C8), // Matching cyan color
+                        color: const Color(0xFF00C9C8),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -228,7 +226,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Card with rounded container + centered SVG icon + label text below it.
   Widget svgActionCard({
     required String svgPath,
     required String label,
@@ -238,15 +235,15 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: AppSize.w(160),
-        height: AppSize.h(105),
+        width: 155.w,
+        height: 98.h,
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
               color: color.withValues(alpha: 0.25),
-              blurRadius: 10,
+              blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
@@ -256,15 +253,15 @@ class _HomePageState extends State<HomePage> {
           children: [
             SvgPicture.asset(
               svgPath,
-              width: AppSize.w(44),
-              height: AppSize.w(44),
+              width: 40.w,
+              height: 40.w,
             ),
-            SizedBox(height: AppSize.h(8)),
+            SizedBox(height: 6.h),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 15.sp,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -273,7 +270,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
 
   Widget imageActionCard({
     required String imagePath,
@@ -284,15 +280,15 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: AppSize.w(160),
-        height: AppSize.h(105),
+        width: 155.w,
+        height: 98.h,
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
               color: color.withValues(alpha: 0.25),
-              blurRadius: 10,
+              blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
@@ -301,8 +297,8 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: AppSize.w(44),
-              height: AppSize.w(44),
+              width: 40.w,
+              height: 40.w,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -310,16 +306,16 @@ class _HomePageState extends State<HomePage> {
               child: ClipOval(
                 child: Image.asset(
                   imagePath,
-                  fit: BoxFit.cover, // Image bina kisi extra padding ke circle me fully fit hogi
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
-            SizedBox(height: AppSize.h(8)), // Schedule card ke exact same height gap (8)
+            SizedBox(height: 6.h),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 15.sp,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -328,5 +324,4 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
 }

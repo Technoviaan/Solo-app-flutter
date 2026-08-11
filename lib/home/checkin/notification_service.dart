@@ -274,6 +274,7 @@ class NotificationService {
 
     final hours = await LocalStorage.getAlertWindowHours();
     final name = await LocalStorage.getUserName();
+    final testWindowSeconds = await LocalStorage.getTestWindowSeconds();
 
     // Wait for navigator to be ready
     int retryCount = 0;
@@ -297,6 +298,7 @@ class NotificationService {
             userName: name,
             scheduledTime: scheduledTime,
             alertWindowHours: hours,
+            testWindowSeconds: testWindowSeconds,
           ),
         ),
         (route) => route.isFirst,
@@ -381,8 +383,17 @@ class NotificationService {
     required DateTime dueTime,
     required int alertWindowHours,
   }) async {
-    await LocalStorage.saveActiveCheckinTime(dueTime);
+    // Always clear any leftover TEST window override before scheduling a
+    // real schedule, so a previous test run can never leak into real usage.
+    await LocalStorage.saveTestWindowSeconds(null);
+
+    // 🛠️ FIX: cancelAllCheckinNotifications() internally nulls out the
+    // active check-in time. It must run BEFORE we save the real dueTime,
+    // not after — otherwise the active check-in time would end up null in
+    // storage, and the app-startup "overdue check-in" recovery check (used
+    // when the app was killed and later relaunched) would never trigger.
     await cancelAllCheckinNotifications();
+    await LocalStorage.saveActiveCheckinTime(dueTime);
 
     final prefs = await SharedPreferences.getInstance();
     final notificationsEnabled = prefs.getBool("missed_checkin_notification_enabled") ?? true;
@@ -422,6 +433,64 @@ class NotificationService {
     );
 
     await showOngoingMonitoringNotification(dueTime);
+  }
+
+  /// 🧪 DEV/TEST ONLY — triggers the exact same missed-checkin alert
+  /// pipeline (same alarm ids, same full-screen notification, same
+  /// navigation code) but compressed into seconds instead of hours, so you
+  /// can validate background/killed-app behaviour in under a minute instead
+  /// of waiting for a real schedule window.
+  ///
+  /// After calling this: lock the phone (or kill the app from recents) and
+  /// wait `delaySeconds`. The full-screen check-in alarm should appear on
+  /// the lock screen. If you don't tap check-in, a reminder fires at the
+  /// halfway point and an "Emergency Alert Triggered" notification fires
+  /// once `windowSeconds` elapses — mirroring the real missed-checkin flow.
+  static Future<void> triggerQuickTestAlert({
+    int delaySeconds = 15,
+    int windowSeconds = 90,
+  }) async {
+    await cancelAllCheckinNotifications();
+
+    final dueTime = DateTime.now().add(Duration(seconds: delaySeconds));
+    await LocalStorage.saveTestWindowSeconds(windowSeconds);
+    await LocalStorage.saveActiveCheckinTime(dueTime);
+
+    await scheduleNotification(
+      dueTime,
+      id: 1000,
+      title: "Check-in Time (TEST)",
+      body: "Tap to check in now.",
+    );
+
+    final halfSeconds = (windowSeconds / 2).round();
+    if (halfSeconds > 3 && halfSeconds < windowSeconds) {
+      await scheduleNotification(
+        dueTime.add(Duration(seconds: halfSeconds)),
+        id: 1100,
+        title: "Missed Check-in Reminder (TEST)",
+        body: "Reminder before test emergency alert.",
+      );
+    }
+
+    await scheduleNotification(
+      dueTime.add(Duration(seconds: windowSeconds)),
+      id: 1200,
+      title: "Emergency Alert Triggered (TEST)",
+      body: "TEST: no check-in received. Contacts would be alerted.",
+    );
+
+    await showOngoingMonitoringNotification(dueTime);
+    print(
+      "🧪 Quick test alert scheduled: due in ${delaySeconds}s, window ${windowSeconds}s",
+    );
+  }
+
+  /// Clears whatever the quick test above scheduled and restores things to
+  /// a clean, no-active-checkin state.
+  static Future<void> clearQuickTestAlert() async {
+    await LocalStorage.saveTestWindowSeconds(null);
+    await cancelAllCheckinNotifications();
   }
 
   static Future<void> cancelMissedCheckinRemindersOnly() async {

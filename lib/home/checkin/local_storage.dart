@@ -63,6 +63,27 @@ class LocalStorage {
     return prefs.getInt(_alertWindowHoursKey) ?? 2;
   }
 
+  /// ================= TEST MODE (dev only) =================
+  /// When set, overrides the real hour-based alert window with a short
+  /// second-based window so the full missed-checkin flow can be tested in
+  /// under a minute instead of waiting hours. Always cleared automatically
+  /// whenever a REAL schedule is saved (see scheduleMissedCheckinFlow).
+  static const String _testWindowSecondsKey = "test_window_seconds";
+
+  static Future<void> saveTestWindowSeconds(int? seconds) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (seconds == null) {
+      await prefs.remove(_testWindowSecondsKey);
+    } else {
+      await prefs.setInt(_testWindowSecondsKey, seconds);
+    }
+  }
+
+  static Future<int?> getTestWindowSeconds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_testWindowSecondsKey);
+  }
+
   static Future<void> saveVoice(String voice) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_voiceKey, voice);
