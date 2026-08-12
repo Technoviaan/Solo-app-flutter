@@ -145,6 +145,20 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
   }
 
+  /// ================= PAYMENT / UPGRADE HANDLER =================
+  ///
+  /// Subscription status codes used across this screen:
+  ///   0 = no subscription
+  ///   1 = TRIAL (active)
+  ///   2 = MONTHLY (active, paid, real Stripe subscription)
+  ///   3 = YEARLY  (active, paid, real Stripe subscription)
+  ///
+  /// IMPORTANT: Trial plans in this app are NOT real Stripe subscriptions
+  /// (no payment method, no invoice, nothing for the Customer Portal to
+  /// show). Opening the Portal for a trial user renders a blank
+  /// "No payment method / No invoice history" page. So the Portal must
+  /// ONLY be used for real paid plans (status 2 or 3). Trial users go
+  /// straight through checkout to create their first real subscription.
   Future<void> _handlePayment(Map<String, dynamic> plan) async {
     final planId = plan["id"] as String;
     final priceId = plan["priceId"] as String?;
@@ -191,21 +205,28 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     setState(() => _isLoading = true);
 
     String? sessionUrl;
+    bool usedPortal = false;
+
     if (isTopup) {
       sessionUrl = await StripeApi.createTopupSession(priceId!);
+    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
+      // Real paid plan already active -> Customer Portal is the right
+      // place to upgrade/downgrade/cancel.
+      sessionUrl = await StripeApi.openPortal();
+      usedPortal = true;
     } else {
-      if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-        sessionUrl = await StripeApi.openPortal();
-      } else {
-        sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
-      }
+      // Status is 0 (no subscription) or 1 (trial, not a real Stripe sub)
+      // -> create a brand new checkout session directly.
+      sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
     }
 
     setState(() => _isLoading = false);
 
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
-      debugPrint("💳 [SubscriptionPage] Attempting to launch Stripe URL: $sessionUrl");
+      debugPrint(
+        "💳 [SubscriptionPage] Attempting to launch ${usedPortal ? 'Portal' : 'Stripe checkout'} URL: $sessionUrl",
+      );
       try {
         final canLaunch = await canLaunchUrl(uri);
         debugPrint("💳 [SubscriptionPage] canLaunchUrl() = $canLaunch");
@@ -233,12 +254,76 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         }
       }
     } else {
+      // Prefer the backend's real error message over a generic one.
+      final errorMsg = StripeApi.lastErrorMessage;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to initiate payment session. Please try again.")),
+          SnackBar(
+            content: Text(
+              errorMsg != null && errorMsg.isNotEmpty
+                  ? errorMsg
+                  : "Failed to initiate payment session. Please try again.",
+            ),
+          ),
         );
       }
     }
+  }
+
+  /// Manual "Manage Subscription" button should also only be usable for
+  /// real paid plans -- guard it the same way as _handlePayment does.
+  Future<void> _openManagePortal() async {
+    if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Subscription management is only available for paid plans."),
+        ),
+      );
+      return;
+    }
+
+    debugPrint("🧭 [SubscriptionPage] Manage Subscription tapped");
+    setState(() => _isLoading = true);
+
+    final portalUrl = await StripeApi.openPortal();
+    debugPrint("🧭 [SubscriptionPage] openPortal() returned url = $portalUrl");
+
+    if (portalUrl != null && portalUrl.isNotEmpty) {
+      final uri = Uri.parse(portalUrl);
+      try {
+        final canLaunch = await canLaunchUrl(uri);
+        debugPrint("🧭 [SubscriptionPage] canLaunchUrl(portal) = $canLaunch");
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        debugPrint("✅ [SubscriptionPage] Portal launchUrl() returned without throwing");
+
+        await Future.delayed(const Duration(milliseconds: 2000));
+        await SubscriptionApi.getSubscriptionStatus();
+        await _loadPromoState();
+      } catch (e) {
+        debugPrint("❌ [SubscriptionPage] Portal launchUrl() FAILED with error: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Could not open subscription portal: $e")),
+          );
+        }
+      }
+    } else {
+      debugPrint("❌ [SubscriptionPage] Portal URL was null/empty");
+      if (mounted) {
+        final errorMsg = StripeApi.lastErrorMessage;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              errorMsg != null && errorMsg.isNotEmpty
+                  ? errorMsg
+                  : "Failed to open subscription portal. Please try again.",
+            ),
+          ),
+        );
+      }
+    }
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   String _formatDate(DateTime date) {
@@ -903,7 +988,39 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                       ],
                                     ),
                                   ),
-
+                                  if (_subscriptionStatus == 2 || _subscriptionStatus == 3) ...[
+                                    const SizedBox(height: 16),
+                                    GestureDetector(
+                                      onTap: _isLoading ? null : _openManagePortal,
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF114B5F),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: const Color(0xFF78BCC4), width: 1),
+                                        ),
+                                        child: const Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              "Manage Subscription",
+                                              style: TextStyle(
+                                                color: Color(0xFF78BCC4),
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.arrow_forward_ios,
+                                              color: Color(0xFF78BCC4),
+                                              size: 16,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               );
                             },
@@ -954,10 +1071,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                         color: const Color(0xFF002C3E),
                         child: Row(
                           children: [
-                            // IconButton(
-                            //   onPressed: () => Navigator.pop(context),
-                            //   icon: const Icon(Icons.arrow_back, color: Colors.white70, size: 28),
-                            // ),
                             const SizedBox(),
                             const Spacer(),
                             Text(

@@ -33,6 +33,16 @@ class _ContactUsPageState extends State<ContactUsPage> {
   File? attachedFile;
   bool isSubmitting = false;
 
+  // ============ REFUND REQUEST STATE ============
+  bool isRefundRequest = false;
+  String? refundReason; // null until user picks one from the action sheet
+
+  static const List<String> refundReasonOptions = [
+    "Accidental purchase",
+    "SMS blocked in my country",
+    "I changed my mind",
+  ];
+
   static const int maxDescriptionLength = 500;
 
   // 📍 Direct VPS Base URL Setup
@@ -73,6 +83,126 @@ class _ContactUsPageState extends State<ContactUsPage> {
     print("================= ATTACHMENT PICKER FINISHED =================\n");
   }
 
+  // ================= REFUND CHECKBOX TAP =================
+  Future<void> onRefundCheckboxTap() async {
+    print("\n================= REFUND CHECKBOX TAPPED =================");
+    print("[REFUND] Current state before tap -> isRefundRequest: $isRefundRequest, refundReason: $refundReason");
+
+    if (!isRefundRequest) {
+      // Going from unchecked -> checked: open the action sheet to pick a reason
+      print("[REFUND] Opening 'Select Refund Reason' action sheet...");
+      final String? selected = await _showRefundReasonSheet();
+
+      if (selected == null) {
+        // User cancelled the sheet -> keep checkbox unchecked
+        print("[REFUND] User cancelled reason selection. Checkbox stays unchecked.");
+        setState(() {
+          isRefundRequest = false;
+          refundReason = null;
+        });
+      } else {
+        print("[REFUND] Reason selected: '$selected'");
+        setState(() {
+          isRefundRequest = true;
+          refundReason = selected;
+        });
+      }
+    } else {
+      // Going from checked -> unchecked: clear the reason
+      print("[REFUND] Unchecking. Clearing refund reason.");
+      setState(() {
+        isRefundRequest = false;
+        refundReason = null;
+      });
+    }
+
+    print("[REFUND] Final state -> isRefundRequest: $isRefundRequest, refundReason: $refundReason");
+    print("================= REFUND CHECKBOX HANDLED =================\n");
+  }
+
+  // ================= ACTION SHEET (Select Refund Reason) =================
+  Future<String?> _showRefundReasonSheet() {
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFFF7F8F3),
+      isScrollControlled: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSize.h(12)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSize.h(10)),
+                  child: Text(
+                    "Select Refund Reason",
+                    style: TextStyle(
+                      fontSize: AppSize.sp(15),
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF002C3E),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFF8A99A6)),
+                for (final reason in refundReasonOptions) ...[
+                  InkWell(
+                    onTap: () {
+                      print("[REFUND SHEET] Option tapped: '$reason'");
+                      Navigator.pop(sheetContext, reason);
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSize.h(14), horizontal: AppSize.w(20)),
+                      child: Text(
+                        reason,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppSize.sp(14),
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF5A8C7D),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFF8A99A6)),
+                ],
+                SizedBox(height: AppSize.h(10)),
+                GestureDetector(
+                  onTap: () {
+                    print("[REFUND SHEET] Cancel tapped.");
+                    Navigator.pop(sheetContext, null);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    margin: EdgeInsets.symmetric(horizontal: AppSize.w(20)),
+                    padding: EdgeInsets.symmetric(vertical: AppSize.h(12)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F8F3),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF8A99A6)),
+                    ),
+                    child: Text(
+                      "Cancel",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: AppSize.sp(14),
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF002C3E),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ================= SUBMIT =================
   Future<void> submitSupportTicket() async {
     print("\n---------------- SUPPORT TICKET SUBMISSION (VPS TEST) ----------------");
@@ -83,6 +213,8 @@ class _ContactUsPageState extends State<ContactUsPage> {
     print("[FORM] Subject: '$subject'");
     print("[FORM] Description: '$description'");
     print("[FORM] Attachment: ${attachedFile?.path ?? 'none'}");
+    print("[FORM] isRefundRequest: $isRefundRequest");
+    print("[FORM] refundReason: ${refundReason ?? '(none)'}");
 
     if (subject.isEmpty || description.isEmpty) {
       print("[VALIDATION ERROR] Subject or Description is empty.");
@@ -102,6 +234,18 @@ class _ContactUsPageState extends State<ContactUsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Description must be under $maxDescriptionLength characters."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (isRefundRequest && (refundReason == null || refundReason!.isEmpty)) {
+      print("[VALIDATION ERROR] Refund request checked but no reason selected.");
+      print("--------------------------------------------------------\n");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select a refund reason."),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -130,8 +274,8 @@ class _ContactUsPageState extends State<ContactUsPage> {
 
       request.fields["subject"] = subject;
       request.fields["description"] = description;
-      request.fields["isRefundRequest"] = "false";
-      request.fields["refundReason"] = "";
+      request.fields["isRefundRequest"] = isRefundRequest.toString();
+      request.fields["refundReason"] = isRefundRequest ? (refundReason ?? "") : "";
 
       print("[API FIELDS]: ${request.fields}");
 
@@ -182,7 +326,11 @@ class _ContactUsPageState extends State<ContactUsPage> {
 
           subjectController.clear();
           descriptionController.clear();
-          setState(() => attachedFile = null);
+          setState(() {
+            attachedFile = null;
+            isRefundRequest = false;
+            refundReason = null;
+          });
 
           Navigator.pop(context);
         }
@@ -398,6 +546,43 @@ class _ContactUsPageState extends State<ContactUsPage> {
                           ),
                         ),
                       ),
+                    SizedBox(height: AppSize.h(16)),
+
+                    // ============ REFUND REQUEST CHECKBOX ============
+                    GestureDetector(
+                      onTap: isSubmitting ? null : onRefundCheckboxTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: AppSize.w(18),
+                            height: AppSize.w(18),
+                            decoration: BoxDecoration(
+                              color: isRefundRequest ? const Color(0xFF78BCC4) : Colors.transparent,
+                              border: Border.all(color: const Color(0xFF8A99A6)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: isRefundRequest
+                                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                : null,
+                          ),
+                          SizedBox(width: AppSize.w(8)),
+                          Expanded(
+                            child: Text(
+                              isRefundRequest && refundReason != null
+                                  ? "Reason: $refundReason"
+                                  : "This is a refund request",
+                              style: TextStyle(
+                                color: const Color(0xFF8A99A6),
+                                fontSize: AppSize.sp(12),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     SizedBox(height: AppSize.h(27)),
 
                     // Submit Button
