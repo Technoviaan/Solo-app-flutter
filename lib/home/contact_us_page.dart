@@ -1,6 +1,23 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:solo_app/core/widgets/solo_logo.dart';
+
+import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
+
+/// Self-Signed / IP HTTPS SSL Bypass Handler (VPS Direct IP testing ke liye)
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
 
 class ContactUsPage extends StatefulWidget {
   const ContactUsPage({super.key});
@@ -12,6 +29,213 @@ class ContactUsPage extends StatefulWidget {
 class _ContactUsPageState extends State<ContactUsPage> {
   final TextEditingController subjectController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
+
+  File? attachedFile;
+  bool isSubmitting = false;
+
+  static const int maxDescriptionLength = 500;
+
+  // 📍 Direct VPS Base URL Setup
+  final String vpsBaseUrl = "https://187.127.122.25/api";
+
+  @override
+  void initState() {
+    super.initState();
+    // IP based HTTPS SSL certificate validation errors avoid karne ke liye
+    HttpOverrides.global = MyHttpOverrides();
+  }
+
+  // ================= FILE PICK =================
+  Future<void> pickAttachment() async {
+    print("\n================= ATTACHMENT PICKER STARTED =================");
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 1600,
+      );
+
+      if (picked == null) {
+        print("[CANCELLED] User closed attachment picker.");
+      } else {
+        final file = File(picked.path);
+        final sizeKb = (await file.length()) / 1024;
+        print("[SELECTED] File path: ${picked.path}");
+        print("[SELECTED] File size: ${sizeKb.toStringAsFixed(1)} KB");
+        setState(() {
+          attachedFile = file;
+        });
+      }
+    } catch (e, stackTrace) {
+      print("[EXCEPTION] Attachment pick error: $e\n$stackTrace");
+    }
+    print("================= ATTACHMENT PICKER FINISHED =================\n");
+  }
+
+  // ================= SUBMIT =================
+  Future<void> submitSupportTicket() async {
+    print("\n---------------- SUPPORT TICKET SUBMISSION (VPS TEST) ----------------");
+
+    final subject = subjectController.text.trim();
+    final description = descriptionController.text.trim();
+
+    print("[FORM] Subject: '$subject'");
+    print("[FORM] Description: '$description'");
+    print("[FORM] Attachment: ${attachedFile?.path ?? 'none'}");
+
+    if (subject.isEmpty || description.isEmpty) {
+      print("[VALIDATION ERROR] Subject or Description is empty.");
+      print("--------------------------------------------------------\n");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Subject and description are required."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (description.length > maxDescriptionLength) {
+      print("[VALIDATION ERROR] Description exceeds $maxDescriptionLength chars.");
+      print("--------------------------------------------------------\n");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Description must be under $maxDescriptionLength characters."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() => isSubmitting = true);
+
+    final client = http.Client();
+
+    try {
+      final token = await TokenStorage.getToken();
+      print("[AUTH] Token present: ${token != null && token.isNotEmpty}");
+
+      // 📍 New VPS URL Endpoint
+      final url = Uri.parse("$vpsBaseUrl/support");
+      print("[API REQUEST] POST $url");
+
+      final request = http.MultipartRequest("POST", url);
+
+      request.headers.addAll({
+        "Accept": "application/json",
+        if (token != null && token.isNotEmpty)
+          "Authorization": token.startsWith("Bearer ") ? token : "Bearer $token",
+      });
+
+      request.fields["subject"] = subject;
+      request.fields["description"] = description;
+      request.fields["isRefundRequest"] = "false";
+      request.fields["refundReason"] = "";
+
+      print("[API FIELDS]: ${request.fields}");
+
+      if (attachedFile != null) {
+        print("[API FILE] Attaching: ${attachedFile!.path}");
+        request.files.add(
+          await http.MultipartFile.fromPath("file", attachedFile!.path),
+        );
+      } else {
+        print("[API FILE] No attachment to send.");
+      }
+
+      print("[API REQUEST HEADERS]: ${request.headers}");
+
+      final stopwatch = Stopwatch()..start();
+      print("[API] Sending request to VPS host...");
+
+      final streamedResponse = await client.send(request).timeout(
+        const Duration(seconds: 30), // VPS par sleep issue nahi hota, so 30s timeout is enough
+        onTimeout: () {
+          print("[API TIMEOUT] No response after 30s (elapsed: ${stopwatch.elapsedMilliseconds}ms)");
+          throw TimeoutException("VPS Server request timed out after 30 seconds.");
+        },
+      );
+
+      final response = await http.Response.fromStream(streamedResponse);
+
+      stopwatch.stop();
+      print("[API] Response received in ${stopwatch.elapsedMilliseconds}ms");
+      print("[API RESPONSE] Status Code: ${response.statusCode}");
+      print("[API RESPONSE] Response Body: ${response.body}");
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print("[SUCCESS] Support ticket submitted successfully on VPS!");
+
+        String message = "Your request has been submitted.";
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map && decoded["message"] != null) {
+            message = decoded["message"].toString();
+          }
+        } catch (_) {}
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.green),
+          );
+
+          subjectController.clear();
+          descriptionController.clear();
+          setState(() => attachedFile = null);
+
+          Navigator.pop(context);
+        }
+      } else {
+        String message = "Failed to submit request (${response.statusCode})";
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map && decoded["message"] != null) {
+            message = decoded["message"].toString();
+          }
+        } catch (_) {}
+
+        print("[API ERROR] $message");
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
+    } on TimeoutException catch (e) {
+      print("[API ERROR] VPS Request timed out: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("VPS Server took too long to respond."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      print("[API ERROR] VPS Request Failed: $e\n$stackTrace");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      client.close();
+      print("--------------------------------------------------------\n");
+      if (mounted) setState(() => isSubmitting = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    subjectController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +286,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                       ),
                     ),
                     SizedBox(height: AppSize.h(15)),
-                    
+
                     // Subject Field
                     Text.rich(
                       TextSpan(
@@ -75,14 +299,15 @@ class _ContactUsPageState extends State<ContactUsPage> {
                     ),
                     TextField(
                       controller: subjectController,
-                        maxLines: 1,
+                      maxLines: 1,
+                      enabled: !isSubmitting,
                       decoration: const InputDecoration(
                         enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8A99A6))),
                         focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF002C3E))),
                       ),
                     ),
                     SizedBox(height: AppSize.h(15)),
-                    
+
                     // Description Field
                     Text.rich(
                       TextSpan(
@@ -96,8 +321,11 @@ class _ContactUsPageState extends State<ContactUsPage> {
                     TextField(
                       controller: descriptionController,
                       maxLines: 4,
+                      maxLength: maxDescriptionLength,
+                      enabled: !isSubmitting,
                       decoration: const InputDecoration(
-                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color:  Color(0xFF8A99A6))),
+                        counterText: "",
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8A99A6))),
                         focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF002C3E))),
                       ),
                     ),
@@ -111,56 +339,86 @@ class _ContactUsPageState extends State<ContactUsPage> {
                       ),
                     ),
                     SizedBox(height: AppSize.h(24)),
-                    
+
                     // Attachments
                     Text(
                       "Attachments",
-                      style: TextStyle(color: const Color(0xFF8A99A6), fontSize: AppSize.sp(12),fontWeight: FontWeight.w400),
+                      style: TextStyle(color: const Color(0xFF8A99A6), fontSize: AppSize.sp(12), fontWeight: FontWeight.w400),
                     ),
                     SizedBox(height: AppSize.h(10)),
-                    Container(
-                      width: double.infinity,
-                      height: AppSize.h(41),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFF8A99A6)),
-                        borderRadius: BorderRadius.circular(8),
+                    GestureDetector(
+                      onTap: isSubmitting ? null : pickAttachment,
+                      child: Container(
+                        width: double.infinity,
+                        height: AppSize.h(41),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF8A99A6)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Add file",
+                              style: TextStyle(
+                                color: const Color(0xFF14B8A6),
+                                fontSize: AppSize.sp(9),
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                            SizedBox(width: AppSize.w(4)),
+                            Flexible(
+                              child: Text(
+                                attachedFile != null
+                                    ? attachedFile!.path.split('/').last
+                                    : "Click to add a screenshot or photo",
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: const Color(0xFF8A99A6),
+                                  fontSize: AppSize.sp(9),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Add file",
+                    ),
+                    if (attachedFile != null)
+                      Padding(
+                        padding: EdgeInsets.only(top: AppSize.h(6)),
+                        child: GestureDetector(
+                          onTap: isSubmitting ? null : () => setState(() => attachedFile = null),
+                          child: Text(
+                            "Remove attachment",
                             style: TextStyle(
-                              color: const Color(0xFF14B8A6),
+                              color: Colors.redAccent,
                               fontSize: AppSize.sp(9),
                               decoration: TextDecoration.underline,
                             ),
                           ),
-                          SizedBox(width: AppSize.w(4)),
-                          Text(
-                            "Click to add a screenshot or photo",
-                            style: TextStyle(
-                              color: const Color(0xFF8A99A6),
-                              fontSize: AppSize.sp(9),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
                     SizedBox(height: AppSize.h(27)),
-                    
+
                     // Submit Button
                     GestureDetector(
-                      onTap: () {
-                        // Handle submit
-                      },
+                      onTap: isSubmitting ? null : submitSupportTicket,
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: AppSize.w(35), vertical: AppSize.h(13)),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF002C3E),
+                          color: isSubmitting ? const Color(0xFF002C3E).withOpacity(0.6) : const Color(0xFF002C3E),
                           borderRadius: BorderRadius.circular(50),
                         ),
-                        child: Text(
+                        child: isSubmitting
+                            ? SizedBox(
+                          height: AppSize.h(20),
+                          width: AppSize.h(20),
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                            : Text(
                           "Submit",
                           style: TextStyle(
                             color: Colors.white,
@@ -170,7 +428,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                         ),
                       ),
                     ),
-                    
+
                     SizedBox(height: AppSize.h(40)),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),

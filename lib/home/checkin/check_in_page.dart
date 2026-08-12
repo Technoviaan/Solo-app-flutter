@@ -17,9 +17,7 @@ class CheckinScreen extends StatefulWidget {
   final DateTime scheduledTime;
   final int alertWindowHours;
 
-  /// 🧪 DEV/TEST ONLY. When set (non-null), overrides [alertWindowHours]
-  /// with a short seconds-based window so the countdown UI matches a quick
-  /// test run instead of waiting hours. Always null during real usage.
+
   final int? testWindowSeconds;
 
   const CheckinScreen({
@@ -81,6 +79,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
   void startTimer() {
     timer?.cancel();
+    debugPrint("🟢 [CheckinScreen] startTimer() called | scheduledTime=${widget.scheduledTime} | alertWindow=${widget._alertWindowDuration}");
     timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() {
@@ -94,9 +93,15 @@ class _CheckinScreenState extends State<CheckinScreen> {
           remainingSeconds = deadline.difference(now).inSeconds;
           _updateStateByTime();
 
+          // 🔎 DEBUG: prints every 10s so terminal isn't spammed every second
+          if (remainingSeconds % 10 == 0) {
+            debugPrint("⏱️ [CheckinScreen] state=$state | remainingSeconds=$remainingSeconds | now=$now");
+          }
+
           if (remainingSeconds <= 0) {
             state = "alert";
             remainingSeconds = 0;
+            debugPrint("🚨 [CheckinScreen] Deadline passed with NO check-in -> calling triggerAlert()");
             triggerAlert();
             t.cancel();
           }
@@ -115,7 +120,9 @@ class _CheckinScreenState extends State<CheckinScreen> {
   }
 
   Future<void> onCheckin() async {
+    debugPrint("👉 [CheckinScreen] onCheckin() tapped | current state=$state");
     if (state == "waiting") {
+      debugPrint("⚠️ [CheckinScreen] onCheckin() blocked -> still in 'waiting' state (too early)");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Too early to check in!")),
       );
@@ -131,7 +138,8 @@ class _CheckinScreenState extends State<CheckinScreen> {
       print("Error playing check-in sound: $e");
     }
 
-    await CheckinApi.confirmCheckin();
+    final apiOk = await CheckinApi.confirmCheckin();
+    debugPrint("📡 [CheckinScreen] CheckinApi.confirmCheckin() -> success=$apiOk");
     await LocalStorage.savePreviousCheckinTime(DateTime.now());
 
     timer?.cancel();
@@ -139,6 +147,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
       status: "CHECKED_IN",
       scheduledTime: widget.scheduledTime,
     );
+    debugPrint("✅ [CheckinScreen] Check-in CONFIRMED and logged. Closing app now.");
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -154,11 +163,13 @@ class _CheckinScreenState extends State<CheckinScreen> {
   }
 
   Future<void> triggerAlert() async {
+    debugPrint("🚨 [CheckinScreen] triggerAlert() STARTED (missed check-in, no manual SOS)");
     final contacts = await LocalStorage.getContacts();
     final contactNames = contacts
         .map((e) => e["name"] ?? "")
         .where((e) => e.trim().isNotEmpty)
         .toList();
+    debugPrint("👥 [CheckinScreen] triggerAlert() contacts to notify = $contactNames");
     await HistoryStore.logCheckin(
       status: "MISSED",
       scheduledTime: widget.scheduledTime,
@@ -167,10 +178,13 @@ class _CheckinScreenState extends State<CheckinScreen> {
       type: "MISSED",
       contacts: contactNames,
     );
+    debugPrint("⚠️ [CheckinScreen] triggerAlert() FINISHED — NOTE: this only logs locally, no backend/contact-notify API call is made here.");
   }
 
   void onSOS() {
+    debugPrint("🔴 [CheckinScreen] onSOS() tapped | isSOSPending(before)=$isSOSPending | sosSeconds=$sosSeconds");
     if (!isSOSPending) {
+      debugPrint("🕐 [CheckinScreen] SOS 1st tap -> starting 20s confirm countdown");
       setState(() {
         isSOSPending = true;
         state = "alert";
@@ -180,29 +194,39 @@ class _CheckinScreenState extends State<CheckinScreen> {
         setState(() {
           sosSeconds--;
         });
+        debugPrint("⏳ [CheckinScreen] SOS countdown: $sosSeconds s left");
 
         if (sosSeconds == 0) {
           t.cancel();
+          debugPrint("⌛ [CheckinScreen] SOS countdown expired with NO 2nd tap -> resetSOS(), no alert sent");
           resetSOS();
         }
       });
     } else {
+      debugPrint("🔴 [CheckinScreen] SOS 2nd tap within 20s -> cancelling timer, calling triggerSosAlert()");
       sosTimer?.cancel();
       triggerSosAlert();
     }
   }
 
   Future<void> triggerSosAlert() async {
+    debugPrint("🚨 [CheckinScreen] triggerSosAlert() STARTED");
     final contacts = await LocalStorage.getContacts();
     final contactNames = contacts
         .map((e) => e["name"] ?? "")
         .where((e) => e.trim().isNotEmpty)
         .toList();
-    await NotificationApi.triggerSos();
+    debugPrint("👥 [CheckinScreen] triggerSosAlert() contacts to notify = $contactNames");
+
+    final apiOk = await NotificationApi.triggerSos();
+    debugPrint("📡 [CheckinScreen] NotificationApi.triggerSos() -> backend call success=$apiOk");
+
     await HistoryStore.logAlert(
       type: "SOS",
       contacts: contactNames,
     );
+    debugPrint("✅ [CheckinScreen] triggerSosAlert() FINISHED — alert logged, backend notified=$apiOk");
+
     setState(() {
       state = "alert";
       isSOSPending = false;
@@ -211,11 +235,13 @@ class _CheckinScreenState extends State<CheckinScreen> {
   }
 
   void resetSOS() {
+    debugPrint("↩️ [CheckinScreen] resetSOS() called | state before=$state");
     setState(() {
       isSOSPending = false;
       sosSeconds = 20;
       _updateStateByTime();
     });
+    debugPrint("↩️ [CheckinScreen] resetSOS() done | state after=$state");
   }
 
   String _formatAmPm(DateTime time) => time.hour >= 12 ? "PM" : "AM";
@@ -534,10 +560,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                             width: 60.w,
                           ),
                         ),
-                        // 📶 Signal wave — only appears once the state turns
-                        // to "alert" (red face) — either from an SOS press
-                        // or a missed check-in alert. Hidden during
-                        // normal/warning (green/yellow face) states.
+
                         if (state == "alert")
                           Positioned(
                             top: -10.h,
@@ -563,10 +586,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
   }
 }
 
-/// 📶 Pulsing "broadcasting" signal icon shown above the SOS button.
-/// Lights up (colour + pulse) while an SOS is actively counting down to
-/// confirm, and sits dim/static once an alert has already gone out or
-/// before any SOS has been triggered.
+
 class _SosSignalWave extends StatefulWidget {
   final bool active;
   final Color color;

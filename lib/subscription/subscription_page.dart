@@ -91,7 +91,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   void initState() {
     super.initState();
     _loadPromoState();
-    
+
     // Use a large initial page to allow "infinite" scrolling in both directions
     const int startFactor = 1000;
     int initialPage = (_plans.length * startFactor) + 1; // Index 1 is the trial
@@ -100,7 +100,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       initialPage: initialPage,
     );
     _currentPage = initialPage.toDouble();
-    
+
     _pageController.addListener(() {
       if (mounted) {
         setState(() {
@@ -115,7 +115,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final activationTimeStr = await LocalStorage.getString("promo_activation_time");
     final hideDisclaimer = await LocalStorage.getBool("hide_disclaimer");
     final usedCodes = await LocalStorage.getStringList("used_promo_codes");
-    
+
     final status = await TokenStorage.getSubscriptionStatus();
     final creditsVal = await TokenStorage.getCredits();
 
@@ -164,11 +164,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         );
         return;
       }
-      
+
       setState(() => _isLoading = true);
       final res = await SubscriptionApi.startTrial();
       setState(() => _isLoading = false);
-      
+
       if (!mounted) return;
       if (res != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -205,15 +205,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
+      debugPrint("💳 [SubscriptionPage] Attempting to launch Stripe URL: $sessionUrl");
       try {
+        final canLaunch = await canLaunchUrl(uri);
+        debugPrint("💳 [SubscriptionPage] canLaunchUrl() = $canLaunch");
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+        debugPrint("✅ [SubscriptionPage] launchUrl() returned without throwing");
 
         setState(() => _isLoading = true);
         await Future.delayed(const Duration(milliseconds: 2500));
-        
+
         await SubscriptionApi.getSubscriptionStatus();
         await _loadPromoState();
-        
+
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -221,6 +225,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           );
         }
       } catch (e) {
+        debugPrint("❌ [SubscriptionPage] launchUrl() FAILED with error: $e");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Could not open payment page: $e")),
@@ -243,7 +248,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   void _applyPromoCode() async {
     final code = _promoInput.toUpperCase();
-    
+
     if (_usedPromoCodes.contains(code)) {
       setState(() {
         _promoError = "Promo Code Already Used";
@@ -251,11 +256,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       _clearErrorAfterDelay();
       return;
     }
-    
+
     String? promoType;
     int subStatus = 0;
     int grantCredits = 0;
-    
+
     if (code == "SOLO1MONTH" || code == "SOLOXXXXXX") {
       promoType = "1 Month Free Access";
       subStatus = 2;
@@ -275,19 +280,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       _clearErrorAfterDelay();
       return;
     }
-    
+
     _usedPromoCodes.add(code);
     await TokenStorage.saveSubscriptionStatus(subStatus);
-    
+
     int currentCredits = await TokenStorage.getCredits();
     await TokenStorage.saveCredits(currentCredits + grantCredits);
-    
+
     final now = DateTime.now();
     await LocalStorage.saveString("active_promo_plan", promoType);
     await LocalStorage.saveString("promo_activation_time", now.toIso8601String());
     await LocalStorage.saveStringList("used_promo_codes", _usedPromoCodes);
     await LocalStorage.saveBool("hide_disclaimer", true);
-    
+
     setState(() {
       _activePromoPlan = promoType;
       _promoActivationTime = now;
@@ -614,31 +619,31 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: benefits
                       .map((benefit) => Padding(
-                            padding: const EdgeInsets.only(bottom: 1),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  "• ",
-                                  style: TextStyle(fontSize: 11, color: Colors.black87),
-                                ),
-                                const SizedBox(width: 2),
-                                Expanded(
-                                  child: Text(
-                                    benefit,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      letterSpacing: -0.5,
-                                      color: Colors.black87,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                    padding: const EdgeInsets.only(bottom: 1),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "• ",
+                          style: TextStyle(fontSize: 11, color: Colors.black87),
+                        ),
+                        const SizedBox(width: 2),
+                        Expanded(
+                          child: Text(
+                            benefit,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              letterSpacing: -0.5,
+                              color: Colors.black87,
+                              height: 1.0,
                             ),
-                          ))
+                          ),
+                        ),
+                      ],
+                    ),
+                  ))
                       .toList(),
                 ),
               ),
@@ -688,9 +693,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                           const Text(
                             "Subscribe so I can look out for\nyou every day",
                             style: TextStyle(
-                              color: Color(0xFFD1D9E0),
-                              fontSize: 22,
-                              fontWeight: FontWeight.w400
+                                color: Color(0xFFD1D9E0),
+                                fontSize: 22,
+                                fontWeight: FontWeight.w400
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -740,7 +745,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                           ),
                           const Divider(color: Colors.white24),
                           const SizedBox(height: 24),
-                          
+
                           // CAROUSEL SECTION
                           SizedBox(
                             height: 260, // Accommodates the 260px highlighted height
@@ -751,12 +756,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               physics: const BouncingScrollPhysics(),
                               itemBuilder: (context, index) {
                                 final plan = _plans[index % _plans.length];
-                                
+
                                 // Scale logic: Still works with large indices
                                 double diff = (index - _currentPage).abs().clamp(0.0, 1.0);
-                                double scale = 1.0 - (diff * 0.165); 
-                                double opacity = 1.0 - (diff * 0.5); 
-                                
+                                double scale = 1.0 - (diff * 0.165);
+                                double opacity = 1.0 - (diff * 0.5);
+
                                 return Opacity(
                                   opacity: opacity,
                                   child: dynamicCard(
@@ -798,10 +803,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                             future: Future.value(_credits),
                             builder: (context, snapshot) {
                               final credits = _credits;
-                              
+
                               String planLabel = "1 free credit to start";
                               String? renewalText;
-                              
+
                               if (_activePromoPlan != null) {
                                 planLabel = _activePromoPlan!;
                                 if (_promoActivationTime != null) {
@@ -822,7 +827,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               } else if (_subscriptionStatus == 3) {
                                 planLabel = "Yearly Subscription";
                               }
-                              
+
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -846,7 +851,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                   fontWeight: FontWeight.w600,
                                                   height: 1.1,
                                                 ),
-                                              ), 
+                                              ),
                                               const Text(
                                                 "This Month",
                                                 style: TextStyle(
@@ -878,7 +883,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                             ],
                                           ),
                                         ),
-                                        Container( 
+                                        Container(
                                           width: 1,
                                           height: 115,
                                           color: const Color(0xff8A99A6),
@@ -887,7 +892,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                         Padding(
                                           padding: const EdgeInsets.only(right: 10),
                                           child: Text(
-                                            "$credits", 
+                                            "$credits",
                                             style: const TextStyle(
                                               color: Color(0xFFA8B6C2),
                                               fontSize: 128,
@@ -898,7 +903,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                       ],
                                     ),
                                   ),
-                                
+
                                 ],
                               );
                             },
@@ -910,88 +915,88 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ),
                 ),
                 Builder(
-                  builder: (context) {
-                    final activePlanIndex = _currentPage.round() % _plans.length;
-                    final activePlan = _plans[activePlanIndex];
-                    final planId = activePlan["id"].toString();
-                    final isTopup = planId.startsWith("credit_");
-                    final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
-                    
-                    String buttonText = "Start 7-Day Free Trial";
-                    if (isTopup) {
-                      buttonText = "Purchase ${activePlan['big']} Credits";
-                    } else if (_subscriptionStatus == 1) {
-                      if (planId == "trial") {
-                        buttonText = "Free Trial (Current)";
-                      } else {
-                        buttonText = "Upgrade plan";
-                      }
-                    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-                      if (planId == "trial") {
-                        buttonText = "Free Trial (Used)";
-                      } else {
-                        buttonText = "Upgrade your plan";
-                      }
-                    } else {
-                      if (planId == "trial") {
-                        buttonText = "Start 7-Day Free Trial";
-                      } else {
-                        buttonText = "Subscribe to ${planId == 'monthly' ? 'Monthly' : 'Yearly'}";
-                      }
-                    }
+                    builder: (context) {
+                      final activePlanIndex = _currentPage.round() % _plans.length;
+                      final activePlan = _plans[activePlanIndex];
+                      final planId = activePlan["id"].toString();
+                      final isTopup = planId.startsWith("credit_");
+                      final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
 
-                    if (_activePromoPlan != null && !isTopup) {
-                      buttonText = _activePromoPlan!;
-                    }
-                    
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      color: const Color(0xFF002C3E),
-                      child: Row(
-                        children: [
-                          // IconButton(
-                          //   onPressed: () => Navigator.pop(context),
-                          //   icon: const Icon(Icons.arrow_back, color: Colors.white70, size: 28),
-                          // ),
-                          const SizedBox(),
-                          const Spacer(),
-                          Text(
-                            buttonText,
-                            style: TextStyle(
-                              color: isCtaDisabled ? const Color(0xFF8A99A6) : Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
+                      String buttonText = "Start 7-Day Free Trial";
+                      if (isTopup) {
+                        buttonText = "Purchase ${activePlan['big']} Credits";
+                      } else if (_subscriptionStatus == 1) {
+                        if (planId == "trial") {
+                          buttonText = "Free Trial (Current)";
+                        } else {
+                          buttonText = "Upgrade plan";
+                        }
+                      } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
+                        if (planId == "trial") {
+                          buttonText = "Free Trial (Used)";
+                        } else {
+                          buttonText = "Upgrade your plan";
+                        }
+                      } else {
+                        if (planId == "trial") {
+                          buttonText = "Start 7-Day Free Trial";
+                        } else {
+                          buttonText = "Subscribe to ${planId == 'monthly' ? 'Monthly' : 'Yearly'}";
+                        }
+                      }
+
+                      if (_activePromoPlan != null && !isTopup) {
+                        buttonText = _activePromoPlan!;
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        color: const Color(0xFF002C3E),
+                        child: Row(
+                          children: [
+                            // IconButton(
+                            //   onPressed: () => Navigator.pop(context),
+                            //   icon: const Icon(Icons.arrow_back, color: Colors.white70, size: 28),
+                            // ),
+                            const SizedBox(),
+                            const Spacer(),
+                            Text(
+                              buttonText,
+                              style: TextStyle(
+                                color: isCtaDisabled ? const Color(0xFF8A99A6) : Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          GestureDetector(
-                            onTap: isCtaDisabled
-                                ? null
-                                : () => _handlePayment(activePlan),
-                            child: isCtaDisabled
-                                ? Container(
-                                    width: 64,
-                                    height: 64,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF4A5A6A),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.arrow_forward,
-                                      color: Color(0xFF8A99A6),
-                                      size: 32,
-                                    ),
-                                  )
-                                : SvgPicture.asset(
-                                    "assets/svg/nextbutton.svg",
-                                    width: 64,
-                                    height: 64,
-                                  ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                            const SizedBox(width: 16),
+                            GestureDetector(
+                              onTap: isCtaDisabled
+                                  ? null
+                                  : () => _handlePayment(activePlan),
+                              child: isCtaDisabled
+                                  ? Container(
+                                width: 64,
+                                height: 64,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF4A5A6A),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward,
+                                  color: Color(0xFF8A99A6),
+                                  size: 32,
+                                ),
+                              )
+                                  : SvgPicture.asset(
+                                "assets/svg/nextbutton.svg",
+                                width: 64,
+                                height: 64,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                 ),
               ],
             ),
@@ -1049,4 +1054,3 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     );
   }
 }
-

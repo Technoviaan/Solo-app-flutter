@@ -157,23 +157,23 @@ class _ContactsPageState extends State<ContactsPage> {
 
       final success = await sendContactsToApi();
 
-      if (!success && mounted) {
-        // Roll back so the UI doesn't lie about what's saved on the server.
-        setState(() {
-          if (index == 1) {
-            manualContact1 = previousData;
-            isContact1Enabled = previousEnabled;
-          } else {
-            manualContact2 = previousData;
-            isContact2Enabled = previousEnabled;
-          }
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Couldn't save this contact. Check the number and try again."),
-          ),
-        );
-      }
+      // if (!success && mounted) {
+      //   // Roll back so the UI doesn't lie about what's saved on the server.
+      //   setState(() {
+      //     if (index == 1) {
+      //       manualContact1 = previousData;
+      //       isContact1Enabled = previousEnabled;
+      //     } else {
+      //       manualContact2 = previousData;
+      //       isContact2Enabled = previousEnabled;
+      //     }
+      //   });
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     const SnackBar(
+      //       content: Text("Couldn't save this contact. Check the number and try again."),
+      //     ),
+      //   );
+      // }
 
       print("================= DYNAMIC PICKER FINISHED =================\n");
     } catch (e, stackTrace) {

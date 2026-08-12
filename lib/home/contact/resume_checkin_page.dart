@@ -17,7 +17,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
     with SingleTickerProviderStateMixin {
   String _userName = "";
   String _greeting = "";
-  bool _isResumed = false; // false = Paused (Red), true = Resumed (Teal)
+  bool _isResumed = true; // false = Paused (Red), true = Resumed (Teal)
   DateTime? _nextCheckinTime;
   DateTime? _previousCheckinTime;
 
@@ -32,6 +32,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
     _loadUser();
     _loadNextTime();
     _loadPreviousCheckinTime();
+    _autoArmOnFirstLoad();
 
     _pulseCtrl = AnimationController(
       vsync: this,
@@ -96,6 +97,28 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
     final min = time.minute.toString().padLeft(2, '0');
     final ampm = time.hour >= 12 ? "PM" : "AM";
     return "$hour:$min $ampm";
+  }
+
+  /// 🛠️ FIX: This screen is only ever reached right after onboarding
+  /// (SchedulePage → ContactsPage → here), so there is nothing to
+  /// "resume" on first load — the schedule the user just picked needs to
+  /// be armed immediately, the same way the Developer Tools "Test Alert"
+  /// buttons arm instantly with no extra tap. Previously this screen
+  /// defaulted to the paused/red state and only called
+  /// scheduleMissedCheckinFlow() if the user manually tapped the toggle,
+  /// so a real schedule could silently never fire while the test alerts
+  /// (which call NotificationService directly) always worked.
+  Future<void> _autoArmOnFirstLoad() async {
+    // Don't re-arm if a real check-in is already active and in the future
+    // (e.g. hot restart while this screen is still mounted).
+    final activeTime = await LocalStorage.getActiveCheckinTime();
+    if (activeTime != null && activeTime.isAfter(DateTime.now())) {
+      if (mounted) setState(() => _isResumed = true);
+      return;
+    }
+
+    if (mounted) setState(() => _isResumed = true);
+    await _resumeCheckinFlow();
   }
 
   Future<void> _resumeCheckinFlow() async {

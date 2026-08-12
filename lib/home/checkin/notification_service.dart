@@ -22,7 +22,7 @@ class NotificationService {
   static StreamSubscription<dynamic>? _ringSub;
   static bool _isNavigationInProgress = false;
   static final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin();
 
   static Future init() async {
     try {
@@ -37,9 +37,9 @@ class NotificationService {
     try {
       // Initialize local notifications
       const AndroidInitializationSettings androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+      AndroidInitializationSettings('@mipmap/ic_launcher');
       const InitializationSettings settings =
-          InitializationSettings(android: androidSettings);
+      InitializationSettings(android: androidSettings);
 
       await _localNotifications.initialize(
         settings,
@@ -70,7 +70,7 @@ class NotificationService {
       try {
         if (alarmSet.alarms.isEmpty) return;
         final active = alarmSet.alarms.first;
-        
+
         print("🔔 ALARM RINGING TRIGGERED: id ${active.id}");
 
         // 🚀 Force app to foreground
@@ -112,7 +112,7 @@ class NotificationService {
       for (final alarm in alarms) {
         if (await Alarm.isRinging(alarm.id)) {
           print("🔔 Alarm ${alarm.id} is ringing on startup! Navigating...");
-          
+
           // 🚀 Auto-stop alarm after 20 seconds if it's still ringing
           Timer(const Duration(seconds: 20), () async {
             if (await Alarm.isRinging(alarm.id)) {
@@ -151,10 +151,10 @@ class NotificationService {
 
   static Future<void> triggerImmediateCheckinAlarm() async {
     print("🚀 Triggering immediate check-in alarm from FCM Push");
-    
+
     // 🚀 Force screen to wake up immediately even if unlocked
     bringToForeground();
-    
+
     final now = DateTime.now().add(const Duration(seconds: 1));
     await scheduleNotification(
       now,
@@ -182,7 +182,7 @@ class NotificationService {
     );
 
     const NotificationDetails notificationDetails =
-        NotificationDetails(android: androidDetails);
+    NotificationDetails(android: androidDetails);
 
     await _localNotifications.show(
       settings.id,
@@ -228,7 +228,7 @@ class NotificationService {
     );
 
     const NotificationDetails notificationDetails =
-        NotificationDetails(android: androidDetails);
+    NotificationDetails(android: androidDetails);
 
     final timeStr = "${nextTime.hour % 12 == 0 ? 12 : nextTime.hour % 12}:${nextTime.minute.toString().padLeft(2, '0')} ${nextTime.hour >= 12 ? 'PM' : 'AM'}";
 
@@ -246,9 +246,24 @@ class NotificationService {
 
   static bool isHandlingAlarm = false;
 
+  // 🛠️ FIX: Holds a scheduledTime whose navigation attempt timed out while
+  // the app was frozen in the background. Call retryPendingNavigationIfAny()
+  // from app.dart's WidgetsBindingObserver.didChangeAppLifecycleState when
+  // state == AppLifecycleState.resumed, so we finish the deferred navigation
+  // the moment the user actually looks at the app again.
+  static DateTime? _pendingCheckinTime;
+
+  static Future<void> retryPendingNavigationIfAny() async {
+    final pending = _pendingCheckinTime;
+    if (pending != null) {
+      print("🔁 Retrying deferred check-in navigation for $pending");
+      await navigateToSavedCheckin(pending);
+    }
+  }
+
   static Future<void> navigateToCheckin(AlarmSettings settings) async {
     isHandlingAlarm = true;
-    
+
     // 🚀 CRITICAL: Use the stored active check-in time if available.
     // This ensures that even if a reminder notification (which triggers later)
     // opens the screen, the timer still shows progress from the ORIGINAL due time.
@@ -276,21 +291,32 @@ class NotificationService {
     final name = await LocalStorage.getUserName();
     final testWindowSeconds = await LocalStorage.getTestWindowSeconds();
 
-    // Wait for navigator to be ready
+    // Wait for navigator to be ready.
+    // 🛠️ FIX: In a release build, when the app has been frozen/throttled in
+    // the background (Doze / app-standby), the Dart engine can take much
+    // longer than the old 5s budget to resume and attach the navigator.
+    // We now wait up to 20s (200 x 100ms) instead of 5s (50 x 100ms).
     int retryCount = 0;
-    while (navigatorKey.currentState == null && retryCount < 50) {
+    while (navigatorKey.currentState == null && retryCount < 200) {
       await Future.delayed(const Duration(milliseconds: 100));
       retryCount++;
     }
 
     if (navigatorKey.currentState == null) {
-      print("❌ Navigator still not ready after 5 seconds. Navigation failed.");
+      // 🛠️ FIX: Don't just give up silently. Remember that a navigation is
+      // still owed, so that when the app is actually brought to the
+      // foreground (WidgetsBindingObserver in app.dart calls
+      // retryPendingNavigationIfAny()), we finish the job instead of
+      // leaving the user stuck on whatever screen was frozen on screen.
+      print("❌ Navigator still not ready after 20 seconds. Deferring navigation.");
+      _pendingCheckinTime = scheduledTime;
       _isNavigationInProgress = false;
       return;
     }
+    _pendingCheckinTime = null;
 
     print("✅ Navigator ready. Pushing CheckinScreen for $scheduledTime...");
-    
+
     try {
       await navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(
@@ -301,7 +327,7 @@ class NotificationService {
             testWindowSeconds: testWindowSeconds,
           ),
         ),
-        (route) => route.isFirst,
+            (route) => route.isFirst,
       );
     } catch (e) {
       print("❌ Error during navigation: $e");
@@ -311,11 +337,11 @@ class NotificationService {
   }
 
   static Future<void> scheduleNotification(
-    DateTime scheduledTime, {
-    required int id,
-    required String title,
-    required String body,
-  }) async {
+      DateTime scheduledTime, {
+        required int id,
+        required String title,
+        required String body,
+      }) async {
     if (scheduledTime.isBefore(DateTime.now())) return;
 
     final voice = await LocalStorage.getVoice();
@@ -508,7 +534,7 @@ class NotificationService {
   static Future<void> cancelAllCheckinNotifications() async {
     await LocalStorage.saveActiveCheckinTime(null);
     await cancelOngoingMonitoringNotification();
-    
+
     // Use a more focused range of IDs and run them in parallel for speed
     final idsToCancel = [
       1000, // Check-in Time
