@@ -106,12 +106,37 @@ class NotificationService {
     }
 
     // 🚀 NEW: Check if an alarm is already ringing or if we have an active check-in session
+    //
+    // 🛠️ FIX (root cause of "missed check-in sometimes opens the wrong
+    // screen"): this whole init() function is `await`ed by main() BEFORE
+    // `runApp()` is called. That means `navigatorKey` has no navigator
+    // attached yet at this exact point. The old code called
+    // `navigateToCheckin`/`navigateToSavedCheckin` directly here — those
+    // functions busy-wait up to 20 seconds for `navigatorKey.currentState`,
+    // but it can never become ready until AFTER this function returns and
+    // `runApp()` finally runs. So every cold start with an overdue/ringing
+    // check-in was deadlocked for 20s, then gave up and stashed
+    // `_pendingCheckinTime`, relying on `didChangeAppLifecycleState`'s
+    // `resumed` case to finish the job later. But on a cold start the app is
+    // already "resumed" the instant SoloApp's observer registers — there is
+    // no transition to catch — so that pending navigation was silently
+    // dropped and the user landed on whatever SplashScreen/Home defaulted
+    // to instead of the SOS/check-in screen.
+    //
+    // Fix: don't navigate here at all. Just record that navigation is owed
+    // (isHandlingAlarm + _pendingCheckinTime). app.dart now fires
+    // retryPendingNavigationIfAny() from a post-frame callback right after
+    // the very first frame — the earliest possible moment the navigator can
+    // exist — so this always actually happens, on every cold start, with no
+    // dependency on a lifecycle transition.
     try {
+      final activeTime = await LocalStorage.getActiveCheckinTime();
+      DateTime? pendingTime;
+
       final alarms = await Alarm.getAlarms();
-      bool ringing = false;
       for (final alarm in alarms) {
         if (await Alarm.isRinging(alarm.id)) {
-          print("🔔 Alarm ${alarm.id} is ringing on startup! Navigating...");
+          print("🔔 Alarm ${alarm.id} is ringing on startup! Queuing SOS navigation...");
 
           // 🚀 Auto-stop alarm after 20 seconds if it's still ringing
           Timer(const Duration(seconds: 20), () async {
@@ -122,25 +147,37 @@ class NotificationService {
             }
           });
 
-          await navigateToCheckin(alarm);
-          ringing = true;
+          // Prefer the original stored due time (same reasoning as
+          // navigateToCheckin) so the SOS screen shows the correct elapsed
+          // progress instead of restarting from whichever alarm id rang.
+          pendingTime = activeTime ?? alarm.dateTime;
           break;
         }
       }
 
-      if (!ringing) {
-        final activeTime = await LocalStorage.getActiveCheckinTime();
-        if (activeTime != null) {
-          // If the active checkin time is in the past, it means a check-in is overdue
-          if (DateTime.now().isAfter(activeTime)) {
-            print("🕒 Overdue check-in detected on startup! Navigating...");
-            await navigateToSavedCheckin(activeTime);
-          }
-        }
+      // If nothing is actively ringing, fall back to an overdue saved
+      // check-in (e.g. process was killed by the OS between the due time
+      // and now, so no alarm ever got the chance to ring in this run).
+      if (pendingTime == null &&
+          activeTime != null &&
+          DateTime.now().isAfter(activeTime)) {
+        print("🕒 Overdue check-in detected on startup! Queuing SOS navigation...");
+        pendingTime = activeTime;
+      }
+
+      if (pendingTime != null) {
+        isHandlingAlarm = true;
+        _pendingCheckinTime = pendingTime;
       }
     } catch (e) {
       print("⚠️ Error checking ringing/active alarms on startup: $e");
     }
+
+    // 🛠️ FIX: Start the overdue-check-in safety net (see
+    // ensureSosScreenIfOverdue doc comment above) so a missed check-in
+    // always eventually forces the SOS screen even if Alarm.ringing itself
+    // never fires while the app is minimized.
+    startOverdueSafetyTimer();
 
     // 🚀 NEW: Listen for foreground FCM messages to trigger full screen wake
     fcm.FirebaseMessaging.onMessage.listen((fcm.RemoteMessage message) {
@@ -287,6 +324,53 @@ class NotificationService {
   }
 
   static bool isHandlingAlarm = false;
+
+  // 🛠️ FIX: Set true/false from CheckinScreen's initState/dispose. Lets the
+  // safety-net check below know a SOS screen is already showing, so it
+  // doesn't re-push a duplicate on top of itself.
+  static bool isCheckinScreenActive = false;
+
+  static Timer? _overdueSafetyTimer;
+
+  /// 🛠️ FIX: Independent safety net for the "app was open/minimized (not
+  /// killed), missed check-in happened, but the screen stayed on
+  /// Home/ResumeCheckinPage instead of switching to the SOS screen" bug.
+  ///
+  /// The normal path relies entirely on the `Alarm.ringing` stream firing
+  /// at the due time. On several Indian OEMs (MIUI, ColorOS/Oppo, FuntouchOS
+  /// /Vivo, Realme UI) a minimized app's background isolate can get
+  /// throttled/frozen even though the process itself was never killed, so
+  /// that stream event can be delayed or dropped entirely — the app is
+  /// technically "alive" but never actually reacts.
+  ///
+  /// This check doesn't care whether the alarm rang or not: it just asks
+  /// "is there an active check-in whose due time has already passed, and is
+  /// the SOS screen NOT currently showing?" If so, it forces navigation
+  /// itself. It's called from app.dart on every `resumed` lifecycle event
+  /// (covers "user manually reopens/unminimizes the app") AND from a
+  /// periodic timer below (covers "OS wakes the isolate briefly on its own
+  /// schedule while the app sits minimized").
+  static Future<void> ensureSosScreenIfOverdue() async {
+    if (isCheckinScreenActive) return;
+    try {
+      final activeTime = await LocalStorage.getActiveCheckinTime();
+      if (activeTime == null) return;
+      if (DateTime.now().isAfter(activeTime)) {
+        print("🕒 [Safety-net] Overdue check-in found (due $activeTime) but SOS screen isn't showing — forcing navigation.");
+        isHandlingAlarm = true;
+        await navigateToSavedCheckin(activeTime);
+      }
+    } catch (e) {
+      print("⚠️ [Safety-net] Error in ensureSosScreenIfOverdue: $e");
+    }
+  }
+
+  static void startOverdueSafetyTimer() {
+    _overdueSafetyTimer?.cancel();
+    _overdueSafetyTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      ensureSosScreenIfOverdue();
+    });
+  }
 
   // 🛠️ FIX: Holds a scheduledTime whose navigation attempt timed out while
   // the app was frozen in the background. Call retryPendingNavigationIfAny()

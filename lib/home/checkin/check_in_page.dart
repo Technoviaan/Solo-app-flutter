@@ -50,6 +50,11 @@ class _CheckinScreenState extends State<CheckinScreen> {
   void initState() {
     super.initState();
 
+    // 🛠️ FIX: Lets NotificationService's overdue safety-net know the SOS
+    // screen is already on screen, so it doesn't try to push a duplicate
+    // copy on top of itself.
+    NotificationService.isCheckinScreenActive = true;
+
     // Enable immersive full screen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
 
@@ -288,6 +293,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
   @override
   void dispose() {
     NotificationService.isHandlingAlarm = false;
+    NotificationService.isCheckinScreenActive = false;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,

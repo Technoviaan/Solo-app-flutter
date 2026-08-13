@@ -16,6 +16,19 @@ class _SoloAppState extends State<SoloApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // 🛠️ FIX: On a cold start the app is already "resumed" the instant this
+    // observer registers, so didChangeAppLifecycleState's `resumed` branch
+    // below never fires for it — there's no transition to catch. Any
+    // missed-check-in navigation queued by NotificationService.init()
+    // (which runs before runApp(), see notification_service.dart) would
+    // otherwise sit stuck in `_pendingCheckinTime` forever, and the user
+    // would land on Home/Splash instead of the SOS screen. Firing this once
+    // right after the first frame — the earliest point navigatorKey has a
+    // navigator attached — guarantees that queued navigation always runs.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.retryPendingNavigationIfAny();
+    });
   }
 
   @override
@@ -28,6 +41,13 @@ class _SoloAppState extends State<SoloApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       NotificationService.retryPendingNavigationIfAny();
+      // 🛠️ FIX: Whenever the user brings the app back to the foreground
+      // (unminimizes it), independently double-check whether an active
+      // check-in's due time has already passed. This is what forces the
+      // SOS screen even when Alarm.ringing itself never fired while the
+      // app sat minimized — see ensureSosScreenIfOverdue in
+      // notification_service.dart.
+      NotificationService.ensureSosScreenIfOverdue();
     }
   }
 
