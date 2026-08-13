@@ -58,5 +58,19 @@
 	<string>SOLO needs contacts access so you can add trusted emergency contacts.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SOLO needs photo library access to let you choose a profile photo.</string>
+	<!-- Deep link for Stripe Checkout success/cancel redirects. Backend
+	     redirects the browser to solo://payment-success or
+	     solo://payment-cancel after payment. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.solo.app.payment</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>solo</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

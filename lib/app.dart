@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solo_app/core/deeplink/deep_link_service.dart';
 import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/splash_screen.dart';
@@ -29,11 +30,19 @@ class _SoloAppState extends State<SoloApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.retryPendingNavigationIfAny();
     });
+
+    // 🔗 Handle solo://payment-success and solo://payment-cancel deep links
+    // that the backend redirects Stripe Checkout to after payment. Started
+    // here (rather than in main()) for the same reason as the callback
+    // above: navigatorKey needs a navigator attached before we can push a
+    // route for a cold-start deep link.
+    DeepLinkService.init();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    DeepLinkService.dispose();
     super.dispose();
   }
 

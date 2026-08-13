@@ -1318,6 +1318,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   /// ================= PAYMENT / UPGRADE HANDLER =================
+  /// ================= PAYMENT / UPGRADE HANDLER =================
   Future<void> _handlePayment(Map<String, dynamic> plan) async {
     final planId = plan["id"] as String;
     final priceId = plan["priceId"] as String?;
@@ -1342,20 +1343,15 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     setState(() => _isLoading = true);
 
     String? sessionUrl;
-    bool usedPortal = false;
 
     if (planId == "trial") {
-      // Free Trial Flow -> Hit /stripe/create-trial with Monthly Price ID
+      // Free Trial Flow
       sessionUrl = await StripeApi.createTrialSession(priceId!);
     } else if (isTopup) {
       // Credit Top-up Flow
       sessionUrl = await StripeApi.createTopupSession(priceId!);
-    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-      // Active Paid User -> Customer Portal
-      sessionUrl = await StripeApi.openPortal();
-      usedPortal = true;
     } else {
-      // Monthly or Yearly Direct Subscription -> /stripe/create-subscription
+      // Monthly / Yearly Direct Subscription OR Upgrade -> Always Open Stripe Checkout
       sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
     }
 
@@ -1363,29 +1359,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
-      debugPrint(
-        "💳 [SubscriptionPage] Attempting to launch ${usedPortal ? 'Portal' : 'Stripe checkout'} URL: $sessionUrl",
-      );
       try {
-        final canLaunch = await canLaunchUrl(uri);
-        debugPrint("💳 [SubscriptionPage] canLaunchUrl() = $canLaunch");
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-        debugPrint("✅ [SubscriptionPage] launchUrl() returned without throwing");
-
-        setState(() => _isLoading = true);
-        await Future.delayed(const Duration(milliseconds: 2500));
-
-        await SubscriptionApi.getSubscriptionStatus();
-        await _loadPromoState();
-
-        if (mounted) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Subscription status updated successfully")),
-          );
-        }
       } catch (e) {
-        debugPrint("❌ [SubscriptionPage] launchUrl() FAILED with error: $e");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Could not open payment page: $e")),
@@ -1407,7 +1383,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
   }
-
   Future<void> _openManagePortal() async {
     if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1958,39 +1933,55 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 planLabel = "Yearly Subscription";
                               }
 
+                              // 💡 DYNAMIC FONT SIZE FOR DIGITS
+                              // 1 Digit (e.g. 0, 3) -> 100px
+                              // 2 Digits (e.g. 36) -> 75px
+                              // 3+ Digits (e.g. 999) -> 52px
+                              final String creditStr = "$credits";
+                              final double dynamicFontSize = creditStr.length <= 1
+                                  ? 100.0
+                                  : creditStr.length == 2
+                                  ? 75.0
+                                  : 52.0;
+
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.only(left: 20, right: 10, top: 0, bottom: 0),
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF114B5F),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
+                                        // ── Left Info Column ──
                                         Expanded(
+                                          flex: 5,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               const Text(
                                                 "Available\nCredits",
                                                 style: TextStyle(
                                                   color: Color(0xFFA8B6C2),
-                                                  fontSize: 32,
+                                                  fontSize: 26, // Scaled down slightly to guarantee 2-lines
                                                   fontWeight: FontWeight.w600,
                                                   height: 1.1,
                                                 ),
                                               ),
+                                              const SizedBox(height: 2),
                                               const Text(
                                                 "This Month",
                                                 style: TextStyle(
                                                   color: Color(0xff89BCC8),
-                                                  fontSize: 16,
+                                                  fontSize: 15,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
-                                              const SizedBox(height: 12),
+                                              const SizedBox(height: 10),
                                               Text(
                                                 planLabel,
                                                 style: const TextStyle(
@@ -2000,7 +1991,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                 ),
                                               ),
                                               if (renewalText != null) ...[
-                                                const SizedBox(height: 4),
+                                                const SizedBox(height: 2),
                                                 Text(
                                                   renewalText,
                                                   style: const TextStyle(
@@ -2013,125 +2004,105 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                             ],
                                           ),
                                         ),
+
+                                        // ── Vertical Divider ──
                                         Container(
                                           width: 1,
-                                          height: 115,
+                                          height: 90,
                                           color: const Color(0xff8A99A6),
-                                          margin: const EdgeInsets.symmetric(horizontal: 30),
+                                          margin: const EdgeInsets.symmetric(horizontal: 12),
                                         ),
-                                        Padding(
-                                          padding: const EdgeInsets.only(right: 10),
-                                          child: Text(
-                                            "$credits",
-                                            style: const TextStyle(
-                                              color: Color(0xFFA8B6C2),
-                                              fontSize: 128,
-                                              fontWeight: FontWeight.w500,
+
+                                        // ── Right Dynamic Digits Box ──
+                                        Expanded(
+                                          flex: 4,
+                                          child: Center(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                creditStr,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: const Color(0xFFA8B6C2),
+                                                  fontSize: dynamicFontSize,
+                                                  fontWeight: FontWeight.w500,
+                                                  height: 1.0,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  if (_subscriptionStatus == 2 || _subscriptionStatus == 3) ...[
-                                    const SizedBox(height: 16),
-                                    GestureDetector(
-                                      onTap: _isLoading ? null : _openManagePortal,
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF114B5F),
-                                          borderRadius: BorderRadius.circular(20),
-                                          border: Border.all(color: const Color(0xFF78BCC4), width: 1),
-                                        ),
-                                        child: const Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              "Manage Subscription",
-                                              style: TextStyle(
-                                                color: Color(0xFF78BCC4),
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            Icon(
-                                              Icons.arrow_forward_ios,
-                                              color: Color(0xFF78BCC4),
-                                              size: 16,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                 ],
                               );
                             },
-                          ),
-                          const SizedBox(height: 40),
+                          ),                          const SizedBox(height: 40),
                         ],
                       ),
                     ),
                   ),
                 ),
                 Builder(
-                    builder: (context) {
-                      final activePlanIndex = _currentPage.round() % _plans.length;
-                      final activePlan = _plans[activePlanIndex];
-                      final planId = activePlan["id"].toString();
-                      final isTopup = planId.startsWith("credit_");
-                      final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
+                  builder: (context) {
+                    final activePlanIndex = _currentPage.round() % _plans.length;
+                    final activePlan = _plans[activePlanIndex];
+                    final planId = activePlan["id"].toString();
+                    final isTopup = planId.startsWith("credit_");
+                    final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
 
-                      String buttonText = "Start 7-Day Free Trial";
-                      if (isTopup) {
-                        buttonText = "Purchase ${activePlan['big']} Credits";
-                      } else if (_subscriptionStatus == 1) {
-                        if (planId == "trial") {
-                          buttonText = "Free Trial (Current)";
-                        } else {
-                          buttonText = "Upgrade plan";
-                        }
-                      } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-                        if (planId == "trial") {
-                          buttonText = "Free Trial (Used)";
-                        } else {
-                          buttonText = "Upgrade your plan";
-                        }
+                    String buttonText = "Start 7-Day Free Trial";
+                    if (isTopup) {
+                      buttonText = "Purchase ${activePlan['big']} Credits";
+                    } else if (_subscriptionStatus == 1) {
+                      if (planId == "trial") {
+                        buttonText = "Free Trial (Current)";
                       } else {
-                        if (planId == "trial") {
-                          buttonText = "Start 7-Day Free Trial";
-                        } else {
-                          buttonText = "Subscribe to ${planId == 'monthly' ? 'Monthly' : 'Yearly'}";
-                        }
+                        buttonText = "Upgrade plan";
                       }
-
-                      if (_activePromoPlan != null && !isTopup) {
-                        buttonText = _activePromoPlan!;
+                    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
+                      if (planId == "trial") {
+                        buttonText = "Free Trial (Used)";
+                      } else {
+                        buttonText = "Upgrade your plan";
                       }
+                    } else {
+                      if (planId == "trial") {
+                        buttonText = "Start 7-Day Free Trial";
+                      } else {
+                        buttonText = "Subscribe to ${planId == 'monthly' ? 'Monthly' : 'Yearly'}";
+                      }
+                    }
 
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        color: const Color(0xFF002C3E),
+                    if (_activePromoPlan != null && !isTopup) {
+                      buttonText = _activePromoPlan!;
+                    }
+
+                    // 💡 Trial used/current check for click disable
+                    bool isTrialDisabled = (planId == "trial") && (_subscriptionStatus >= 1);
+                    bool shouldDisableClick = isCtaDisabled || isTrialDisabled;
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      color: const Color(0xFF002C3E),
+                      child: InkWell(
+                        onTap: shouldDisableClick ? null : () => _handlePayment(activePlan),
                         child: Row(
                           children: [
-                            const SizedBox(),
                             const Spacer(),
                             Text(
                               buttonText,
                               style: TextStyle(
-                                color: isCtaDisabled ? const Color(0xFF8A99A6) : Colors.white,
+                                color: shouldDisableClick ? const Color(0xFF8A99A6) : Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             const SizedBox(width: 16),
                             GestureDetector(
-                              onTap: isCtaDisabled
-                                  ? null
-                                  : () => _handlePayment(activePlan),
-                              child: isCtaDisabled
+                              onTap: shouldDisableClick ? null : () => _handlePayment(activePlan),
+                              child: shouldDisableClick
                                   ? Container(
                                 width: 64,
                                 height: 64,
@@ -2153,10 +2124,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                             ),
                           ],
                         ),
-                      );
-                    }
-                ),
-              ],
+                      ),
+                    );
+                  },
+                )              ],
             ),
             if (_isLoading)
               Container(
