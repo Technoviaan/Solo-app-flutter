@@ -147,6 +147,48 @@ class NotificationService {
       print("🔔 Foreground FCM message received: ${message.messageId}");
       triggerImmediateCheckinAlarm();
     });
+
+    // 🛠️ FIX: These two were missing entirely, and they're exactly why
+    // tapping a push notification could land you back on "whatever screen
+    // was open" (the resume screen) instead of the SOS screen. Without
+    // them, Android's default behaviour for a tapped FCM notification is
+    // simply to bring the existing activity back to the front — no app
+    // code runs, so nothing tells it to open the check-in screen.
+
+    // App was in background (not killed) and the user tapped the
+    // notification to open it.
+    fcm.FirebaseMessaging.onMessageOpenedApp.listen((fcm.RemoteMessage message) {
+      print("🔔 Notification tapped while app in background: ${message.messageId}");
+      _goToCheckinFromNotificationTap();
+    });
+
+    // App was fully killed and got cold-started by tapping the notification.
+    try {
+      final initialMessage = await fcm.FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        print("🔔 App cold-started from notification tap: ${initialMessage.messageId}");
+        _goToCheckinFromNotificationTap();
+      }
+    } catch (e) {
+      debugPrint("⚠️ Error reading initial FCM message: $e");
+    }
+  }
+
+  /// Shared handler for "user tapped a check-in related push notification":
+  /// always route straight to the SOS/check-in screen, regardless of
+  /// whatever screen the app happened to be showing.
+  static Future<void> _goToCheckinFromNotificationTap() async {
+    final alarms = await Alarm.getAlarms();
+    for (final alarm in alarms) {
+      if (await Alarm.isRinging(alarm.id)) {
+        await navigateToCheckin(alarm);
+        return;
+      }
+    }
+    final activeTime = await LocalStorage.getActiveCheckinTime();
+    if (activeTime != null) {
+      await navigateToSavedCheckin(activeTime);
+    }
   }
 
   static Future<void> triggerImmediateCheckinAlarm() async {
@@ -318,6 +360,14 @@ class NotificationService {
     print("✅ Navigator ready. Pushing CheckinScreen for $scheduledTime...");
 
     try {
+      // 🛠️ FIX: Previously used `(route) => route.isFirst`, which only
+      // clears routes ABOVE the very first (root) route and leaves that
+      // root route (e.g. Home, ResumeCheckinPage) sitting underneath the
+      // SOS screen. That leftover screen is what could flash/pop back into
+      // view (the "resume screen" the user kept landing on). We now clear
+      // the ENTIRE navigation stack so the SOS check-in screen is always
+      // the only screen, in every situation (foreground, background, or
+      // cold start via notification tap).
       await navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => CheckinScreen(
@@ -327,7 +377,7 @@ class NotificationService {
             testWindowSeconds: testWindowSeconds,
           ),
         ),
-            (route) => route.isFirst,
+            (route) => false,
       );
     } catch (e) {
       print("❌ Error during navigation: $e");
