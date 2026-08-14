@@ -1282,6 +1282,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     });
   }
 
+
+
   Future<void> _loadPromoState() async {
     final activePlan = await LocalStorage.getString("active_promo_plan");
     final activationTimeStr = await LocalStorage.getString("promo_activation_time");
@@ -1448,64 +1450,71 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   void _applyPromoCode() async {
-    final code = _promoInput.toUpperCase();
-
-    if (_usedPromoCodes.contains(code)) {
-      setState(() {
-        _promoError = "Promo Code Already Used";
-      });
-      _clearErrorAfterDelay();
-      return;
-    }
-
-    String? promoType;
-    int subStatus = 0;
-    int grantCredits = 0;
-
-    if (code == "SOLO1MONTH" || code == "SOLOXXXXXX") {
-      promoType = "1 Month Free Access";
-      subStatus = 2;
-      grantCredits = 3;
-    } else if (code == "SOLO1YEAR") {
-      promoType = "1 Year Free Access";
-      subStatus = 3;
-      grantCredits = 36;
-    } else if (code == "SOLOUNLIMITED" || code == "SOLOLIFETIME") {
-      promoType = "Unlimited Free Access";
-      subStatus = 4;
-      grantCredits = 999;
-    } else {
-      setState(() {
-        _promoError = "Invalid Promo Code";
-      });
-      _clearErrorAfterDelay();
-      return;
-    }
-
-    _usedPromoCodes.add(code);
-    await TokenStorage.saveSubscriptionStatus(subStatus);
-
-    int currentCredits = await TokenStorage.getCredits();
-    await TokenStorage.saveCredits(currentCredits + grantCredits);
-
-    final now = DateTime.now();
-    await LocalStorage.saveString("active_promo_plan", promoType);
-    await LocalStorage.saveString("promo_activation_time", now.toIso8601String());
-    await LocalStorage.saveStringList("used_promo_codes", _usedPromoCodes);
-    await LocalStorage.saveBool("hide_disclaimer", true);
+    final code = _promoInput.trim();
+    if (code.isEmpty) return;
 
     setState(() {
-      _activePromoPlan = promoType;
-      _promoActivationTime = now;
-      _hideDisclaimer = true;
-      _promoSuccess = true;
-      _promoSuccessMessage = "✓ $promoType Activated";
+      _isLoading = true;
       _promoError = null;
-      _promoInput = "";
-      _promoController.clear();
     });
-  }
 
+    final res = await SubscriptionApi.redeemPromoCode(code);
+
+    setState(() => _isLoading = false);
+
+    // Check status 200/201 aur success flag
+    final isSuccess = (res != null) &&
+        (res['statusCode'] == 200 || res['statusCode'] == 201) &&
+        (res['success'] == true);
+
+    if (isSuccess) {
+      final message = res["message"] ?? "Promo applied successfully";
+      final plan = res["plan"]?.toString().toUpperCase() ?? "MONTHLY";
+
+      String promoType = "1 Month Free Access";
+      int subStatus = 2;
+
+      if (plan == "YEARLY") {
+        promoType = "1 Year Free Access";
+        subStatus = 3;
+      } else if (plan == "LIFETIME" || plan == "UNLIMITED") {
+        promoType = "Unlimited Free Access";
+        subStatus = 4;
+      }
+
+      _usedPromoCodes.add(code.toUpperCase());
+      await TokenStorage.saveSubscriptionStatus(subStatus);
+
+      final now = DateTime.now();
+      await LocalStorage.saveString("active_promo_plan", promoType);
+      await LocalStorage.saveString("promo_activation_time", now.toIso8601String());
+      await LocalStorage.saveStringList("used_promo_codes", _usedPromoCodes);
+      await LocalStorage.saveBool("hide_disclaimer", true);
+
+      // Backend se fresh subscription status aur updated credits sync karein
+      await SubscriptionApi.getSubscriptionStatus();
+      await _loadPromoState();
+
+      setState(() {
+        _activePromoPlan = promoType;
+        _promoActivationTime = now;
+        _hideDisclaimer = true;
+        _promoSuccess = true;
+        _promoSuccessMessage = "✓ $message";
+        _promoError = null;
+        _promoInput = "";
+        _promoController.clear();
+      });
+    } else {
+      // Backend error key ya message key se exact error uthayega (e.g. "Already used")
+      final errorText = res?["error"] ?? res?["message"] ?? "Invalid Promo Code";
+
+      setState(() {
+        _promoError = errorText;
+      });
+      _clearErrorAfterDelay();
+    }
+  }
   void _clearErrorAfterDelay() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
@@ -1627,6 +1636,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     super.dispose();
   }
 
+  /// ================= UNIFIED CARD WIDGET =================
   Widget dynamicCard({
     required String bigNumber,
     required String title,
@@ -1687,15 +1697,17 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                         color: Colors.black87,
                       ),
                     ),
+                    // 🔥 Extra Bold & Solid Price Text
                     Text(
                       price,
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900, // 👈 Maximum Heavy Bold
+                        color: Colors.black, // 👈 Pure Black for crisp sharpness
+                        letterSpacing: 0.5,
                       ),
                     ),
                     if (saveText != null)
@@ -1775,7 +1787,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     AppSize.init(context);

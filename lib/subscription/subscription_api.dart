@@ -89,4 +89,37 @@ class SubscriptionApi {
     if (statusStr == "YEARLY") return 3;
     return 0;
   }
+
+  /// ================= REDEEM PROMO CODE =================
+  /// POST /promo/redeem
+  static Future<Map<String, dynamic>?> redeemPromoCode(String code) async {
+    try {
+      final token = await TokenStorage.getToken();
+      final url = Uri.parse("${ApiConfig.baseUrl}/promo/redeem");
+
+      print("SubscriptionApi: Redeeming promo code: $code via $url");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({"code": code}),
+      );
+
+      print("SubscriptionApi: Promo response status = ${response.statusCode}");
+      print("SubscriptionApi: Promo response body = ${response.body}");
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      // Status code add kar dete hain response map me easy checking ke liye
+      data['statusCode'] = response.statusCode;
+      return data;
+    } catch (e) {
+      print("SubscriptionApi Error (redeemPromoCode): $e");
+      return null;
+    }
+  }
+
 }
