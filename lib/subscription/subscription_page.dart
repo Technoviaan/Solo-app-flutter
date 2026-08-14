@@ -1325,6 +1325,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final priceId = plan["priceId"] as String?;
     final isTopup = planId.startsWith("credit_");
 
+    // 1. Check top-up eligibility (Only for active Monthly (2) or Yearly (3) users)
     if (isTopup) {
       if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
         showTopupRestrictedDialog(context);
@@ -1332,6 +1333,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
 
+    // 2. Check trial redundancy
     if (planId == "trial") {
       if (_subscriptionStatus == 1) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1345,6 +1347,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     String? sessionUrl;
 
+    // 3. Create Stripe Session based on type
     if (planId == "trial") {
       sessionUrl = await StripeApi.createTrialSession(priceId!);
     } else if (isTopup) {
@@ -1353,25 +1356,50 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
     }
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
+    // 4. Launch Stripe URL & Refresh State
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
       try {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-        // 🔑 Payment complete hone ke baad status refresh karna zaroori hai
-        // taaki naye credits UI me turant reflect ho (add hokar).
+        if (!mounted) return;
         setState(() => _isLoading = true);
-        await Future.delayed(const Duration(milliseconds: 2500));
 
+        // Stripe webhook & backend processing wait
+        await Future.delayed(const Duration(milliseconds: 3500));
+
+        // 🔥 Top-up credits ko available credits me add karein
+        if (isTopup) {
+          int purchasedCredits = int.tryParse(plan["big"]?.toString() ?? "0") ?? 0;
+          int currentCredits = await TokenStorage.getCredits();
+          int newTotalCredits = currentCredits + purchasedCredits;
+
+          await TokenStorage.saveCredits(newTotalCredits);
+
+          if (mounted) {
+            setState(() {
+              _credits = newTotalCredits;
+            });
+          }
+        }
+
+        // Backend se fresh status sync
         await SubscriptionApi.getSubscriptionStatus();
         await _loadPromoState();
 
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Credits updated successfully")),
+            SnackBar(
+              content: Text(
+                isTopup
+                    ? "Top-up credits added successfully!"
+                    : "Subscription updated successfully",
+              ),
+            ),
           );
         }
       } catch (e) {
@@ -1396,8 +1424,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         );
       }
     }
-  }
-  Future<void> _openManagePortal() async {
+  }  Future<void> _openManagePortal() async {
     if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

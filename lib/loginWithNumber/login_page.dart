@@ -414,8 +414,14 @@ class _LoginPageState extends State<LoginPage> {
                   Column(
                     children: [
                       Text(
+                        // 🔑 Pehle yahan hamesha hardcoded "Incorrect code"
+                        // dikhta tha, chahe backend ne kuch bhi bheja ho —
+                        // isliye banned user ko bhi "incorrect OTP" dikhta
+                        // tha. Ab asli backend message (ban message included)
+                        // yahan dikhta hai; sirf jab error generic/empty ho
+                        // tabhi default "Incorrect code" fallback use hota hai.
                         error.isNotEmpty
-                            ? "Incorrect code, please try again"
+                            ? error
                             : (otp.isEmpty ? "Enter 6 Digit Code" : otp),
                         style: TextStyle(
                           color: error.isNotEmpty

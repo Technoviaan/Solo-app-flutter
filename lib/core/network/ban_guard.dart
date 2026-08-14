@@ -44,7 +44,7 @@ class BanGuard {
 
     debugPrint(
       "[BAN_GUARD] Banned/blocked account detected -> forcing logout. "
-      "status=${response.statusCode} body=${response.body}",
+          "status=${response.statusCode} body=${response.body}",
     );
 
     _forceLogout();
@@ -68,19 +68,21 @@ class BanGuard {
       if (decoded['banned'] == true ||
           decoded['isBanned'] == true ||
           decoded['blocked'] == true ||
+          decoded['suspended'] == true ||
           userMap?['banned'] == true ||
           userMap?['isBanned'] == true ||
-          userMap?['blocked'] == true) {
+          userMap?['blocked'] == true ||
+          userMap?['suspended'] == true) {
         return true;
       }
 
       final status =
-          (decoded['status'] ?? userMap?['status'])?.toString().toLowerCase();
-      if (status == 'banned' || status == 'blocked') return true;
+      (decoded['status'] ?? userMap?['status'])?.toString().toLowerCase();
+      if (status == 'banned' || status == 'blocked' || status == 'suspended') return true;
 
       final msg =
-          (decoded['message'] ?? decoded['error'] ?? '').toString().toLowerCase();
-      if (msg.contains('banned') || msg.contains('blocked')) return true;
+      (decoded['message'] ?? decoded['error'] ?? '').toString().toLowerCase();
+      if (msg.contains('banned') || msg.contains('blocked') || msg.contains('suspended')) return true;
     } catch (_) {
       // Response wasn't JSON, nothing more we can check here.
     }
@@ -102,7 +104,7 @@ class BanGuard {
     if (ctx == null) {
       navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginPage()),
-        (route) => false,
+            (route) => false,
       );
       _isHandling = false;
       return;
@@ -115,7 +117,7 @@ class BanGuard {
         title: const Text("Account Banned"),
         content: const Text(
           "Your account has been banned by the admin. "
-          "Please contact support if you think this is a mistake.",
+              "Please contact support if you think this is a mistake.",
         ),
         actions: [
           TextButton(
@@ -128,7 +130,7 @@ class BanGuard {
 
     navigatorKey.currentState?.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginPage()),
-      (route) => false,
+          (route) => false,
     );
 
     _isHandling = false;

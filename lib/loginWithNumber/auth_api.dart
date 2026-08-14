@@ -77,9 +77,18 @@ class AuthApi {
 
     final data = jsonDecode(res.body);
 
-    final banned = data?["banned"] == true || data?["isBanned"] == true;
+    final banned = data?["banned"] == true ||
+        data?["isBanned"] == true ||
+        data?["suspended"] == true;
     final statusStr = data?["status"]?.toString().toLowerCase();
-    if (banned || statusStr == "banned" || statusStr == "blocked") {
+    final msgStr = data?["message"]?.toString().toLowerCase() ?? "";
+    if (banned ||
+        statusStr == "banned" ||
+        statusStr == "blocked" ||
+        statusStr == "suspended" ||
+        msgStr.contains("banned") ||
+        msgStr.contains("blocked") ||
+        msgStr.contains("suspended")) {
       throw Exception(
         data?["message"] ?? "Your account has been banned by the admin.",
       );

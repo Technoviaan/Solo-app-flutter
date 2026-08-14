@@ -24,10 +24,6 @@ class SubscriptionApi {
       print("SubscriptionApi: Status response status = ${response.statusCode}");
       print("SubscriptionApi: Status response body = ${response.body}");
 
-      // [BAN_GUARD] This runs on every app boot (SplashScreen calls it
-      // before entering Home), so a banned user gets kicked to Login the
-      // very next time they open the app, even if they never touch a
-      // check-in/notification screen.
       if (BanGuard.checkAndHandle(response)) return null;
 
       if (response.statusCode == 200) {
@@ -47,51 +43,96 @@ class SubscriptionApi {
 
     bool savedAnything = false;
 
-    // 1. Status Parsing
-    final dynamic status = nested["status"] ?? data["status"];
+    // 1. Status & Plan Parsing
+    final dynamic rawStatus = nested["status"] ?? data["status"];
+    final dynamic rawPlan = nested["planType"] ??
+        nested["plan"] ??
+        nested["name"] ??
+        data["planType"] ??
+        data["plan"];
+
     int statusVal = 0;
-    if (status != null) {
-      statusVal = _mapSubscriptionStatus(status, data["planType"]);
+    if (rawStatus != null) {
+      statusVal = _mapSubscriptionStatus(rawStatus, rawPlan);
       await TokenStorage.saveSubscriptionStatus(statusVal);
       print("SubscriptionApi: ✅ Saved subscription status -> $statusVal");
       savedAnything = true;
     }
 
-    // 2. Credits Parsing (With Fallback if Backend sends 0 for Active Plan)
-    dynamic credits = nested["credits"]?["remaining"] ?? data["creditsRemaining"] ?? data["credits"];
-    int creditsVal = credits is int ? credits : int.tryParse(credits?.toString() ?? '') ?? 0;
+    // 2. Credits from Backend
+    dynamic credits = nested["credits"]?["remaining"] ??
+        nested["remainingCredits"] ??
+        nested["credits"] ??
+        data["creditsRemaining"] ??
+        data["remainingCredits"] ??
+        data["credits"]?["remaining"] ??
+        data["credits"];
 
-    // Fallback: Agar Active Monthly/Yearly plan hai par backend credits 0 bhej raha hai
-    if (creditsVal == 0 && (statusVal == 2 || statusVal == 3)) {
-      creditsVal = statusVal == 2 ? 3 : 36;
-      print("SubscriptionApi: ⚠️ Applied fallback credits -> $creditsVal");
+    int incomingCredits = credits is int ? credits : int.tryParse(credits?.toString() ?? '') ?? 0;
+
+    int finalCredits = incomingCredits;
+
+    // 🔥 Base Plan Minimum Threshold Check
+    // Agar Yearly plan (status 3) hai aur incoming credits 36 se kam hain (jaise top-up 3 aagaya),
+    // to base 36 me top-up add hoga (36 + 3 = 39)
+    if (statusVal == 3) {
+      if (incomingCredits < 36) {
+        finalCredits = 36 + incomingCredits;
+        print("SubscriptionApi: 💡 Yearly user base 36 + topup ($incomingCredits) -> $finalCredits");
+      }
+    } else if (statusVal == 2) {
+      if (incomingCredits < 3) {
+        finalCredits = 3 + incomingCredits;
+        print("SubscriptionApi: 💡 Monthly user base 3 + topup ($incomingCredits) -> $finalCredits");
+      }
+    } else if (statusVal == 1 && incomingCredits == 0) {
+      finalCredits = 1;
     }
 
-    await TokenStorage.saveCredits(creditsVal);
-    print("SubscriptionApi: ✅ Saved credits -> $creditsVal");
+    // Local credits check: Agar local me already zyada credits hain to ghatao mat
+    int currentLocal = await TokenStorage.getCredits();
+    if (currentLocal > finalCredits) {
+      finalCredits = currentLocal;
+    }
+
+    await TokenStorage.saveCredits(finalCredits);
+    print("SubscriptionApi: ✅ Final Saved credits -> $finalCredits");
     savedAnything = true;
 
     return savedAnything;
   }
-
   static int _mapSubscriptionStatus(dynamic backendStatus, dynamic planType) {
     if (backendStatus is int) return backendStatus;
 
-    final statusStr = backendStatus.toString().toUpperCase();
-    final planStr = planType?.toString().toUpperCase() ?? "";
+    final statusStr = backendStatus.toString().toUpperCase().trim();
+    final planStr = planType?.toString().toUpperCase().trim() ?? "";
 
-    if (statusStr == "TRIAL") return 1;
-    if (statusStr == "ACTIVE" || statusStr == "SUBSCRIBED") {
-      if (planStr == "YEARLY") return 3;
+    // Yearly checks
+    if (planStr.contains("YEAR") || statusStr.contains("YEAR")) {
+      return 3;
+    }
+
+    // Trial checks
+    if (statusStr == "TRIAL" || planStr.contains("TRIAL")) {
+      return 1;
+    }
+
+    // Active / Subscribed checks
+    if (statusStr == "ACTIVE" || statusStr == "SUBSCRIBED" || statusStr == "PAID") {
+      if (planStr.contains("YEAR")) {
+        return 3;
+      }
       return 2; // Default Monthly
     }
-    if (statusStr == "MONTHLY") return 2;
-    if (statusStr == "YEARLY") return 3;
+
+    if (statusStr == "MONTHLY" || planStr.contains("MONTH")) {
+      return 2;
+    }
+
     return 0;
   }
 
   /// ================= REDEEM PROMO CODE =================
-  /// POST /promo/redeem
   static Future<Map<String, dynamic>?> redeemPromoCode(String code) async {
     try {
       final token = await TokenStorage.getToken();
@@ -112,8 +153,6 @@ class SubscriptionApi {
       print("SubscriptionApi: Promo response body = ${response.body}");
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-
-      // Status code add kar dete hain response map me easy checking ke liye
       data['statusCode'] = response.statusCode;
       return data;
     } catch (e) {
@@ -121,5 +160,4 @@ class SubscriptionApi {
       return null;
     }
   }
-
 }
