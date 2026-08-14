@@ -1320,12 +1320,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   /// ================= PAYMENT / UPGRADE HANDLER =================
+  /// ================= PAYMENT / UPGRADE HANDLER =================
   Future<void> _handlePayment(Map<String, dynamic> plan) async {
     final planId = plan["id"] as String;
     final priceId = plan["priceId"] as String?;
     final isTopup = planId.startsWith("credit_");
 
-    // 1. Check top-up eligibility (Only for active Monthly (2) or Yearly (3) users)
+    // 1. Top-up Restriction Check
     if (isTopup) {
       if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
         showTopupRestrictedDialog(context);
@@ -1333,33 +1334,52 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
 
-    // 2. Check trial redundancy
+    // 2. Trial Plan Selection Check
     if (planId == "trial") {
-      if (_subscriptionStatus == 1) {
+      if (_subscriptionStatus >= 1) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("You are already on the Free Trial")),
+          const SnackBar(content: Text("You have already used the Free Trial.")),
         );
         return;
       }
     }
 
+    // 3. Same Plan Selection Check (Agar user already wahi plan pe hai)
+    if ((planId == "monthly" && _subscriptionStatus == 2) ||
+        (planId == "yearly" && _subscriptionStatus == 3)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("You are already on the ${planId == 'monthly' ? 'Monthly' : 'Yearly'} plan.")),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     String? sessionUrl;
+    bool isOpeningPortal = false;
 
-    // 3. Create Stripe Session based on type
-    if (planId == "trial") {
-      sessionUrl = await StripeApi.createTrialSession(priceId!);
-    } else if (isTopup) {
+    // 🔥 Sahi Stripe Route Detection
+    if (isTopup) {
+      // Top-up credits khareedne ke liye
       sessionUrl = await StripeApi.createTopupSession(priceId!);
+    } else if (planId == "trial" && _subscriptionStatus == 0) {
+      // Pehli baar Free Trial lene ke liye
+      sessionUrl = await StripeApi.createTrialSession(priceId!);
+    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
+      // 🔥 UPGRADE / MANAGE: User ke paas already active subscription hai
+      // Stripe backend naye checkout pe 400 dega, isliye Portal open hoga
+      debugPrint("💳 [SubscriptionPage] Active sub found (status $_subscriptionStatus). Opening Stripe Customer Portal for upgrade...");
+      sessionUrl = await StripeApi.openPortal();
+      isOpeningPortal = true;
     } else {
+      // New subscription (Status 0 ya 1 ke liye)
       sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
     }
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // 4. Launch Stripe URL & Refresh State
+    // 4. Open URL via Browser
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
       try {
@@ -1368,10 +1388,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         if (!mounted) return;
         setState(() => _isLoading = true);
 
-        // Stripe webhook & backend processing wait
+        // Stripe Webhook processing delay
         await Future.delayed(const Duration(milliseconds: 3500));
 
-        // 🔥 Top-up credits ko available credits me add karein
+        // Agar top-up hai to local me turant add karein
         if (isTopup) {
           int purchasedCredits = int.tryParse(plan["big"]?.toString() ?? "0") ?? 0;
           int currentCredits = await TokenStorage.getCredits();
@@ -1386,7 +1406,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           }
         }
 
-        // Backend se fresh status sync
+        // Backend sync
         await SubscriptionApi.getSubscriptionStatus();
         await _loadPromoState();
 
@@ -1395,9 +1415,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                isTopup
-                    ? "Top-up credits added successfully!"
-                    : "Subscription updated successfully",
+                isOpeningPortal
+                    ? "Subscription updated successfully"
+                    : (isTopup ? "Credits added successfully!" : "Plan activated successfully!"),
               ),
             ),
           );
@@ -1424,7 +1444,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         );
       }
     }
-  }  Future<void> _openManagePortal() async {
+  }
+  Future<void> _openManagePortal() async {
     if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
