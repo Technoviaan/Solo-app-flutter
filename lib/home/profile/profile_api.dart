@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:solo_app/core/network/api_config.dart';
+import 'package:solo_app/core/network/ban_guard.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 
 class ProfileApi {
@@ -16,6 +17,10 @@ class ProfileApi {
         "Authorization": "Bearer $token",
       },
     );
+
+    // [BAN_GUARD] getProfile() runs every time HomePage loads, so an
+    // already-open app catches a fresh ban the next time Home reloads.
+    if (BanGuard.checkAndHandle(response)) return null;
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);

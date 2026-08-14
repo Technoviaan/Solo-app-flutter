@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:solo_app/core/network/api_config.dart';
+import 'package:solo_app/core/network/ban_guard.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 
 class CheckinApi {
@@ -14,6 +15,10 @@ class CheckinApi {
           "Content-Type": "application/json",
         },
       );
+
+      // [BAN_GUARD] Blocks a banned user from confirming an active
+      // check-in cycle, which is the whole point of banning them.
+      if (BanGuard.checkAndHandle(response)) return false;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
@@ -35,6 +40,8 @@ class CheckinApi {
           "Content-Type": "application/json",
         },
       );
+
+      if (BanGuard.checkAndHandle(response)) return false;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/network/api_config.dart';
+import '../core/network/ban_guard.dart';
 import '../core/storage/token_storage.dart';
 
 class SubscriptionApi {
@@ -22,6 +23,12 @@ class SubscriptionApi {
 
       print("SubscriptionApi: Status response status = ${response.statusCode}");
       print("SubscriptionApi: Status response body = ${response.body}");
+
+      // [BAN_GUARD] This runs on every app boot (SplashScreen calls it
+      // before entering Home), so a banned user gets kicked to Login the
+      // very next time they open the app, even if they never touch a
+      // check-in/notification screen.
+      if (BanGuard.checkAndHandle(response)) return null;
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;

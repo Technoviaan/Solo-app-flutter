@@ -66,7 +66,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
 
       } catch (e) {
-        emit(AuthError("OTP verification failed"));
+        // [BAN_GUARD] Previously always emitted a generic "OTP
+        // verification failed" here, which swallowed AuthApi.verifyOtp's
+        // real message — so a banned user just saw the same error as a
+        // wrong OTP, with no idea why. Now the actual message (including
+        // the "banned by admin" one) reaches the UI.
+        final message = e.toString().replaceFirst("Exception: ", "");
+        emit(AuthError(message.isNotEmpty ? message : "OTP verification failed"));
       }
     });
   }

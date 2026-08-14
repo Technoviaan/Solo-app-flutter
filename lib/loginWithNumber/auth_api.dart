@@ -66,7 +66,24 @@ class AuthApi {
     debugPrint("📥 [AuthApi.verifyOtp] status: ${res.statusCode}");
     debugPrint("📥 [AuthApi.verifyOtp] response: ${res.body}");
 
+    // [BAN_GUARD] Stop a banned user right at login — otherwise they'd
+    // slip past this and get a saved token, and only get caught on the
+    // very next screen. Doesn't call BanGuard.checkAndHandle here because
+    // there's no session/token yet to clear or navigate away from — just
+    // surface the ban as a normal login error instead.
+    if (res.statusCode == 403) {
+      throw Exception("Your account has been banned by the admin.");
+    }
+
     final data = jsonDecode(res.body);
+
+    final banned = data?["banned"] == true || data?["isBanned"] == true;
+    final statusStr = data?["status"]?.toString().toLowerCase();
+    if (banned || statusStr == "banned" || statusStr == "blocked") {
+      throw Exception(
+        data?["message"] ?? "Your account has been banned by the admin.",
+      );
+    }
 
     if (data != null && (data["status"] == 1 || data["status"] == 2)) {
       return data;

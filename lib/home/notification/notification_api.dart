@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:solo_app/home/notification/model/alert_history_model.dart';
 import 'package:solo_app/home/notification/model/checkin_history_model.dart';
 import '../../core/network/api_config.dart';
+import '../../core/network/ban_guard.dart';
 import '../../core/storage/token_storage.dart';
 
 
@@ -18,6 +19,8 @@ class NotificationApi {
         "Authorization": "Bearer $token"
       },
     );
+
+    if (BanGuard.checkAndHandle(res)) return [];
 
     if (res.statusCode == 200) {
 
@@ -41,6 +44,8 @@ class NotificationApi {
         "Authorization": "Bearer $token"
       },
     );
+
+    if (BanGuard.checkAndHandle(res)) return [];
 
     if (res.statusCode == 200) {
 
@@ -78,6 +83,8 @@ class NotificationApi {
         "Authorization": "Bearer $token"
       },
     );
+
+    if (BanGuard.checkAndHandle(res)) return false;
 
     return res.statusCode == 200 || res.statusCode == 201;
   }

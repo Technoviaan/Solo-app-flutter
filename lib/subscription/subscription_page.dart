@@ -1176,11 +1176,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
-import '../home/shedule/schedule_page.dart';
 import '../home/checkin/local_storage.dart';
 import 'stripe_api.dart';
 import 'subscription_api.dart';
-import '../home/home_page.dart';
 
 class SubscriptionPage extends StatefulWidget {
   const SubscriptionPage({super.key});
@@ -1191,7 +1189,7 @@ class SubscriptionPage extends StatefulWidget {
 
 class _SubscriptionPageState extends State<SubscriptionPage> {
   late PageController _pageController;
-  double _currentPage = 1.0; // Start with the 7 Days Trial (Index 1)
+  double _currentPage = 1.0;
 
   final List<Map<String, dynamic>> _plans = [
     {
@@ -1318,12 +1316,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   /// ================= PAYMENT / UPGRADE HANDLER =================
-  /// ================= PAYMENT / UPGRADE HANDLER =================
   Future<void> _handlePayment(Map<String, dynamic> plan) async {
     final planId = plan["id"] as String;
     final priceId = plan["priceId"] as String?;
     final isTopup = planId.startsWith("credit_");
 
+    // 💡 1. RESTRICTION: Top-up ONLY allowed for active Monthly (2) or Yearly (3) subscribers
     if (isTopup) {
       if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
         showTopupRestrictedDialog(context);
@@ -1332,9 +1330,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
 
     if (planId == "trial") {
-      if (_subscriptionStatus == 1) {
+      if (_subscriptionStatus >= 1) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("You are already on the Free Trial")),
+          const SnackBar(content: Text("Free Trial is already used")),
         );
         return;
       }
@@ -1343,15 +1341,20 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     setState(() => _isLoading = true);
 
     String? sessionUrl;
+    bool usedPortal = false;
 
     if (planId == "trial") {
-      // Free Trial Flow
+      // Free Trial Session
       sessionUrl = await StripeApi.createTrialSession(priceId!);
     } else if (isTopup) {
-      // Credit Top-up Flow
+      // Credit Top-up Checkout Session
       sessionUrl = await StripeApi.createTopupSession(priceId!);
+    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
+      // Active Paid Subscriber Upgrading/Managing -> Customer Portal
+      sessionUrl = await StripeApi.openPortal();
+      usedPortal = true;
     } else {
-      // Monthly / Yearly Direct Subscription OR Upgrade -> Always Open Stripe Checkout
+      // Direct New Subscription
       sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
     }
 
@@ -1361,8 +1364,29 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       final uri = Uri.parse(sessionUrl);
       try {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+        setState(() => _isLoading = true);
+        await Future.delayed(const Duration(milliseconds: 2500));
+
+        // 💡 2. REFRESH & ACCUMULATE: Webhook status + Local credits re-fetch
+        await SubscriptionApi.getSubscriptionStatus();
+        await _loadPromoState();
+
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isTopup
+                    ? "Top-up credits processed successfully!"
+                    : "Subscription status updated successfully",
+              ),
+            ),
+          );
+        }
       } catch (e) {
         if (mounted) {
+          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Could not open payment page: $e")),
           );
@@ -1383,6 +1407,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
   }
+
   Future<void> _openManagePortal() async {
     if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
       ScaffoldMessenger.of(context).showSnackBar(
