@@ -11,6 +11,20 @@ class DeepLinkService {
   static StreamSubscription<Uri>? _linkSubscription;
   static bool _initialized = false;
 
+  /// True while a payment-success/payment-cancel deep link has been detected
+  /// and PaymentResultPage is being (or about to be) pushed. SplashScreen
+  /// checks this before doing its own default Home/Subscription navigation
+  /// so it doesn't stomp on the deep link redirect — same pattern already
+  /// used for NotificationService.isHandlingAlarm.
+  static bool isHandlingRedirect = false;
+
+  /// Completes once the cold-start link check has finished (whether or not a
+  /// link was actually found). SplashScreen awaits this (with a timeout)
+  /// before deciding where to navigate, so a cold start via
+  /// solo://payment-success reliably wins the race against Splash's own
+  /// default navigation instead of depending on timing alone.
+  static final Completer<void> coldStartCheckDone = Completer<void>();
+
   static Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -26,6 +40,10 @@ class DeepLinkService {
       }
     } catch (e) {
       debugPrint("🔗 [DeepLink] Error reading initial link: $e");
+    } finally {
+      if (!coldStartCheckDone.isCompleted) {
+        coldStartCheckDone.complete();
+      }
     }
 
     // App already running (foreground or background) and the link fires.
@@ -60,9 +78,11 @@ class DeepLinkService {
 
     switch (target) {
       case "payment-success":
+        isHandlingRedirect = true;
         _navigateToResult(success: true);
         break;
       case "payment-cancel":
+        isHandlingRedirect = true;
         _navigateToResult(success: false);
         break;
       default:
@@ -83,6 +103,7 @@ class DeepLinkService {
     if (navigatorKey.currentState == null) {
       debugPrint("🔗 [DeepLink] Navigator never became ready after 10s, "
           "dropping payment-${success ? 'success' : 'cancel'} deep link.");
+      isHandlingRedirect = false;
       return;
     }
 
@@ -94,6 +115,9 @@ class DeepLinkService {
       ),
           (route) => false,
     );
+
+    // Reset once handled so a later, unrelated app launch isn't blocked forever.
+    isHandlingRedirect = false;
   }
 
   static void dispose() {

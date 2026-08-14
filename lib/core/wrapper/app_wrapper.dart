@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:solo_app/subscription/no_credits_page.dart';
 import '../../core/storage/token_storage.dart';
+import '../../subscription/subscription_api.dart';
 import '../../subscription/subscription_page.dart';
 
 class AppWrapper extends StatefulWidget {
@@ -27,8 +28,15 @@ class _AppWrapperState extends State<AppWrapper> {
 
   Future<void> loadData() async {
 
+    // Refresh from the backend first so an admin credit adjustment (or any
+    // other server-side change) is reflected as soon as the app opens,
+    // instead of showing whatever was cached on the device.
+    await SubscriptionApi.getSubscriptionStatus();
+
     final c = await TokenStorage.getCredits();
     final s = await TokenStorage.getSubscriptionStatus();
+
+    if (!mounted) return;
 
     setState(() {
       credits = c;

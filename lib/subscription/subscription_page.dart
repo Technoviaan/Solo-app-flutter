@@ -1,1176 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:flutter_svg/flutter_svg.dart';
-// import 'package:url_launcher/url_launcher.dart';
-// import '../core/storage/token_storage.dart';
-// import '../core/utils/app_size.dart';
-// import '../home/shedule/schedule_page.dart';
-// import '../home/checkin/local_storage.dart';
-// import 'stripe_api.dart';
-// import 'subscription_api.dart';
-// import '../home/home_page.dart';
-//
-// class SubscriptionPage extends StatefulWidget {
-//   const SubscriptionPage({super.key});
-//
-//   @override
-//   State<SubscriptionPage> createState() => _SubscriptionPageState();
-// }
-
-// class _SubscriptionPageState extends State<SubscriptionPage> {
-//   late PageController _pageController;
-//   double _currentPage = 1.0; // Start with the 7 Days Trial (Index 1)
-//
-//   final List<Map<String, dynamic>> _plans = [
-//     {
-//       "id": "monthly",
-//       "big": "1",
-//       "title": "Month\n/Month",
-//       "price": "\$8/month",
-//       "color": const Color(0xFF00AED6),
-//       "benefits": ["3 Alert Credits per month", "Add up to 2 contacts", "Auto-renew monthly"],
-//       "progress": 0.9,
-//       "priceId": "price_1TZ8zgH682jITs1wzNptVVi0",
-//     },
-//     {
-//       "id": "trial",
-//       "big": "7",
-//       "title": "Days\nFree Trial",
-//       "price": "(Cancel Anytime)",
-//       "color": const Color(0xFFA2D071),
-//       "benefits": ["1 Alert Credit", "Add 1 contact", "First-time users only"],
-//       "progress": 0.9,
-//       "priceId": null,
-//     },
-//     {
-//       "id": "yearly",
-//       "big": "1",
-//       "title": "Year\n\$50/Year",
-//       "price": "(Save \$46)",
-//       "color": const Color(0xFFD4AF64),
-//       "benefits": ["36 Alert Credits per year", "Add up to 2 contacts", "Auto-renew yearly"],
-//       "progress": 0.9,
-//       "priceId": "price_1TZ97RH682jITs1w0gc0XrBX",
-//     },
-//     {
-//       "id": "credit_3",
-//       "big": "3",
-//       "title": "Alert\nCredits",
-//       "price": "\$3",
-//       "color": const Color(0xFFF28D7D),
-//       "benefits": ["Keep daily check-ins", "Stay connected", "For subscribers only"],
-//       "progress": 0.9,
-//       "priceId": "price_1TZ993H682jITs1wc1kGxKlC",
-//     },
-//     {
-//       "id": "credit_5",
-//       "big": "5",
-//       "title": "Alert\nCredits",
-//       "price": "\$6",
-//       "color": const Color(0xFFE651A3),
-//       "benefits": ["Keep daily check-ins", "Stay connected", "For subscribers only"],
-//       "progress": 0.9,
-//       "priceId": "price_1TZ9AaH682jITs1wrJafUO7C",
-//     },
-//   ];
-//
-//   String? _activePromoPlan;
-//   DateTime? _promoActivationTime;
-//   bool _hideDisclaimer = false;
-//   List<String> _usedPromoCodes = [];
-//   String _promoInput = "";
-//   String? _promoError;
-//   bool _promoSuccess = false;
-//   String? _promoSuccessMessage;
-//   final TextEditingController _promoController = TextEditingController();
-//
-//   int _subscriptionStatus = 0;
-//   int _credits = 0;
-//   bool _isLoading = false;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _loadPromoState();
-//
-//     // Use a large initial page to allow "infinite" scrolling in both directions
-//     const int startFactor = 1000;
-//     int initialPage = (_plans.length * startFactor) + 1; // Index 1 is the trial
-//     _pageController = PageController(
-//       viewportFraction: 0.5,
-//       initialPage: initialPage,
-//     );
-//     _currentPage = initialPage.toDouble();
-//
-//     _pageController.addListener(() {
-//       if (mounted) {
-//         setState(() {
-//           _currentPage = _pageController.page ?? initialPage.toDouble();
-//         });
-//       }
-//     });
-//   }
-//
-//   Future<void> _loadPromoState() async {
-//     final activePlan = await LocalStorage.getString("active_promo_plan");
-//     final activationTimeStr = await LocalStorage.getString("promo_activation_time");
-//     final hideDisclaimer = await LocalStorage.getBool("hide_disclaimer");
-//     final usedCodes = await LocalStorage.getStringList("used_promo_codes");
-//
-//     final status = await TokenStorage.getSubscriptionStatus();
-//     final creditsVal = await TokenStorage.getCredits();
-//
-//     setState(() {
-//       _activePromoPlan = activePlan;
-//       if (activationTimeStr != null) {
-//         _promoActivationTime = DateTime.parse(activationTimeStr);
-//       }
-//       _hideDisclaimer = hideDisclaimer;
-//       _usedPromoCodes = usedCodes;
-//       _subscriptionStatus = status;
-//       _credits = creditsVal;
-//     });
-//
-//     try {
-//       final data = await SubscriptionApi.getSubscriptionStatus();
-//       if (data != null && mounted) {
-//         final freshStatus = await TokenStorage.getSubscriptionStatus();
-//         final freshCredits = await TokenStorage.getCredits();
-//         setState(() {
-//           _subscriptionStatus = freshStatus;
-//           _credits = freshCredits;
-//         });
-//       }
-//     } catch (e) {
-//       print("Stripe page background subscription status sync error: $e");
-//     }
-//   }
-//
-//   /// ================= PAYMENT / UPGRADE HANDLER =================
-//   ///
-//   /// Subscription status codes used across this screen:
-//   ///   0 = no subscription
-//   ///   1 = TRIAL (active)
-//   ///   2 = MONTHLY (active, paid, real Stripe subscription)
-//   ///   3 = YEARLY  (active, paid, real Stripe subscription)
-//   ///
-//   /// IMPORTANT: Trial plans in this app are NOT real Stripe subscriptions
-//   /// (no payment method, no invoice, nothing for the Customer Portal to
-//   /// show). Opening the Portal for a trial user renders a blank
-//   /// "No payment method / No invoice history" page. So the Portal must
-//   /// ONLY be used for real paid plans (status 2 or 3). Trial users go
-//   /// straight through checkout to create their first real subscription.
-//   Future<void> _handlePayment(Map<String, dynamic> plan) async {
-//     final planId = plan["id"] as String;
-//     final priceId = plan["priceId"] as String?;
-//     final isTopup = planId.startsWith("credit_");
-//
-//     if (isTopup) {
-//       if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
-//         showTopupRestrictedDialog(context);
-//         return;
-//       }
-//     }
-//
-//     if (planId == "trial") {
-//       if (_subscriptionStatus == 1) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text("You are already on the Free Trial")),
-//         );
-//         return;
-//       }
-//
-//       setState(() => _isLoading = true);
-//       final res = await SubscriptionApi.startTrial();
-//       setState(() => _isLoading = false);
-//
-//       if (!mounted) return;
-//       if (res != null) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text("Free Trial Activated Successfully!")),
-//         );
-//         await _loadPromoState();
-//         if (!mounted) return;
-//         Navigator.pushReplacement(
-//           context,
-//           MaterialPageRoute(builder: (_) => const HomePage()),
-//         );
-//       } else {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text("Failed to activate Free Trial. Please try again.")),
-//         );
-//       }
-//       return;
-//     }
-//
-//     setState(() => _isLoading = true);
-//
-//     String? sessionUrl;
-//     bool usedPortal = false;
-//
-//     if (isTopup) {
-//       sessionUrl = await StripeApi.createTopupSession(priceId!);
-//     } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-//       // Real paid plan already active -> Customer Portal is the right
-//       // place to upgrade/downgrade/cancel.
-//       sessionUrl = await StripeApi.openPortal();
-//       usedPortal = true;
-//     } else {
-//       // Status is 0 (no subscription) or 1 (trial, not a real Stripe sub)
-//       // -> create a brand new checkout session directly.
-//       sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
-//     }
-//
-//     setState(() => _isLoading = false);
-//
-//     if (sessionUrl != null && sessionUrl.isNotEmpty) {
-//       final uri = Uri.parse(sessionUrl);
-//       debugPrint(
-//         "💳 [SubscriptionPage] Attempting to launch ${usedPortal ? 'Portal' : 'Stripe checkout'} URL: $sessionUrl",
-//       );
-//       try {
-//         final canLaunch = await canLaunchUrl(uri);
-//         debugPrint("💳 [SubscriptionPage] canLaunchUrl() = $canLaunch");
-//         await launchUrl(uri, mode: LaunchMode.externalApplication);
-//         debugPrint("✅ [SubscriptionPage] launchUrl() returned without throwing");
-//
-//         setState(() => _isLoading = true);
-//         await Future.delayed(const Duration(milliseconds: 2500));
-//
-//         await SubscriptionApi.getSubscriptionStatus();
-//         await _loadPromoState();
-//
-//         if (mounted) {
-//           setState(() => _isLoading = false);
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             const SnackBar(content: Text("Subscription status updated successfully")),
-//           );
-//         }
-//       } catch (e) {
-//         debugPrint("❌ [SubscriptionPage] launchUrl() FAILED with error: $e");
-//         if (mounted) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             SnackBar(content: Text("Could not open payment page: $e")),
-//           );
-//         }
-//       }
-//     } else {
-//       // Prefer the backend's real error message over a generic one.
-//       final errorMsg = StripeApi.lastErrorMessage;
-//       if (mounted) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(
-//             content: Text(
-//               errorMsg != null && errorMsg.isNotEmpty
-//                   ? errorMsg
-//                   : "Failed to initiate payment session. Please try again.",
-//             ),
-//           ),
-//         );
-//       }
-//     }
-//   }
-//
-//   /// Manual "Manage Subscription" button should also only be usable for
-//   /// real paid plans -- guard it the same way as _handlePayment does.
-//   Future<void> _openManagePortal() async {
-//     if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(
-//           content: Text("Subscription management is only available for paid plans."),
-//         ),
-//       );
-//       return;
-//     }
-//
-//     debugPrint("🧭 [SubscriptionPage] Manage Subscription tapped");
-//     setState(() => _isLoading = true);
-//
-//     final portalUrl = await StripeApi.openPortal();
-//     debugPrint("🧭 [SubscriptionPage] openPortal() returned url = $portalUrl");
-//
-//     if (portalUrl != null && portalUrl.isNotEmpty) {
-//       final uri = Uri.parse(portalUrl);
-//       try {
-//         final canLaunch = await canLaunchUrl(uri);
-//         debugPrint("🧭 [SubscriptionPage] canLaunchUrl(portal) = $canLaunch");
-//         await launchUrl(uri, mode: LaunchMode.externalApplication);
-//         debugPrint("✅ [SubscriptionPage] Portal launchUrl() returned without throwing");
-//
-//         await Future.delayed(const Duration(milliseconds: 2000));
-//         await SubscriptionApi.getSubscriptionStatus();
-//         await _loadPromoState();
-//       } catch (e) {
-//         debugPrint("❌ [SubscriptionPage] Portal launchUrl() FAILED with error: $e");
-//         if (mounted) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             SnackBar(content: Text("Could not open subscription portal: $e")),
-//           );
-//         }
-//       }
-//     } else {
-//       debugPrint("❌ [SubscriptionPage] Portal URL was null/empty");
-//       if (mounted) {
-//         final errorMsg = StripeApi.lastErrorMessage;
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(
-//             content: Text(
-//               errorMsg != null && errorMsg.isNotEmpty
-//                   ? errorMsg
-//                   : "Failed to open subscription portal. Please try again.",
-//             ),
-//           ),
-//         );
-//       }
-//     }
-//
-//     if (mounted) setState(() => _isLoading = false);
-//   }
-//
-//   String _formatDate(DateTime date) {
-//     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-//     return "${date.day} ${months[date.month - 1]} ${date.year}";
-//   }
-//
-//   void _applyPromoCode() async {
-//     final code = _promoInput.toUpperCase();
-//
-//     if (_usedPromoCodes.contains(code)) {
-//       setState(() {
-//         _promoError = "Promo Code Already Used";
-//       });
-//       _clearErrorAfterDelay();
-//       return;
-//     }
-//
-//     String? promoType;
-//     int subStatus = 0;
-//     int grantCredits = 0;
-//
-//     if (code == "SOLO1MONTH" || code == "SOLOXXXXXX") {
-//       promoType = "1 Month Free Access";
-//       subStatus = 2;
-//       grantCredits = 3;
-//     } else if (code == "SOLO1YEAR") {
-//       promoType = "1 Year Free Access";
-//       subStatus = 3;
-//       grantCredits = 36;
-//     } else if (code == "SOLOUNLIMITED" || code == "SOLOLIFETIME") {
-//       promoType = "Unlimited Free Access";
-//       subStatus = 4;
-//       grantCredits = 999;
-//     } else {
-//       setState(() {
-//         _promoError = "Invalid Promo Code";
-//       });
-//       _clearErrorAfterDelay();
-//       return;
-//     }
-//
-//     _usedPromoCodes.add(code);
-//     await TokenStorage.saveSubscriptionStatus(subStatus);
-//
-//     int currentCredits = await TokenStorage.getCredits();
-//     await TokenStorage.saveCredits(currentCredits + grantCredits);
-//
-//     final now = DateTime.now();
-//     await LocalStorage.saveString("active_promo_plan", promoType);
-//     await LocalStorage.saveString("promo_activation_time", now.toIso8601String());
-//     await LocalStorage.saveStringList("used_promo_codes", _usedPromoCodes);
-//     await LocalStorage.saveBool("hide_disclaimer", true);
-//
-//     setState(() {
-//       _activePromoPlan = promoType;
-//       _promoActivationTime = now;
-//       _hideDisclaimer = true;
-//       _promoSuccess = true;
-//       _promoSuccessMessage = "✓ $promoType Activated";
-//       _promoError = null;
-//       _promoInput = "";
-//       _promoController.clear();
-//     });
-//   }
-//
-//   void _clearErrorAfterDelay() {
-//     Future.delayed(const Duration(seconds: 3), () {
-//       if (mounted) {
-//         setState(() {
-//           _promoError = null;
-//           _promoInput = "";
-//           _promoController.clear();
-//         });
-//       }
-//     });
-//   }
-//
-//   Widget _buildPromoCodeField() {
-//     if (_promoSuccess) {
-//       return Padding(
-//         padding: const EdgeInsets.symmetric(vertical: 4),
-//         child: Row(
-//           children: [
-//             Container(
-//               width: 24,
-//               height: 24,
-//               decoration: const BoxDecoration(
-//                 color: Color(0xFFEE6A59),
-//                 shape: BoxShape.circle,
-//               ),
-//               child: const Icon(
-//                 Icons.check,
-//                 color: Color(0xFFF5F5F5),
-//                 size: 16,
-//               ),
-//             ),
-//             const SizedBox(width: 8),
-//             Text(
-//               _promoSuccessMessage ?? "Free Access Activated",
-//               style: const TextStyle(
-//                 color: Colors.white,
-//                 fontSize: 16,
-//                 fontWeight: FontWeight.w600,
-//               ),
-//             ),
-//           ],
-//         ),
-//       );
-//     }
-//
-//     bool hasText = _promoInput.isNotEmpty;
-//
-//     return Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         Container(
-//           height: 50,
-//           decoration: BoxDecoration(
-//             color: const Color(0xFFD1D9E0),
-//             borderRadius: BorderRadius.circular(10),
-//           ),
-//           padding: const EdgeInsets.symmetric(horizontal: 16),
-//           child: Row(
-//             children: [
-//               Expanded(
-//                 child: TextField(
-//                   controller: _promoController,
-//                   style: const TextStyle(
-//                     color: Color(0xFF5A6C7D),
-//                     fontSize: 15,
-//                     fontWeight: FontWeight.w500,
-//                   ),
-//                   decoration: const InputDecoration(
-//                     hintText: "Promo Code",
-//                     hintStyle: TextStyle(
-//                       color: Color(0xFF8A99A6),
-//                       fontSize: 15,
-//                       fontWeight: FontWeight.w400,
-//                     ),
-//                     border: InputBorder.none,
-//                     isDense: true,
-//                     contentPadding: EdgeInsets.zero,
-//                   ),
-//                   onChanged: (val) {
-//                     setState(() {
-//                       _promoInput = val.trim();
-//                     });
-//                   },
-//                 ),
-//               ),
-//               GestureDetector(
-//                 onTap: hasText ? _applyPromoCode : null,
-//                 child: Text(
-//                   "Apply",
-//                   style: TextStyle(
-//                     color: hasText ? const Color(0xFF5A6C7D) : const Color(0xFF8A99A6),
-//                     fontSize: 15,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//         if (_promoError != null) ...[
-//           const SizedBox(height: 6),
-//           Text(
-//             _promoError!,
-//             style: const TextStyle(
-//               color: Color(0xFFEE6A59),
-//               fontSize: 13,
-//               fontWeight: FontWeight.w500,
-//             ),
-//           ),
-//         ],
-//       ],
-//     );
-//   }
-//
-//   @override
-//   void dispose() {
-//     _pageController.dispose();
-//     _promoController.dispose();
-//     super.dispose();
-//   }
-//
-//   /// ================= DUMMY PURCHASE LOGIC =================
-//   Future<void> handleDummyPurchase(String plan) async {
-//     if (plan == "trial") {
-//       await TokenStorage.saveSubscriptionStatus(1);
-//       await TokenStorage.saveCredits(1);
-//       await TokenStorage.saveMaxContacts(1);
-//       await TokenStorage.saveMaxCheckins(2);
-//     } else if (plan == "monthly") {
-//       await TokenStorage.saveSubscriptionStatus(2);
-//       await TokenStorage.saveCredits(3);
-//       await TokenStorage.saveMaxContacts(2);
-//       await TokenStorage.saveMaxCheckins(2);
-//     } else if (plan == "yearly") {
-//       await TokenStorage.saveSubscriptionStatus(3);
-//       await TokenStorage.saveCredits(36);
-//       await TokenStorage.saveMaxContacts(2);
-//       await TokenStorage.saveMaxCheckins(2);
-//     } else if (plan == "credit_3") {
-//       int current = await TokenStorage.getCredits();
-//       await TokenStorage.saveCredits(current + 3);
-//     } else if (plan == "credit_5") {
-//       int current = await TokenStorage.getCredits();
-//       await TokenStorage.saveCredits(current + 5);
-//     }
-//   }
-//
-//   /// ================= PURCHASE POPUP =================
-//   void showPurchaseDialog(BuildContext context, String plan) {
-//     final TextEditingController controller = TextEditingController();
-//
-//     showDialog(
-//       context: context,
-//       builder: (_) {
-//         return AlertDialog(
-//           title: const Text("Enter Purchase Code"),
-//           content: TextField(
-//             controller: controller,
-//             obscureText: true,
-//             decoration: const InputDecoration(
-//               hintText: "Enter 1234",
-//             ),
-//           ),
-//           actions: [
-//             TextButton(
-//               onPressed: () => Navigator.pop(context),
-//               child: const Text("Cancel"),
-//             ),
-//             ElevatedButton(
-//               onPressed: () async {
-//                 if (controller.text == "1234") {
-//                   await handleDummyPurchase(plan);
-//                   Navigator.pop(context);
-//                   Navigator.pushReplacement(
-//                     context,
-//                     MaterialPageRoute(
-//                       builder: (_) => const SchedulePage(),
-//                     ),
-//                   );
-//                 } else {
-//                   ScaffoldMessenger.of(context).showSnackBar(
-//                     const SnackBar(content: Text("Invalid code")),
-//                   );
-//                 }
-//               },
-//               child: const Text("Confirm"),
-//             ),
-//           ],
-//         );
-//       },
-//     );
-//   }
-//
-//   /// ================= UNIFIED CARD WIDGET =================
-//   Widget dynamicCard({
-//     required String bigNumber,
-//     required String title,
-//     required String price,
-//     String? saveText,
-//     required Color backgroundColor,
-//     required List<String> benefits,
-//     required VoidCallback onTap,
-//     required double scale,
-//     double progress = 0.6,
-//   }) {
-//     return Transform.scale(
-//       scale: scale,
-//       child: GestureDetector(
-//         onTap: onTap,
-//         child: Container(
-//           width: 175,
-//           height: 254,
-//           margin: const EdgeInsets.symmetric(horizontal: 1),
-//           padding: const EdgeInsets.all(10),
-//           decoration: BoxDecoration(
-//             color: backgroundColor,
-//             borderRadius: BorderRadius.circular(22),
-//             boxShadow: const [
-//               BoxShadow(
-//                 color: Color(0xFF001D2B), // Dark offset shadow color
-//                 offset: Offset(8, 8), // Shifted exactly down and right
-//                 blurRadius: 0,
-//                 spreadRadius: 0,
-//               ),
-//             ],
-//           ),
-//           // Use a Column with no mainAxisSize.min so children can fill the height
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               // ── Top number + title + price ──
-//               Center(
-//                 child: Column(
-//                   mainAxisSize: MainAxisSize.min,
-//                   children: [
-//                     Text(
-//                       bigNumber,
-//                       style: const TextStyle(
-//                         fontSize: 70,
-//                         height: 0.9,
-//                         fontWeight: FontWeight.w700,
-//                         color: Colors.black87,
-//                       ),
-//                     ),
-//                     Text(
-//                       title,
-//                       textAlign: TextAlign.center,
-//                       maxLines: 2,
-//                       overflow: TextOverflow.ellipsis,
-//                       style: const TextStyle(
-//                         fontSize: 28,
-//                         height: 1.3,
-//                         fontWeight: FontWeight.bold,
-//                         color: Colors.black87,
-//                       ),
-//                     ),
-//                     Text(
-//                       price,
-//                       textAlign: TextAlign.center,
-//                       maxLines: 1,
-//                       overflow: TextOverflow.ellipsis,
-//                       style: const TextStyle(
-//                         fontSize: 14,
-//                         fontWeight: FontWeight.w600,
-//                         color: Colors.black87,
-//                       ),
-//                     ),
-//                     if (saveText != null)
-//                       Text(
-//                         saveText,
-//                         maxLines: 1,
-//                         overflow: TextOverflow.ellipsis,
-//                         style: const TextStyle(
-//                           fontSize: 11,
-//                           color: Colors.black54,
-//                         ),
-//                       ),
-//                   ],
-//                 ),
-//               ),
-//               const SizedBox(height: 4),
-//
-//               // ── Benefits label + fully filled line ──
-//               Row(
-//                 children: [
-//                   const Text(
-//                     "Benefits",
-//                     style: TextStyle(
-//                       fontSize: 14,
-//                       fontWeight: FontWeight.bold,
-//                       color: Colors.black87,
-//                     ),
-//                   ),
-//                   const SizedBox(width: 8),
-//                   Expanded(
-//                     child: Container(
-//                       height: 6,
-//                       decoration: BoxDecoration(
-//                         color: Colors.black,
-//                         borderRadius: BorderRadius.circular(10),
-//                       ),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 4),
-//
-//               // ── Benefits list — Flexible so it doesn't overflow ──
-//               Flexible(
-//                 child: Column(
-//                   mainAxisSize: MainAxisSize.min,
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: benefits
-//                       .map((benefit) => Padding(
-//                     padding: const EdgeInsets.only(bottom: 1),
-//                     child: Row(
-//                       crossAxisAlignment: CrossAxisAlignment.center,
-//                       children: [
-//                         const Text(
-//                           "• ",
-//                           style: TextStyle(fontSize: 11, color: Colors.black87),
-//                         ),
-//                         const SizedBox(width: 2),
-//                         Expanded(
-//                           child: Text(
-//                             benefit,
-//                             maxLines: 2,
-//                             overflow: TextOverflow.ellipsis,
-//                             style: const TextStyle(
-//                               fontSize: 11,
-//                               letterSpacing: -0.5,
-//                               color: Colors.black87,
-//                               height: 1.0,
-//                             ),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ))
-//                       .toList(),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     AppSize.init(context);
-//
-//     return Scaffold(
-//       backgroundColor: const Color(0xFF002C3E),
-//       body: SafeArea(
-//         child: Stack(
-//           children: [
-//             Column(
-//               children: [
-//                 Expanded(
-//                   child: SingleChildScrollView(
-//                     child: Padding(
-//                       padding: EdgeInsets.symmetric(horizontal: AppSize.w(20)),
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           //const SizedBox(height: 10),
-//                           IconButton(
-//                             onPressed: () => Navigator.pop(context),
-//                             icon: const Icon(Icons.arrow_back, color: Color(0xFFA8B6C2)),
-//                             padding: EdgeInsets.only(right: 1250),
-//                             alignment: Alignment.centerLeft,
-//                           ),
-//                           //const SizedBox(height: 7),
-//                           const Text(
-//                             "Keep Your\nCheck-ins\nActive",
-//                             style: TextStyle(
-//                               color: Color(0xFF78BCC4),
-//                               fontSize: 44,
-//                               height: 1.1,
-//                               fontWeight: FontWeight.w600,
-//                             ),
-//                           ),
-//                           const SizedBox(height: 16),
-//                           const Text(
-//                             "Subscribe so I can look out for\nyou every day",
-//                             style: TextStyle(
-//                                 color: Color(0xFFD1D9E0),
-//                                 fontSize: 22,
-//                                 fontWeight: FontWeight.w400
-//                             ),
-//                           ),
-//                           const SizedBox(height: 24),
-//                           // PAGE INDICATOR DOTS
-//                           Center(
-//                             child: SizedBox(
-//                               width: 84, // Exact Figma total width
-//                               height: 7, // Exact Figma height
-//                               child: Row(
-//                                 mainAxisAlignment: MainAxisAlignment.center,
-//                                 children: [
-//                                   for (int i = 0; i < _plans.length; i++)
-//                                     Container(
-//                                       margin: const EdgeInsets.symmetric(horizontal: 4),
-//                                       width: 7,
-//                                       height: 7,
-//                                       decoration: BoxDecoration(
-//                                         color: (i == (_currentPage.round() % _plans.length)) ? const Color(0xFFF28D7D) : Colors.white,
-//                                         shape: BoxShape.circle,
-//                                       ),
-//                                     ),
-//                                 ],
-//                               ),
-//                             ),
-//                           ),
-//                           const SizedBox(height: 24),
-//                           const Divider(color: Colors.white24),
-//                           const Padding(
-//                             padding: EdgeInsets.symmetric(vertical: 8),
-//                             child: Row(
-//                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                               children: [
-//                                 Text(
-//                                   "Plans",
-//                                   style: TextStyle(color: Colors.white54, fontSize: 18, fontWeight: FontWeight.w600),
-//                                 ),
-//                                 Text(
-//                                   "Add Credits",
-//                                   style: TextStyle(
-//                                     color: Colors.white,
-//                                     fontSize: 18,
-//                                     fontWeight: FontWeight.w600,
-//                                   ),
-//                                 ),
-//                               ],
-//                             ),
-//                           ),
-//                           const Divider(color: Colors.white24),
-//                           const SizedBox(height: 24),
-//
-//                           // CAROUSEL SECTION
-//                           SizedBox(
-//                             height: 260, // Accommodates the 260px highlighted height
-//                             child: PageView.builder(
-//                               controller: _pageController,
-//                               itemCount: 10000, // Large number for infinite loop
-//                               clipBehavior: Clip.none,
-//                               physics: const BouncingScrollPhysics(),
-//                               itemBuilder: (context, index) {
-//                                 final plan = _plans[index % _plans.length];
-//
-//                                 // Scale logic: Still works with large indices
-//                                 double diff = (index - _currentPage).abs().clamp(0.0, 1.0);
-//                                 double scale = 1.0 - (diff * 0.165);
-//                                 double opacity = 1.0 - (diff * 0.5);
-//
-//                                 return Opacity(
-//                                   opacity: opacity,
-//                                   child: dynamicCard(
-//                                     bigNumber: plan["big"],
-//                                     title: plan["title"],
-//                                     price: plan["price"],
-//                                     backgroundColor: plan["color"],
-//                                     benefits: List<String>.from(plan["benefits"]),
-//                                     progress: plan["progress"] ?? 0.6,
-//                                     scale: scale,
-//                                     onTap: () => _handlePayment(plan),
-//                                   ),
-//                                 );
-//                               },
-//                             ),
-//                           ),
-//                           const SizedBox(height: 27),
-//                           _buildPromoCodeField(),
-//                           if (!_hideDisclaimer) ...[
-//                             const SizedBox(height: 24),
-//                             const Text(
-//                               "Purchase confirms auto-renewal and agreement to Terms. Cancel anytime in your App Store settings.",
-//                               style: TextStyle(color: Colors.white54, fontSize: 11),
-//                             ),
-//                           ],
-//                           const SizedBox(height: 20),
-//                           const Divider(color: Colors.white24),
-//                           const SizedBox(height: 16),
-//                           const Text(
-//                             "Your credits at a glance",
-//                             style: TextStyle(
-//                               color: Color(0xFF78BCC4),
-//                               fontSize: 26,
-//                               fontWeight: FontWeight.w600,
-//                             ),
-//                           ),
-//                           const SizedBox(height: 16),
-//                           FutureBuilder<int>(
-//                             future: Future.value(_credits),
-//                             builder: (context, snapshot) {
-//                               final credits = _credits;
-//
-//                               String planLabel = "1 free credit to start";
-//                               String? renewalText;
-//
-//                               if (_activePromoPlan != null) {
-//                                 planLabel = _activePromoPlan!;
-//                                 if (_promoActivationTime != null) {
-//                                   if (_activePromoPlan == "1 Month Free Access") {
-//                                     final exp = _promoActivationTime!.add(const Duration(days: 30));
-//                                     renewalText = "Next renewal ${_formatDate(exp)}";
-//                                   } else if (_activePromoPlan == "1 Year Free Access") {
-//                                     final exp = _promoActivationTime!.add(const Duration(days: 365));
-//                                     renewalText = "Next renewal ${_formatDate(exp)}";
-//                                   } else if (_activePromoPlan == "Unlimited Free Access") {
-//                                     renewalText = "No Expiry";
-//                                   }
-//                                 }
-//                               } else if (_subscriptionStatus == 1) {
-//                                 planLabel = "Free Trial Plan";
-//                               } else if (_subscriptionStatus == 2) {
-//                                 planLabel = "Monthly Subscription";
-//                               } else if (_subscriptionStatus == 3) {
-//                                 planLabel = "Yearly Subscription";
-//                               }
-//
-//                               return Column(
-//                                 crossAxisAlignment: CrossAxisAlignment.start,
-//                                 children: [
-//                                   Container(
-//                                     padding: const EdgeInsets.only(left: 20, right: 10, top: 0, bottom: 0),
-//                                     decoration: BoxDecoration(
-//                                       color: const Color(0xFF114B5F),
-//                                       borderRadius: BorderRadius.circular(20),
-//                                     ),
-//                                     child: Row(
-//                                       children: [
-//                                         Expanded(
-//                                           child: Column(
-//                                             crossAxisAlignment: CrossAxisAlignment.start,
-//                                             children: [
-//                                               const Text(
-//                                                 "Available\nCredits",
-//                                                 style: TextStyle(
-//                                                   color: Color(0xFFA8B6C2),
-//                                                   fontSize: 32,
-//                                                   fontWeight: FontWeight.w600,
-//                                                   height: 1.1,
-//                                                 ),
-//                                               ),
-//                                               const Text(
-//                                                 "This Month",
-//                                                 style: TextStyle(
-//                                                   color: Color(0xff89BCC8),
-//                                                   fontSize: 16,
-//                                                   fontWeight: FontWeight.w600,
-//                                                 ),
-//                                               ),
-//                                               const SizedBox(height: 12),
-//                                               Text(
-//                                                 planLabel,
-//                                                 style: const TextStyle(
-//                                                   color: Color(0xFFA8B6C2),
-//                                                   fontSize: 12,
-//                                                   fontWeight: FontWeight.w400,
-//                                                 ),
-//                                               ),
-//                                               if (renewalText != null) ...[
-//                                                 const SizedBox(height: 4),
-//                                                 Text(
-//                                                   renewalText,
-//                                                   style: const TextStyle(
-//                                                     color: Color(0xff89BCC8),
-//                                                     fontSize: 12,
-//                                                     fontWeight: FontWeight.w600,
-//                                                   ),
-//                                                 ),
-//                                               ],
-//                                             ],
-//                                           ),
-//                                         ),
-//                                         Container(
-//                                           width: 1,
-//                                           height: 115,
-//                                           color: const Color(0xff8A99A6),
-//                                           margin: const EdgeInsets.symmetric(horizontal: 30),
-//                                         ),
-//                                         Padding(
-//                                           padding: const EdgeInsets.only(right: 10),
-//                                           child: Text(
-//                                             "$credits",
-//                                             style: const TextStyle(
-//                                               color: Color(0xFFA8B6C2),
-//                                               fontSize: 128,
-//                                               fontWeight: FontWeight.w500,
-//                                             ),
-//                                           ),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                   ),
-//                                   if (_subscriptionStatus == 2 || _subscriptionStatus == 3) ...[
-//                                     const SizedBox(height: 16),
-//                                     GestureDetector(
-//                                       onTap: _isLoading ? null : _openManagePortal,
-//                                       child: Container(
-//                                         width: double.infinity,
-//                                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-//                                         decoration: BoxDecoration(
-//                                           color: const Color(0xFF114B5F),
-//                                           borderRadius: BorderRadius.circular(20),
-//                                           border: Border.all(color: const Color(0xFF78BCC4), width: 1),
-//                                         ),
-//                                         child: const Row(
-//                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                                           children: [
-//                                             Text(
-//                                               "Manage Subscription",
-//                                               style: TextStyle(
-//                                                 color: Color(0xFF78BCC4),
-//                                                 fontSize: 16,
-//                                                 fontWeight: FontWeight.w600,
-//                                               ),
-//                                             ),
-//                                             Icon(
-//                                               Icons.arrow_forward_ios,
-//                                               color: Color(0xFF78BCC4),
-//                                               size: 16,
-//                                             ),
-//                                           ],
-//                                         ),
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ],
-//                               );
-//                             },
-//                           ),
-//                           const SizedBox(height: 40),
-//                         ],
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//                 Builder(
-//                     builder: (context) {
-//                       final activePlanIndex = _currentPage.round() % _plans.length;
-//                       final activePlan = _plans[activePlanIndex];
-//                       final planId = activePlan["id"].toString();
-//                       final isTopup = planId.startsWith("credit_");
-//                       final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
-//
-//                       String buttonText = "Start 7-Day Free Trial";
-//                       if (isTopup) {
-//                         buttonText = "Purchase ${activePlan['big']} Credits";
-//                       } else if (_subscriptionStatus == 1) {
-//                         if (planId == "trial") {
-//                           buttonText = "Free Trial (Current)";
-//                         } else {
-//                           buttonText = "Upgrade plan";
-//                         }
-//                       } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-//                         if (planId == "trial") {
-//                           buttonText = "Free Trial (Used)";
-//                         } else {
-//                           buttonText = "Upgrade your plan";
-//                         }
-//                       } else {
-//                         if (planId == "trial") {
-//                           buttonText = "Start 7-Day Free Trial";
-//                         } else {
-//                           buttonText = "Subscribe to ${planId == 'monthly' ? 'Monthly' : 'Yearly'}";
-//                         }
-//                       }
-//
-//                       if (_activePromoPlan != null && !isTopup) {
-//                         buttonText = _activePromoPlan!;
-//                       }
-//
-//                       return Container(
-//                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-//                         color: const Color(0xFF002C3E),
-//                         child: Row(
-//                           children: [
-//                             const SizedBox(),
-//                             const Spacer(),
-//                             Text(
-//                               buttonText,
-//                               style: TextStyle(
-//                                 color: isCtaDisabled ? const Color(0xFF8A99A6) : Colors.white,
-//                                 fontSize: 16,
-//                                 fontWeight: FontWeight.w500,
-//                               ),
-//                             ),
-//                             const SizedBox(width: 16),
-//                             GestureDetector(
-//                               onTap: isCtaDisabled
-//                                   ? null
-//                                   : () => _handlePayment(activePlan),
-//                               child: isCtaDisabled
-//                                   ? Container(
-//                                 width: 64,
-//                                 height: 64,
-//                                 decoration: const BoxDecoration(
-//                                   color: Color(0xFF4A5A6A),
-//                                   shape: BoxShape.circle,
-//                                 ),
-//                                 child: const Icon(
-//                                   Icons.arrow_forward,
-//                                   color: Color(0xFF8A99A6),
-//                                   size: 32,
-//                                 ),
-//                               )
-//                                   : SvgPicture.asset(
-//                                 "assets/svg/nextbutton.svg",
-//                                 width: 64,
-//                                 height: 64,
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-//                       );
-//                     }
-//                 ),
-//               ],
-//             ),
-//             if (_isLoading)
-//               Container(
-//                 color: Colors.black.withValues(alpha: 0.6),
-//                 child: const Center(
-//                   child: Column(
-//                     mainAxisSize: MainAxisSize.min,
-//                     children: [
-//                       CircularProgressIndicator(
-//                         color: Color(0xFF78BCC4),
-//                       ),
-//                       SizedBox(height: 16),
-//                       Text(
-//                         "Connecting with Stripe...",
-//                         style: TextStyle(
-//                           color: Colors.white,
-//                           fontSize: 16,
-//                           fontWeight: FontWeight.w500,
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Future<bool> canUseTopup() async {
-//     int status = await TokenStorage.getSubscriptionStatus();
-//     return status == 2 || status == 3;
-//   }
-//
-//   void showTopupRestrictedDialog(BuildContext context) {
-//     showDialog(
-//       context: context,
-//       builder: (_) {
-//         return AlertDialog(
-//           title: const Text("Subscription Required"),
-//           content: const Text(
-//             "Please purchase a Monthly or Yearly plan to use top-up credits.",
-//           ),
-//           actions: [
-//             TextButton(
-//               onPressed: () => Navigator.pop(context),
-//               child: const Text("OK"),
-//             ),
-//           ],
-//         );
-//       },
-//     );
-//   }
-// }
-
-
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1191,14 +18,14 @@ class SubscriptionPage extends StatefulWidget {
 
 class _SubscriptionPageState extends State<SubscriptionPage> {
   late PageController _pageController;
-  double _currentPage = 1.0; // Start with the 7 Days Trial (Index 1)
+  double _currentPage = 1.0;
 
   final List<Map<String, dynamic>> _plans = [
     {
       "id": "monthly",
       "big": "1",
-      "title": "Month\n/Month",
-      "price": "\$8/month",
+      "title": "Month",
+      "price": "\$8/Month",
       "color": const Color(0xFF00AED6),
       "benefits": ["3 Alert Credits per month", "Add up to 2 contacts", "Auto-renew monthly"],
       "progress": 0.9,
@@ -1212,7 +39,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       "color": const Color(0xFFA2D071),
       "benefits": ["1 Alert Credit", "Add 1 contact", "First-time users only"],
       "progress": 0.9,
-      "priceId": "price_1TZ8zgH682jITs1wzNptVVi0", // Monthly Price ID passed for 7-day trial auto-renewal
+      "priceId": "price_1TZ8zgH682jITs1wzNptVVi0",
     },
     {
       "id": "yearly",
@@ -1266,7 +93,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     _loadPromoState();
 
     const int startFactor = 1000;
-    int initialPage = (_plans.length * startFactor) + 1; // Index 1 is Trial
+    int initialPage = (_plans.length * startFactor) + 1;
     _pageController = PageController(
       viewportFraction: 0.5,
       initialPage: initialPage,
@@ -1281,8 +108,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     });
   }
-
-
 
   Future<void> _loadPromoState() async {
     final activePlan = await LocalStorage.getString("active_promo_plan");
@@ -1315,12 +140,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         });
       }
     } catch (e) {
-      print("Subscription status sync error: $e");
+      debugPrint("Subscription status sync error: $e");
     }
   }
 
-  /// ================= PAYMENT / UPGRADE HANDLER =================
-  /// ================= PAYMENT / UPGRADE HANDLER =================
+  /// ================= 1. CARD TAP PAYMENT HANDLER =================
+  /// Card click par direct checkout session banega ya ALREADY ACTIVE wala Alert aayega.
+  /// (Yahan se Portal open nahi hoga)
   Future<void> _handlePayment(Map<String, dynamic> plan) async {
     final planId = plan["id"] as String;
     final priceId = plan["priceId"] as String?;
@@ -1334,7 +160,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
 
-    // 2. Trial Plan Selection Check
+    // 2. Trial Plan Selection Check (Agar user pehle se trial ya paid sub pe hai)
     if (planId == "trial") {
       if (_subscriptionStatus >= 1) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1344,7 +170,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
 
-    // 3. Same Plan Selection Check (Agar user already wahi plan pe hai)
+    // 3. Same Plan / Active Subscription Check (Card click pe alert aayega)
     if ((planId == "monthly" && _subscriptionStatus == 2) ||
         (planId == "yearly" && _subscriptionStatus == 3)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1356,30 +182,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     setState(() => _isLoading = true);
 
     String? sessionUrl;
-    bool isOpeningPortal = false;
 
-    // 🔥 Sahi Stripe Route Detection
     if (isTopup) {
-      // Top-up credits khareedne ke liye
       sessionUrl = await StripeApi.createTopupSession(priceId!);
     } else if (planId == "trial" && _subscriptionStatus == 0) {
-      // Pehli baar Free Trial lene ke liye
       sessionUrl = await StripeApi.createTrialSession(priceId!);
-    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-      // 🔥 UPGRADE / MANAGE: User ke paas already active subscription hai
-      // Stripe backend naye checkout pe 400 dega, isliye Portal open hoga
-      debugPrint("💳 [SubscriptionPage] Active sub found (status $_subscriptionStatus). Opening Stripe Customer Portal for upgrade...");
-      sessionUrl = await StripeApi.openPortal();
-      isOpeningPortal = true;
     } else {
-      // New subscription (Status 0 ya 1 ke liye)
+      // New direct checkout
       sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
     }
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // 4. Open URL via Browser
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
       try {
@@ -1388,10 +203,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         if (!mounted) return;
         setState(() => _isLoading = true);
 
-        // Stripe Webhook processing delay
         await Future.delayed(const Duration(milliseconds: 3500));
 
-        // Agar top-up hai to local me turant add karein
         if (isTopup) {
           int purchasedCredits = int.tryParse(plan["big"]?.toString() ?? "0") ?? 0;
           int currentCredits = await TokenStorage.getCredits();
@@ -1406,7 +219,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           }
         }
 
-        // Backend sync
         await SubscriptionApi.getSubscriptionStatus();
         await _loadPromoState();
 
@@ -1414,11 +226,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                isOpeningPortal
-                    ? "Subscription updated successfully"
-                    : (isTopup ? "Credits added successfully!" : "Plan activated successfully!"),
-              ),
+              content: Text(isTopup ? "Credits added successfully!" : "Plan activated successfully!"),
             ),
           );
         }
@@ -1445,11 +253,36 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
   }
+
+  /// ================= 2. UPGRADE TEXT / BUTTON TAP HANDLER =================
+  /// Sirf "Upgrade plan / Upgrade your plan" text ya arrow par click karne se Stripe Customer Portal khulega
+  Future<void> _handleBottomActionTap(Map<String, dynamic> plan) async {
+    final planId = plan["id"].toString();
+    final isTopup = planId.startsWith("credit_");
+
+    if (isTopup) {
+      await _handlePayment(plan);
+      return;
+    }
+
+    // 🔥 Agar user Trial (status 1) ya Paid Plan (status 2, 3) par hai:
+    // Toh "Upgrade plan" par click karne par seedha Stripe Customer Portal open hoga!
+    if (_subscriptionStatus >= 1) {
+      debugPrint("💳 [SubscriptionPage] Opening Stripe Portal for upgrade (status $_subscriptionStatus)...");
+      await _openManagePortal();
+      return;
+    }
+
+    // Status 0 wale fresh user ke liye checkout flow
+    await _handlePayment(plan);
+  }
+
   Future<void> _openManagePortal() async {
-    if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
+    // Status 1, 2 aur 3 teeno ke liye allow karein
+    if (_subscriptionStatus < 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Subscription management is only available for paid plans."),
+          content: Text("Please select a plan first to start subscription."),
         ),
       );
       return;
@@ -1510,7 +343,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     setState(() => _isLoading = false);
 
-    // Check status 200/201 aur success flag
     final isSuccess = (res != null) &&
         (res['statusCode'] == 200 || res['statusCode'] == 201) &&
         (res['success'] == true);
@@ -1539,7 +371,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       await LocalStorage.saveStringList("used_promo_codes", _usedPromoCodes);
       await LocalStorage.saveBool("hide_disclaimer", true);
 
-      // Backend se fresh subscription status aur updated credits sync karein
       await SubscriptionApi.getSubscriptionStatus();
       await _loadPromoState();
 
@@ -1554,7 +385,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         _promoController.clear();
       });
     } else {
-      // Backend error key ya message key se exact error uthayega (e.g. "Already used")
       final errorText = res?["error"] ?? res?["message"] ?? "Invalid Promo Code";
 
       setState(() {
@@ -1563,6 +393,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       _clearErrorAfterDelay();
     }
   }
+
   void _clearErrorAfterDelay() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
@@ -1578,32 +409,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   Widget _buildPromoCodeField() {
     if (_promoSuccess) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEE6A59),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check,
-                color: Color(0xFFF5F5F5),
-                size: 16,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _promoSuccessMessage ?? "Free Access Activated",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          _promoSuccessMessage ?? "Free Access Activated",
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       );
     }
@@ -1686,6 +499,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   /// ================= UNIFIED CARD WIDGET =================
   Widget dynamicCard({
+    required String id,
     required String bigNumber,
     required String title,
     required String price,
@@ -1696,6 +510,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     required double scale,
     double progress = 0.6,
   }) {
+    final bool isMonthly = (id == "monthly");
+
     return Transform.scale(
       scale: scale,
       child: GestureDetector(
@@ -1740,21 +556,20 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 28,
-                        height: 1.3,
+                        height: 1.2,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
-                    // 🔥 Extra Bold & Solid Price Text
                     Text(
                       price,
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900, // 👈 Maximum Heavy Bold
-                        color: Colors.black, // 👈 Pure Black for crisp sharpness
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -1771,7 +586,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: isMonthly ? 37 : 4),
               Row(
                 children: [
                   const Text(
@@ -1779,7 +594,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1835,6 +650,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     AppSize.init(context);
@@ -1847,270 +663,300 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: AppSize.w(20)),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back, color: Color(0xFFA8B6C2)),
-                            padding: const EdgeInsets.only(right: 1250),
-                            alignment: Alignment.centerLeft,
-                          ),
-                          const Text(
-                            "Keep Your\nCheck-ins\nActive",
-                            style: TextStyle(
-                              color: Color(0xFF78BCC4),
-                              fontSize: 44,
-                              height: 1.1,
-                              fontWeight: FontWeight.w600,
+                  child: RefreshIndicator(
+                    onRefresh: _loadPromoState,
+                    color: const Color(0xFF78BCC4),
+                    backgroundColor: const Color(0xFF114B5F),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: AppSize.w(20)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 6),
+                                child: Icon(Icons.arrow_back, color: Color(0xFFA8B6C2)),
+                              ),
+                              padding: const EdgeInsets.only(right: 1250),
+                              alignment: Alignment.centerLeft,
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            "Subscribe so I can look out for\nyou every day",
-                            style: TextStyle(
-                                color: Color(0xFFD1D9E0),
-                                fontSize: 22,
-                                fontWeight: FontWeight.w400
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Text(
+                                "Keep Your\nCheck-ins\nActive",
+                                style: TextStyle(
+                                  color: Color(0xFF78BCC4),
+                                  fontSize: 44,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          Center(
-                            child: SizedBox(
-                              width: 84,
-                              height: 7,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  for (int i = 0; i < _plans.length; i++)
-                                    Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                                      width: 7,
-                                      height: 7,
-                                      decoration: BoxDecoration(
-                                        color: (i == (_currentPage.round() % _plans.length)) ? const Color(0xFFF28D7D) : Colors.white,
-                                        shape: BoxShape.circle,
+                            const SizedBox(height: 16),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Text(
+                                "Subscribe so I can look out for\nyou every day",
+                                style: TextStyle(
+                                    color: Color(0xFFD1D9E0), fontSize: 22, fontWeight: FontWeight.w400),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Center(
+                              child: SizedBox(
+                                width: 84,
+                                height: 7,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    for (int i = 0; i < _plans.length; i++)
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                                        width: 7,
+                                        height: 7,
+                                        decoration: BoxDecoration(
+                                          color: (i == (_currentPage.round() % _plans.length))
+                                              ? const Color(0xFFF28D7D)
+                                              : Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
                                       ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Divider(color: Colors.white24),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "Plans",
+                                    style: TextStyle(
+                                        color: Colors.white54, fontSize: 18, fontWeight: FontWeight.w600),
+                                  ),
+                                  Text(
+                                    "Add Credits",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
                                     ),
+                                  ),
                                 ],
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          const Divider(color: Colors.white24),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Plans",
-                                  style: TextStyle(color: Colors.white54, fontSize: 18, fontWeight: FontWeight.w600),
-                                ),
-                                Text(
-                                  "Add Credits",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Divider(color: Colors.white24),
                             ),
-                          ),
-                          const Divider(color: Colors.white24),
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 265,
+                              child: PageView.builder(
+                                controller: _pageController,
+                                itemCount: 10000,
+                                clipBehavior: Clip.none,
+                                physics: const BouncingScrollPhysics(),
+                                itemBuilder: (context, index) {
+                                  final plan = _plans[index % _plans.length];
 
-                          SizedBox(
-                            height: 260,
-                            child: PageView.builder(
-                              controller: _pageController,
-                              itemCount: 10000,
-                              clipBehavior: Clip.none,
-                              physics: const BouncingScrollPhysics(),
-                              itemBuilder: (context, index) {
-                                final plan = _plans[index % _plans.length];
+                                  double diff = (index - _currentPage).abs().clamp(0.0, 1.0);
+                                  double scale = 1.0 - (diff * 0.165);
+                                  double opacity = 1.0 - (diff * 0.5);
 
-                                double diff = (index - _currentPage).abs().clamp(0.0, 1.0);
-                                double scale = 1.0 - (diff * 0.165);
-                                double opacity = 1.0 - (diff * 0.5);
+                                  return Opacity(
+                                    opacity: opacity,
+                                    child: dynamicCard(
+                                      id: plan["id"] ?? "",
+                                      bigNumber: plan["big"],
+                                      title: plan["title"],
+                                      price: plan["price"],
+                                      saveText: plan["saveText"],
+                                      backgroundColor: plan["color"],
+                                      benefits: List<String>.from(plan["benefits"]),
+                                      progress: plan["progress"] ?? 0.6,
+                                      scale: scale,
+                                      // Card click uses regular flow (alerts on active plan)
+                                      onTap: () => _handlePayment(plan),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 27),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              child: _buildPromoCodeField(),
+                            ),
+                            if (!_hideDisclaimer) ...[
+                              const SizedBox(height: 24),
+                              const Text(
+                                "Start your 7‑day free trial. Auto‑renews after trial until cancelled. Cancel anytime in your App Store settings.",
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Divider(color: Colors.white24),
+                            ),
+                            const SizedBox(height: 16),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Text(
+                                "Your credits at a glance",
+                                style: TextStyle(
+                                  color: Color(0xFF78BCC4),
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            FutureBuilder<int>(
+                              future: Future.value(_credits),
+                              builder: (context, snapshot) {
+                                final credits = _credits;
 
-                                return Opacity(
-                                  opacity: opacity,
-                                  child: dynamicCard(
-                                    bigNumber: plan["big"],
-                                    title: plan["title"],
-                                    price: plan["price"],
-                                    backgroundColor: plan["color"],
-                                    benefits: List<String>.from(plan["benefits"]),
-                                    progress: plan["progress"] ?? 0.6,
-                                    scale: scale,
-                                    onTap: () => _handlePayment(plan),
+                                String planLabel = "1 free credit to start";
+                                String? renewalText;
+
+                                if (_activePromoPlan != null) {
+                                  planLabel = _activePromoPlan!;
+                                  if (_promoActivationTime != null) {
+                                    if (_activePromoPlan == "1 Month Free Access") {
+                                      final exp = _promoActivationTime!.add(const Duration(days: 30));
+                                      renewalText = "Next renewal ${_formatDate(exp)}";
+                                    } else if (_activePromoPlan == "1 Year Free Access") {
+                                      final exp = _promoActivationTime!.add(const Duration(days: 365));
+                                      renewalText = "Next renewal ${_formatDate(exp)}";
+                                    } else if (_activePromoPlan == "Unlimited Free Access") {
+                                      renewalText = "No Expiry";
+                                    }
+                                  }
+                                } else if (_subscriptionStatus == 1) {
+                                  planLabel = "Free Trial Plan";
+                                } else if (_subscriptionStatus == 2) {
+                                  planLabel = "Monthly Subscription";
+                                } else if (_subscriptionStatus == 3) {
+                                  planLabel = "Yearly Subscription";
+                                }
+
+                                final String creditStr = "$credits";
+                                final double dynamicFontSize = creditStr.length <= 1
+                                    ? 100.0
+                                    : creditStr.length == 2
+                                    ? 75.0
+                                    : 52.0;
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF114B5F),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              flex: 5,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text(
+                                                    "Available\nCredits",
+                                                    style: TextStyle(
+                                                      color: Color(0xFFA8B6C2),
+                                                      fontSize: 26,
+                                                      fontWeight: FontWeight.w600,
+                                                      height: 1.1,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  const Text(
+                                                    "This Month",
+                                                    style: TextStyle(
+                                                      color: Color(0xff89BCC8),
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  Text(
+                                                    planLabel,
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFA8B6C2),
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w400,
+                                                    ),
+                                                  ),
+                                                  if (renewalText != null) ...[
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      renewalText,
+                                                      style: const TextStyle(
+                                                        color: Color(0xff89BCC8),
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                            Container(
+                                              width: 1,
+                                              height: 90,
+                                              color: const Color(0xff8A99A6),
+                                              margin: const EdgeInsets.symmetric(horizontal: 12),
+                                            ),
+                                            Expanded(
+                                              flex: 4,
+                                              child: Center(
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Text(
+                                                    creditStr,
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: const Color(0xFFA8B6C2),
+                                                      fontSize: dynamicFontSize,
+                                                      fontWeight: FontWeight.w500,
+                                                      height: 1.0,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 );
                               },
                             ),
-                          ),
-                          const SizedBox(height: 27),
-                          _buildPromoCodeField(),
-                          if (!_hideDisclaimer) ...[
-                            const SizedBox(height: 24),
-                            const Text(
-                              "Purchase confirms auto-renewal and agreement to Terms. Cancel anytime in your App Store settings.",
-                              style: TextStyle(color: Colors.white54, fontSize: 11),
-                            ),
+                            const SizedBox(height: 40),
                           ],
-                          const SizedBox(height: 20),
-                          const Divider(color: Colors.white24),
-                          const SizedBox(height: 16),
-                          const Text(
-                            "Your credits at a glance",
-                            style: TextStyle(
-                              color: Color(0xFF78BCC4),
-                              fontSize: 26,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          FutureBuilder<int>(
-                            future: Future.value(_credits),
-                            builder: (context, snapshot) {
-                              final credits = _credits;
-
-                              String planLabel = "1 free credit to start";
-                              String? renewalText;
-
-                              if (_activePromoPlan != null) {
-                                planLabel = _activePromoPlan!;
-                                if (_promoActivationTime != null) {
-                                  if (_activePromoPlan == "1 Month Free Access") {
-                                    final exp = _promoActivationTime!.add(const Duration(days: 30));
-                                    renewalText = "Next renewal ${_formatDate(exp)}";
-                                  } else if (_activePromoPlan == "1 Year Free Access") {
-                                    final exp = _promoActivationTime!.add(const Duration(days: 365));
-                                    renewalText = "Next renewal ${_formatDate(exp)}";
-                                  } else if (_activePromoPlan == "Unlimited Free Access") {
-                                    renewalText = "No Expiry";
-                                  }
-                                }
-                              } else if (_subscriptionStatus == 1) {
-                                planLabel = "Free Trial Plan";
-                              } else if (_subscriptionStatus == 2) {
-                                planLabel = "Monthly Subscription";
-                              } else if (_subscriptionStatus == 3) {
-                                planLabel = "Yearly Subscription";
-                              }
-
-                              // 💡 DYNAMIC FONT SIZE FOR DIGITS
-                              // 1 Digit (e.g. 0, 3) -> 100px
-                              // 2 Digits (e.g. 36) -> 75px
-                              // 3+ Digits (e.g. 999) -> 52px
-                              final String creditStr = "$credits";
-                              final double dynamicFontSize = creditStr.length <= 1
-                                  ? 100.0
-                                  : creditStr.length == 2
-                                  ? 75.0
-                                  : 52.0;
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF114B5F),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      children: [
-                                        // ── Left Info Column ──
-                                        Expanded(
-                                          flex: 5,
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text(
-                                                "Available\nCredits",
-                                                style: TextStyle(
-                                                  color: Color(0xFFA8B6C2),
-                                                  fontSize: 26, // Scaled down slightly to guarantee 2-lines
-                                                  fontWeight: FontWeight.w600,
-                                                  height: 1.1,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              const Text(
-                                                "This Month",
-                                                style: TextStyle(
-                                                  color: Color(0xff89BCC8),
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Text(
-                                                planLabel,
-                                                style: const TextStyle(
-                                                  color: Color(0xFFA8B6C2),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w400,
-                                                ),
-                                              ),
-                                              if (renewalText != null) ...[
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  renewalText,
-                                                  style: const TextStyle(
-                                                    color: Color(0xff89BCC8),
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-
-                                        // ── Vertical Divider ──
-                                        Container(
-                                          width: 1,
-                                          height: 90,
-                                          color: const Color(0xff8A99A6),
-                                          margin: const EdgeInsets.symmetric(horizontal: 12),
-                                        ),
-
-                                        // ── Right Dynamic Digits Box ──
-                                        Expanded(
-                                          flex: 4,
-                                          child: Center(
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              child: Text(
-                                                creditStr,
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  color: const Color(0xFFA8B6C2),
-                                                  fontSize: dynamicFontSize,
-                                                  fontWeight: FontWeight.w500,
-                                                  height: 1.0,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),                          const SizedBox(height: 40),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -2150,15 +996,17 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       buttonText = _activePromoPlan!;
                     }
 
-                    // 💡 Trial used/current check for click disable
                     bool isTrialDisabled = (planId == "trial") && (_subscriptionStatus >= 1);
-                    bool shouldDisableClick = isCtaDisabled || isTrialDisabled;
+                    bool isUpgradeText = buttonText.toLowerCase().contains("upgrade");
+                    bool shouldDisableClick = (isCtaDisabled || isTrialDisabled) && !isUpgradeText;
 
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
                       color: const Color(0xFF002C3E),
-                      child: InkWell(
-                        onTap: shouldDisableClick ? null : () => _handlePayment(activePlan),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        // 🔥 YAHAN: Bottom "Upgrade" Text / Button pe tap karne se seedha Portal khulega
+                        onTap: shouldDisableClick ? null : () => _handleBottomActionTap(activePlan),
                         child: Row(
                           children: [
                             const Spacer(),
@@ -2171,34 +1019,32 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               ),
                             ),
                             const SizedBox(width: 16),
-                            GestureDetector(
-                              onTap: shouldDisableClick ? null : () => _handlePayment(activePlan),
-                              child: shouldDisableClick
-                                  ? Container(
-                                width: 64,
-                                height: 64,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF4A5A6A),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_forward,
-                                  color: Color(0xFF8A99A6),
-                                  size: 32,
-                                ),
-                              )
-                                  : SvgPicture.asset(
-                                "assets/svg/nextbutton.svg",
-                                width: 64,
-                                height: 64,
+                            shouldDisableClick
+                                ? Container(
+                              width: 64,
+                              height: 64,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF4A5A6A),
+                                shape: BoxShape.circle,
                               ),
+                              child: const Icon(
+                                Icons.arrow_forward,
+                                color: Color(0xFF8A99A6),
+                                size: 32,
+                              ),
+                            )
+                                : SvgPicture.asset(
+                              "assets/svg/nextbutton.svg",
+                              width: 64,
+                              height: 64,
                             ),
                           ],
                         ),
                       ),
                     );
                   },
-                )              ],
+                ),
+              ],
             ),
             if (_isLoading)
               Container(

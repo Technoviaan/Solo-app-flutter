@@ -142,35 +142,6 @@ class _MorePageState extends State<MorePage> {
 
                 SizedBox(height: AppSize.h(24)),
 
-                // ── DEVELOPER TOOLS (debug builds only — never shown in release) ──
-                if (kDebugMode) ...[
-                  sectionTitle("Developer Tools"),
-                  settingsBox([
-                    settingTile(
-                      "Test Alert (15s)",
-                      onTap: () => _runQuickTestAlert(context, 15, 90),
-                    ),
-                    settingTile(
-                      "Test Alert (60s)",
-                      onTap: () => _runQuickTestAlert(context, 60, 180),
-                    ),
-                    settingTile(
-                      "Clear Test Alert",
-                      onTap: () async {
-                        await NotificationService.clearQuickTestAlert();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Test alert cleared."),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ]),
-                  SizedBox(height: AppSize.h(24)),
-                ],
-
                 /// SUPPORT
                 sectionTitle("Support"),
 

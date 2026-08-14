@@ -9,6 +9,7 @@ import 'package:solo_app/loginWithNumber/name_onboarding_page.dart';
 import 'package:solo_app/loginWithNumber/email_page.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/core/utils/app_size.dart';
+import 'package:solo_app/core/deeplink/deep_link_service.dart';
 import 'package:solo_app/subscription/subscription_api.dart';
 
 class SoloLogoWidget extends StatelessWidget {
@@ -66,6 +67,23 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void startApp() async {
     if (!mounted) return;
+
+    // 🔗 If the app was cold-started from solo://payment-success (or
+    // -cancel), let that redirect win: wait briefly for the deep-link
+    // service to finish checking the launch intent, so we don't race it and
+    // land on Home/Subscription before PaymentResultPage gets a chance to
+    // show. Mirrors the isHandlingAlarm guard below for the same reason.
+    try {
+      await DeepLinkService.coldStartCheckDone.future
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Timed out waiting — proceed with normal splash flow.
+    }
+    if (DeepLinkService.isHandlingRedirect) {
+      debugPrint(
+          "🔗 [Splash] Payment deep link is being handled, SplashScreen skipping default navigation.");
+      return;
+    }
 
     /// ================= AUTHENTICATION =================
     String? token;
@@ -155,6 +173,12 @@ class _SplashScreenState extends State<SplashScreen> {
     if (NotificationService.isHandlingAlarm) {
       print(
           "🚀 Alarm is being handled, SplashScreen skipping default navigation.");
+      return;
+    }
+
+    if (DeepLinkService.isHandlingRedirect) {
+      debugPrint(
+          "🔗 [Splash] Payment deep link is being handled, SplashScreen skipping default navigation.");
       return;
     }
 

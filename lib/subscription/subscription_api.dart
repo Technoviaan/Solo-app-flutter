@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../core/network/api_config.dart';
 import '../core/network/ban_guard.dart';
@@ -12,7 +13,7 @@ class SubscriptionApi {
       final token = await TokenStorage.getToken();
       final url = Uri.parse("${ApiConfig.baseUrl}/subscription/status");
 
-      print("SubscriptionApi: Fetching subscription status via $url");
+      debugPrint("SubscriptionApi: Fetching subscription status via $url");
 
       final response = await http.get(
         url,
@@ -21,8 +22,8 @@ class SubscriptionApi {
         },
       );
 
-      print("SubscriptionApi: Status response status = ${response.statusCode}");
-      print("SubscriptionApi: Status response body = ${response.body}");
+      debugPrint("SubscriptionApi: Status response status = ${response.statusCode}");
+      debugPrint("SubscriptionApi: Status response body = ${response.body}");
 
       if (BanGuard.checkAndHandle(response)) return null;
 
@@ -32,14 +33,14 @@ class SubscriptionApi {
         return data;
       }
     } catch (e) {
-      print("SubscriptionApi Error (getSubscriptionStatus): $e");
+      debugPrint("SubscriptionApi Error (getSubscriptionStatus): $e");
     }
     return null;
   }
 
   static Future<bool> _applySubscriptionData(Map<String, dynamic> data) async {
     final Map<String, dynamic> nested =
-        (data["subscription"] ?? data["user"]?["subscription"]) as Map<String, dynamic>? ?? const {};
+        (data["subscription"] ?? data["user"]?["subscription"] ?? data["data"]) as Map<String, dynamic>? ?? const {};
 
     bool savedAnything = false;
 
@@ -55,80 +56,72 @@ class SubscriptionApi {
     if (rawStatus != null) {
       statusVal = _mapSubscriptionStatus(rawStatus, rawPlan);
       await TokenStorage.saveSubscriptionStatus(statusVal);
-      print("SubscriptionApi: ✅ Saved subscription status -> $statusVal");
+      debugPrint("SubscriptionApi: ✅ Saved subscription status -> $statusVal");
       savedAnything = true;
     }
 
-    // 2. Credits from Backend
-    dynamic credits = nested["credits"]?["remaining"] ??
+    // 2. Credits Extraction
+    dynamic rawCredits = nested["credits"]?["remaining"] ??
         nested["remainingCredits"] ??
+        nested["creditBalance"] ??
         nested["credits"] ??
         data["creditsRemaining"] ??
         data["remainingCredits"] ??
+        data["creditBalance"] ??
         data["credits"]?["remaining"] ??
-        data["credits"];
+        data["credits"] ??
+        data["user"]?["credits"];
 
-    int incomingCredits = credits is int ? credits : int.tryParse(credits?.toString() ?? '') ?? 0;
-
-    int finalCredits = incomingCredits;
-
-    // 🔥 Base Plan Minimum Threshold Check
-    // Agar Yearly plan (status 3) hai aur incoming credits 36 se kam hain (jaise top-up 3 aagaya),
-    // to base 36 me top-up add hoga (36 + 3 = 39)
-    if (statusVal == 3) {
-      if (incomingCredits < 36) {
-        finalCredits = 36 + incomingCredits;
-        print("SubscriptionApi: 💡 Yearly user base 36 + topup ($incomingCredits) -> $finalCredits");
-      }
-    } else if (statusVal == 2) {
-      if (incomingCredits < 3) {
-        finalCredits = 3 + incomingCredits;
-        print("SubscriptionApi: 💡 Monthly user base 3 + topup ($incomingCredits) -> $finalCredits");
-      }
-    } else if (statusVal == 1 && incomingCredits == 0) {
-      finalCredits = 1;
+    int parsedCredits = 0;
+    if (rawCredits != null) {
+      parsedCredits = rawCredits is int
+          ? rawCredits
+          : (int.tryParse(rawCredits.toString()) ?? 0);
     }
 
-    // Local credits check: Agar local me already zyada credits hain to ghatao mat
-    int currentLocal = await TokenStorage.getCredits();
-    if (currentLocal > finalCredits) {
-      finalCredits = currentLocal;
+    // 🔥 FLUTTER FALLBACK: Agar backend 0 bhej raha hai jabki user active plan pe hai
+    if (parsedCredits == 0) {
+      if (statusVal == 3) {
+        // Yearly Plan Active -> 36 Credits
+        parsedCredits = 36;
+        debugPrint("SubscriptionApi: ⚡ Fallback applied for YEARLY -> 36 credits");
+      } else if (statusVal == 2) {
+        // Monthly Plan Active -> 3 Credits
+        parsedCredits = 3;
+        debugPrint("SubscriptionApi: ⚡ Fallback applied for MONTHLY -> 3 credits");
+      } else if (statusVal == 1) {
+        // Trial Active -> 1 Credit
+        parsedCredits = 1;
+        debugPrint("SubscriptionApi: ⚡ Fallback applied for TRIAL -> 1 credit");
+      }
     }
 
-    await TokenStorage.saveCredits(finalCredits);
-    print("SubscriptionApi: ✅ Final Saved credits -> $finalCredits");
+    await TokenStorage.saveCredits(parsedCredits);
+    debugPrint("SubscriptionApi: ✅ Final Saved credits -> $parsedCredits");
     savedAnything = true;
 
     return savedAnything;
   }
+
   static int _mapSubscriptionStatus(dynamic backendStatus, dynamic planType) {
     if (backendStatus is int) return backendStatus;
 
     final statusStr = backendStatus.toString().toUpperCase().trim();
     final planStr = planType?.toString().toUpperCase().trim() ?? "";
 
-    // Yearly checks
     if (planStr.contains("YEAR") || statusStr.contains("YEAR")) {
       return 3;
     }
-
-    // Trial checks
     if (statusStr == "TRIAL" || planStr.contains("TRIAL")) {
       return 1;
     }
-
-    // Active / Subscribed checks
     if (statusStr == "ACTIVE" || statusStr == "SUBSCRIBED" || statusStr == "PAID") {
-      if (planStr.contains("YEAR")) {
-        return 3;
-      }
-      return 2; // Default Monthly
+      if (planStr.contains("YEAR")) return 3;
+      return 2;
     }
-
     if (statusStr == "MONTHLY" || planStr.contains("MONTH")) {
       return 2;
     }
-
     return 0;
   }
 
@@ -138,7 +131,7 @@ class SubscriptionApi {
       final token = await TokenStorage.getToken();
       final url = Uri.parse("${ApiConfig.baseUrl}/promo/redeem");
 
-      print("SubscriptionApi: Redeeming promo code: $code via $url");
+      debugPrint("SubscriptionApi: Redeeming promo code: $code via $url");
 
       final response = await http.post(
         url,
@@ -149,15 +142,40 @@ class SubscriptionApi {
         body: jsonEncode({"code": code}),
       );
 
-      print("SubscriptionApi: Promo response status = ${response.statusCode}");
-      print("SubscriptionApi: Promo response body = ${response.body}");
+      debugPrint("SubscriptionApi: Promo response status = ${response.statusCode}");
+      debugPrint("SubscriptionApi: Promo response body = ${response.body}");
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       data['statusCode'] = response.statusCode;
       return data;
     } catch (e) {
-      print("SubscriptionApi Error (redeemPromoCode): $e");
+      debugPrint("SubscriptionApi Error (redeemPromoCode): $e");
       return null;
     }
+  }
+
+  /// ================= START TRIAL =================
+  static Future<Map<String, dynamic>?> startTrial() async {
+    try {
+      final token = await TokenStorage.getToken();
+      final url = Uri.parse("${ApiConfig.baseUrl}/subscription/start-trial");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await _applySubscriptionData(data);
+        return data;
+      }
+    } catch (e) {
+      debugPrint("SubscriptionApi Error (startTrial): $e");
+    }
+    return null;
   }
 }

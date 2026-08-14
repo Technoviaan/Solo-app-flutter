@@ -7,6 +7,7 @@ import 'package:solo_app/home/checkin/checkin_api.dart';
 import 'package:solo_app/home/contact/contacts_page.dart';
 import 'package:solo_app/home/profile/profile_api.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
+import 'package:solo_app/subscription/subscription_api.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class SchedulePage extends StatefulWidget {
@@ -44,6 +45,11 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Future<void> loadData() async {
+    // Pull the latest subscription/credits from the backend first, so any
+    // admin credit adjustment (or usage) is reflected immediately instead of
+    // showing a stale cached value.
+    await SubscriptionApi.getSubscriptionStatus();
+
     subscriptionStatus = await TokenStorage.getSubscriptionStatus();
     maxCheckins = await TokenStorage.getMaxCheckins();
     credits = await TokenStorage.getCredits();
