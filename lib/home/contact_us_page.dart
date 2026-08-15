@@ -10,7 +10,6 @@ import 'package:solo_app/core/widgets/solo_logo.dart';
 import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
 
-/// Self-Signed / IP HTTPS SSL Bypass Handler (VPS Direct IP testing ke liye)
 class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
@@ -35,7 +34,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
 
   // ============ REFUND REQUEST STATE ============
   bool isRefundRequest = false;
-  String? refundReason; // null until user picks one from the action sheet
+  String? refundReason;
 
   static const List<String> refundReasonOptions = [
     "Accidental purchase",
@@ -120,56 +119,71 @@ class _ContactUsPageState extends State<ContactUsPage> {
     print("================= REFUND CHECKBOX HANDLED =================\n");
   }
 
-  // ================= ACTION SHEET (Select Refund Reason) =================
+  // ================= ACTION SHEET =================
   Future<String?> _showRefundReasonSheet() {
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFFF7F8F3),
+      backgroundColor: Colors.transparent,
       isScrollControlled: false,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-      ),
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSize.h(12)),
+            padding: EdgeInsets.symmetric(horizontal: AppSize.w(12), vertical: AppSize.h(10)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: AppSize.h(10)),
-                  child: Text(
-                    "Select Refund Reason",
-                    style: TextStyle(
-                      fontSize: AppSize.sp(15),
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF002C3E),
-                    ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F8F3),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                ),
-                const Divider(height: 1, color: Color(0xFF8A99A6)),
-                for (final reason in refundReasonOptions) ...[
-                  InkWell(
-                    onTap: () {
-                      print("[REFUND SHEET] Option tapped: '$reason'");
-                      Navigator.pop(sheetContext, reason);
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: AppSize.h(14), horizontal: AppSize.w(20)),
-                      child: Text(
-                        reason,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: AppSize.sp(14),
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF5A8C7D),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header Title
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppSize.h(14)),
+                        child: Text(
+                          "Select Refund Reason",
+                          style: TextStyle(
+                            fontSize: AppSize.sp(16),
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF002C3E),
+                          ),
                         ),
                       ),
-                    ),
+                      const Divider(height: 1, thickness: 0.8, color: Color(0xFF8A99A6)),
+
+                      // Reason Options List
+                      for (int i = 0; i < refundReasonOptions.length; i++) ...[
+                        InkWell(
+                          onTap: () {
+                            print("[REFUND SHEET] Option tapped: '${refundReasonOptions[i]}'");
+                            Navigator.pop(sheetContext, refundReasonOptions[i]);
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(vertical: AppSize.h(14), horizontal: AppSize.w(16)),
+                            child: Text(
+                              refundReasonOptions[i],
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: AppSize.sp(14),
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF5A8C7D),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (i < refundReasonOptions.length - 1)
+                          const Divider(height: 1, thickness: 0.8, color: Color(0xFF8A99A6)),
+                      ],
+                    ],
                   ),
-                  const Divider(height: 1, color: Color(0xFF8A99A6)),
-                ],
-                SizedBox(height: AppSize.h(10)),
+                ),
+
+                SizedBox(height: AppSize.h(8)),
+
                 GestureDetector(
                   onTap: () {
                     print("[REFUND SHEET] Cancel tapped.");
@@ -177,18 +191,16 @@ class _ContactUsPageState extends State<ContactUsPage> {
                   },
                   child: Container(
                     width: double.infinity,
-                    margin: EdgeInsets.symmetric(horizontal: AppSize.w(20)),
-                    padding: EdgeInsets.symmetric(vertical: AppSize.h(12)),
+                    padding: EdgeInsets.symmetric(vertical: AppSize.h(14)),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF7F8F3),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF8A99A6)),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
                       "Cancel",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: AppSize.sp(14),
+                        fontSize: AppSize.sp(15),
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF002C3E),
                       ),
@@ -232,7 +244,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
       print("[VALIDATION ERROR] Description exceeds $maxDescriptionLength chars.");
       print("--------------------------------------------------------\n");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text("Description must be under $maxDescriptionLength characters."),
           backgroundColor: Colors.redAccent,
         ),
@@ -294,7 +306,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
       print("[API] Sending request to VPS host...");
 
       final streamedResponse = await client.send(request).timeout(
-        const Duration(seconds: 30), // VPS par sleep issue nahi hota, so 30s timeout is enough
+        const Duration(seconds: 30),
         onTimeout: () {
           print("[API TIMEOUT] No response after 30s (elapsed: ${stopwatch.elapsedMilliseconds}ms)");
           throw TimeoutException("VPS Server request timed out after 30 seconds.");
@@ -468,7 +480,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                     ),
                     TextField(
                       controller: descriptionController,
-                      maxLines: 4,
+                      maxLines: 3,
                       maxLength: maxDescriptionLength,
                       enabled: !isSubmitting,
                       decoration: const InputDecoration(
@@ -576,7 +588,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                               style: TextStyle(
                                 color: const Color(0xFF8A99A6),
                                 fontSize: AppSize.sp(12),
-                                fontWeight: FontWeight.w500,
+                                fontWeight: isRefundRequest ? FontWeight.w600 : FontWeight.w500,
                               ),
                             ),
                           ),
