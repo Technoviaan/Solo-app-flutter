@@ -3,6 +3,7 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import '../../home/checkin/notification_service.dart' show navigatorKey;
 import '../../subscription/payment_result_page.dart';
+import '../storage/token_storage.dart';
 
 class DeepLinkService {
   DeepLinkService._();
@@ -108,6 +109,12 @@ class DeepLinkService {
     }
 
     debugPrint("🔗 [DeepLink] Navigating to PaymentResultPage(success: $success)");
+
+    // The OS successfully redelivered the deep link, so the storage-backed
+    // fallback in SplashScreen (TokenStorage.getPendingCheckout()) is no
+    // longer needed for this checkout — clear it so a later, unrelated cold
+    // start doesn't wrongly think a checkout is still in flight.
+    await TokenStorage.savePendingCheckout(false);
 
     navigatorKey.currentState?.pushAndRemoveUntil(
       MaterialPageRoute(

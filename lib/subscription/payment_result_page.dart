@@ -22,10 +22,12 @@ class PaymentResultPage extends StatefulWidget {
   const PaymentResultPage({super.key, required this.success});
 
   @override
+
   State<PaymentResultPage> createState() => _PaymentResultPageState();
 }
 
 class _PaymentResultPageState extends State<PaymentResultPage> {
+  
   bool _isChecking = true;
   bool _confirmed = false;
 

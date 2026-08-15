@@ -198,37 +198,43 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
       try {
+        // 🛠️ FIX: Record that a real Stripe checkout is now in flight
+        // BEFORE handing off to the external browser. `launchUrl(...,
+        // mode: LaunchMode.externalApplication)` below opens the full
+        // system browser (a separate app/task), not an in-app custom tab.
+        // While the user is entering card details there — which can take
+        // 30s-2min — Android is free to kill our process for memory, and
+        // on some OEM builds the solo://payment-success deep link doesn't
+        // get redelivered reliably when that happens. This flag lets
+        // SplashScreen fall back to showing PaymentResultPage on the next
+        // app open even if the OS-level deep link never arrives. See the
+        // doc comment on TokenStorage.getPendingCheckout() for the full
+        // explanation.
+        await TokenStorage.savePendingCheckout(true);
+
         await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-        if (!mounted) return;
-        setState(() => _isLoading = true);
-
-        await Future.delayed(const Duration(milliseconds: 3500));
-
-        if (isTopup) {
-          int purchasedCredits = int.tryParse(plan["big"]?.toString() ?? "0") ?? 0;
-          int currentCredits = await TokenStorage.getCredits();
-          int newTotalCredits = currentCredits + purchasedCredits;
-
-          await TokenStorage.saveCredits(newTotalCredits);
-
-          if (mounted) {
-            setState(() {
-              _credits = newTotalCredits;
-            });
-          }
-        }
-
-        await SubscriptionApi.getSubscriptionStatus();
-        await _loadPromoState();
-
+        // 🛠️ FIX: Removed the old "wait 3.5s, optimistically add credits
+        // locally, then immediately re-sync with the backend" logic here.
+        // It was actively harmful: the re-sync call almost always ran
+        // BEFORE the Stripe webhook had actually landed on the backend
+        // (webhooks routinely take longer than 3.5s), so it fetched STALE
+        // pre-purchase data and overwrote the optimistic local credit
+        // add with the old (wrong) number. The only reason credits ever
+        // ended up correct was that the LATER solo://payment-success deep
+        // link (PaymentResultPage) happened to re-poll and fix it — but if
+        // that deep link is ever missed (the cold-start case fixed above),
+        // credits would stay stuck at the stale value even though the
+        // user was actually charged.
+        //
+        // PaymentResultPage (reached via the deep link, or via the
+        // TokenStorage.pendingCheckout fallback in SplashScreen if the
+        // deep link itself doesn't arrive) is the single source of truth
+        // for confirming a purchase now — it polls the real backend up to
+        // 5 times over 10s specifically so it catches the webhook. This
+        // page just needs to hand off to Stripe and get out of the way.
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(isTopup ? "Credits added successfully!" : "Plan activated successfully!"),
-            ),
-          );
         }
       } catch (e) {
         if (mounted) {
@@ -295,6 +301,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     if (portalUrl != null && portalUrl.isNotEmpty) {
       final uri = Uri.parse(portalUrl);
       try {
+        // NOTE: intentionally NOT setting TokenStorage.savePendingCheckout()
+        // here — the Stripe Customer Portal is for managing an existing
+        // subscription, not a new checkout, and doesn't redirect back via
+        // solo://payment-success. Setting the flag here would make Splash
+        // wrongly show PaymentResultPage next time the app opens.
         await launchUrl(uri, mode: LaunchMode.externalApplication);
 
         await Future.delayed(const Duration(milliseconds: 2000));

@@ -11,6 +11,7 @@ import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/core/deeplink/deep_link_service.dart';
 import 'package:solo_app/subscription/subscription_api.dart';
+import 'package:solo_app/subscription/payment_result_page.dart';
 
 class SoloLogoWidget extends StatelessWidget {
   final double size;
@@ -82,6 +83,29 @@ class _SplashScreenState extends State<SplashScreen> {
     if (DeepLinkService.isHandlingRedirect) {
       debugPrint(
           "🔗 [Splash] Payment deep link is being handled, SplashScreen skipping default navigation.");
+      return;
+    }
+
+    // 🛠️ FIX: Fallback for when the solo://payment-success deep link itself
+    // never made it back to us (process was killed mid-checkout in the
+    // external browser and the OS didn't redeliver the intent the way
+    // DeepLinkService expects — see TokenStorage.getPendingCheckout() doc
+    // comment for the full explanation). This is what was causing "splash
+    // screen, then straight to Home" instead of the payment result screen.
+    //
+    // Independent of the deep-link race above: if we know a checkout was
+    // started and never got confirmed, show PaymentResultPage ourselves.
+    final pendingCheckout = await TokenStorage.getPendingCheckout();
+    if (pendingCheckout) {
+      await TokenStorage.savePendingCheckout(false);
+      debugPrint(
+          "🔗 [Splash] Pending checkout found with no deep-link confirmation — "
+              "showing PaymentResultPage as a fallback.");
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PaymentResultPage(success: true)),
+      );
       return;
     }
 
