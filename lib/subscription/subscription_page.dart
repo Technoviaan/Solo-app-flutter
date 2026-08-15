@@ -810,11 +810,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                             ),
                             if (!_hideDisclaimer) ...[
                               const SizedBox(height: 24),
-                              const Text(
-                                "Start your 7‑day free trial. Auto‑renews after trial until cancelled. Cancel anytime in your App Store settings.",
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 6),
+                                child: Text(
+                                  "Start your 7‑day free trial. Auto‑renews after trial until cancelled. Cancel anytime in your App Store settings.",
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                             ],
