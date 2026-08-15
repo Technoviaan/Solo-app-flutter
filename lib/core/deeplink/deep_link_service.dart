@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
-import '../../home/checkin/notification_service.dart' show navigatorKey;
-import '../../subscription/payment_result_page.dart';
-import '../storage/token_storage.dart';
+import 'package:solo_app/home/checkin/notification_service.dart' show navigatorKey;
+import 'package:solo_app/subscription/payment_result_page.dart';
+import 'package:solo_app/core/storage/token_storage.dart';
 
 class DeepLinkService {
   DeepLinkService._();
@@ -12,25 +12,14 @@ class DeepLinkService {
   static StreamSubscription<Uri>? _linkSubscription;
   static bool _initialized = false;
 
-  /// True while a payment-success/payment-cancel deep link has been detected
-  /// and PaymentResultPage is being (or about to be) pushed. SplashScreen
-  /// checks this before doing its own default Home/Subscription navigation
-  /// so it doesn't stomp on the deep link redirect — same pattern already
-  /// used for NotificationService.isHandlingAlarm.
   static bool isHandlingRedirect = false;
-
-  /// Completes once the cold-start link check has finished (whether or not a
-  /// link was actually found). SplashScreen awaits this (with a timeout)
-  /// before deciding where to navigate, so a cold start via
-  /// solo://payment-success reliably wins the race against Splash's own
-  /// default navigation instead of depending on timing alone.
   static final Completer<void> coldStartCheckDone = Completer<void>();
 
   static Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
 
-    // Cold start: app launched directly from the solo://... link.
+    // Cold start check
     try {
       final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
@@ -47,7 +36,7 @@ class DeepLinkService {
       }
     }
 
-    // App already running (foreground or background) and the link fires.
+    // App running in foreground / background
     _linkSubscription?.cancel();
     _linkSubscription = _appLinks.uriLinkStream.listen(
           (uri) {
@@ -68,8 +57,6 @@ class DeepLinkService {
       return;
     }
 
-    // solo://payment-success -> uri.host == "payment-success"
-    // solo://payment-cancel  -> uri.host == "payment-cancel"
     String target = uri.host;
     if (target.isEmpty && uri.pathSegments.isNotEmpty) {
       target = uri.pathSegments.first;
@@ -92,9 +79,6 @@ class DeepLinkService {
   }
 
   static Future<void> _navigateToResult({required bool success}) async {
-    // Same wait-for-navigator pattern used by NotificationService for the
-    // missed check-in flow: on a cold start the deep link can arrive before
-    // MaterialApp/navigatorKey has attached a navigator.
     int retryCount = 0;
     while (navigatorKey.currentState == null && retryCount < 100) {
       await Future.delayed(const Duration(milliseconds: 100));
@@ -102,18 +86,13 @@ class DeepLinkService {
     }
 
     if (navigatorKey.currentState == null) {
-      debugPrint("🔗 [DeepLink] Navigator never became ready after 10s, "
-          "dropping payment-${success ? 'success' : 'cancel'} deep link.");
+      debugPrint("🔗 [DeepLink] Navigator never became ready, dropping deep link.");
       isHandlingRedirect = false;
       return;
     }
 
     debugPrint("🔗 [DeepLink] Navigating to PaymentResultPage(success: $success)");
 
-    // The OS successfully redelivered the deep link, so the storage-backed
-    // fallback in SplashScreen (TokenStorage.getPendingCheckout()) is no
-    // longer needed for this checkout — clear it so a later, unrelated cold
-    // start doesn't wrongly think a checkout is still in flight.
     await TokenStorage.savePendingCheckout(false);
 
     navigatorKey.currentState?.pushAndRemoveUntil(
@@ -123,7 +102,6 @@ class DeepLinkService {
           (route) => false,
     );
 
-    // Reset once handled so a later, unrelated app launch isn't blocked forever.
     isHandlingRedirect = false;
   }
 
