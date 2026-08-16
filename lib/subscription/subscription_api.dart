@@ -44,7 +44,7 @@ class SubscriptionApi {
 
     bool savedAnything = false;
 
-    // 1. Status & Plan Parsing
+    // 1. Status & Plan Parsing (Dynamic from backend)
     final dynamic rawStatus = nested["status"] ?? data["status"];
     final dynamic rawPlan = nested["planType"] ??
         nested["plan"] ??
@@ -52,55 +52,77 @@ class SubscriptionApi {
         data["planType"] ??
         data["plan"];
 
-    int statusVal = 0;
     if (rawStatus != null) {
-      statusVal = _mapSubscriptionStatus(rawStatus, rawPlan);
+      final int statusVal = _mapSubscriptionStatus(rawStatus, rawPlan);
       await TokenStorage.saveSubscriptionStatus(statusVal);
       debugPrint("SubscriptionApi: ✅ Saved subscription status -> $statusVal");
       savedAnything = true;
     }
 
-    // 2. Credits Extraction
+    // 2. Credits Extraction (100% Backend response value, no hardcoding)
+    //
+    // 🛠️ FIX: The old chain fell back to the raw `nested["credits"]` /
+    // `data["credits"]` objects themselves when no `remaining` sub-key
+    // existed. If the backend ever sends `credits` as an object without
+    // a `remaining` field (e.g. `{"credits": {"total": 5}}`), that raw
+    // Map would flow into `int.tryParse(rawCredits.toString())`, which
+    // can never parse a Map's toString() and silently returns 0 — wiping
+    // out the user's real credit count with 0 even though nothing was
+    // actually wrong on the backend.
+    //
+    // Now: the raw `credits` key is only used as a last-resort fallback,
+    // and only if it is itself a primitive (int/num/String) — never a
+    // Map. And we only persist a value if it actually parses to a valid
+    // int; if parsing fails for any reason, we keep whatever was already
+    // saved instead of silently overwriting it with 0.
     dynamic rawCredits = nested["credits"]?["remaining"] ??
         nested["remainingCredits"] ??
         nested["creditBalance"] ??
-        nested["credits"] ??
+        nested["totalCredits"] ??
+        data["totalCredits"] ??
         data["creditsRemaining"] ??
         data["remainingCredits"] ??
         data["creditBalance"] ??
         data["credits"]?["remaining"] ??
-        data["credits"] ??
-        data["user"]?["credits"];
+        data["user"]?["credits"] ??
+        data["user"]?["totalCredits"] ??
+        _primitiveOrNull(nested["credits"]) ??
+        _primitiveOrNull(data["credits"]);
 
-    int parsedCredits = 0;
     if (rawCredits != null) {
-      parsedCredits = rawCredits is int
-          ? rawCredits
-          : (int.tryParse(rawCredits.toString()) ?? 0);
-    }
+      final int? parsedCredits = _parseToInt(rawCredits);
 
-    // 🔥 FLUTTER FALLBACK: Agar backend 0 bhej raha hai jabki user active plan pe hai
-    if (parsedCredits == 0) {
-      if (statusVal == 3) {
-        // Yearly Plan Active -> 36 Credits
-        parsedCredits = 36;
-        debugPrint("SubscriptionApi: ⚡ Fallback applied for YEARLY -> 36 credits");
-      } else if (statusVal == 2) {
-        // Monthly Plan Active -> 3 Credits
-        parsedCredits = 3;
-        debugPrint("SubscriptionApi: ⚡ Fallback applied for MONTHLY -> 3 credits");
-      } else if (statusVal == 1) {
-        // Trial Active -> 1 Credit
-        parsedCredits = 1;
-        debugPrint("SubscriptionApi: ⚡ Fallback applied for TRIAL -> 1 credit");
+      if (parsedCredits != null) {
+        await TokenStorage.saveCredits(parsedCredits);
+        debugPrint("SubscriptionApi: ✅ Saved exact backend credits -> $parsedCredits");
+        savedAnything = true;
+      } else {
+        debugPrint(
+          "SubscriptionApi: ⚠️ Could not parse credits from raw value: $rawCredits (type ${rawCredits.runtimeType}) — keeping previously saved value",
+        );
       }
     }
 
-    await TokenStorage.saveCredits(parsedCredits);
-    debugPrint("SubscriptionApi: ✅ Final Saved credits -> $parsedCredits");
-    savedAnything = true;
-
     return savedAnything;
+  }
+
+  /// Returns [value] only if it is a primitive we can safely stringify
+  /// and parse (int, num, or String). Returns null for Maps/Lists/etc.
+  /// so they never get passed into int.tryParse(toString()).
+  static dynamic _primitiveOrNull(dynamic value) {
+    if (value is int || value is num || value is String) {
+      return value;
+    }
+    return null;
+  }
+
+  /// Safely converts a raw credits value into an int, or null if it
+  /// cannot be reliably parsed (instead of defaulting to 0).
+  static int? _parseToInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 
   static int _mapSubscriptionStatus(dynamic backendStatus, dynamic planType) {
