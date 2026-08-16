@@ -25,10 +25,19 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     loadUser();
-    _checkBatteryOptimization();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAllPermissions();
+    });
   }
 
-  Future<void> _checkBatteryOptimization() async {
+  Future<void> _checkAllPermissions() async {
+    // 1. Check Location Permission
+    final locationStatus = await Permission.location.status;
+    if (!locationStatus.isGranted && mounted) {
+      _showLocationBottomSheetToast();
+    }
+
+    // 2. Battery Optimization
     final isIgnored = await Permission.ignoreBatteryOptimizations.isGranted;
     if (!isIgnored && mounted) {
       _showPermissionSnackBar(
@@ -37,6 +46,7 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    // 3. Exact Alarm
     final isExactAlarmGranted = await Permission.scheduleExactAlarm.isGranted;
     if (!isExactAlarmGranted && mounted) {
       _showPermissionSnackBar(
@@ -45,6 +55,7 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    // 4. System Alert Window Overlay
     final isOverlayGranted = await Permission.systemAlertWindow.isGranted;
     if (!isOverlayGranted && mounted) {
       _showPermissionSnackBar(
@@ -54,11 +65,45 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _showLocationBottomSheetToast() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF002C3E),
+        duration: const Duration(seconds: 12),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.all(16.w),
+        content: Row(
+          children: [
+            const Icon(Icons.location_off, color: Color(0xFFF5B13F), size: 22),
+            SizedBox(width: 10.w),
+            const Expanded(
+              child: Text(
+                "Enable location to send your coordinates in emergency alerts.",
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: "Allow",
+          textColor: const Color(0xFF0BB3AA),
+          onPressed: () async {
+            final res = await Permission.location.request();
+            if (res.isPermanentlyDenied) {
+              await openAppSettings();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   void _showPermissionSnackBar(String message, VoidCallback onAction) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        duration: const Duration(seconds: 10),
+        duration: const Duration(seconds: 8),
         action: SnackBarAction(
           label: "Settings",
           onPressed: onAction,
@@ -92,12 +137,12 @@ class _HomePageState extends State<HomePage> {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) {
+    if (hour >= 5 && hour < 12) {
       return "Good morning";
-    } else if (hour < 17) {
+    } else if (hour >= 12 && hour < 17) {
       return "Good afternoon";
     } else {
-      return "Good evening";
+      return "Hello";
     }
   }
 
@@ -109,7 +154,6 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: const Color(0xFFF8F9F5),
       body: Column(
         children: [
-          // TOP SECTION (NAVY WITH CURVE)
           Expanded(
             flex: 6,
             child: Container(
@@ -150,8 +194,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-
-          // BOTTOM CARDS SECTION WITH BALANCED PADDING
           Expanded(
             flex: 4,
             child: Container(
@@ -169,8 +211,7 @@ class _HomePageState extends State<HomePage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (_) => const SchedulePage()),
+                            MaterialPageRoute(builder: (_) => const SchedulePage()),
                           );
                         },
                       ),
@@ -181,8 +222,7 @@ class _HomePageState extends State<HomePage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (_) => const ContactsPage()),
+                            MaterialPageRoute(builder: (_) => const ContactsPage()),
                           );
                         },
                       ),
@@ -199,8 +239,7 @@ class _HomePageState extends State<HomePage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (_) => const SubscriptionPage()),
+                            MaterialPageRoute(builder: (_) => const SubscriptionPage()),
                           );
                         },
                       ),
@@ -251,11 +290,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SvgPicture.asset(
-              svgPath,
-              width: 40.w,
-              height: 40.w,
-            ),
+            SvgPicture.asset(svgPath, width: 40.w, height: 40.w),
             SizedBox(height: 6.h),
             Text(
               label,
@@ -304,10 +339,7 @@ class _HomePageState extends State<HomePage> {
                 shape: BoxShape.circle,
               ),
               child: ClipOval(
-                child: Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset(imagePath, fit: BoxFit.cover),
               ),
             ),
             SizedBox(height: 6.h),

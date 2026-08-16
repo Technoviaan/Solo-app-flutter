@@ -59,10 +59,12 @@ dependencies:
   url_launcher: ^6.3.0
   libphonenumber_plugin: ^0.3.3
   app_links: ^6.3.3
+  geolocator: ^13.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

@@ -104,31 +104,6 @@ class NotificationService {
     } catch (e) {
       debugPrint("⚠️ Error restoring monitoring notification: $e");
     }
-
-    // 🚀 NEW: Check if an alarm is already ringing or if we have an active check-in session
-    //
-    // 🛠️ FIX (root cause of "missed check-in sometimes opens the wrong
-    // screen"): this whole init() function is `await`ed by main() BEFORE
-    // `runApp()` is called. That means `navigatorKey` has no navigator
-    // attached yet at this exact point. The old code called
-    // `navigateToCheckin`/`navigateToSavedCheckin` directly here — those
-    // functions busy-wait up to 20 seconds for `navigatorKey.currentState`,
-    // but it can never become ready until AFTER this function returns and
-    // `runApp()` finally runs. So every cold start with an overdue/ringing
-    // check-in was deadlocked for 20s, then gave up and stashed
-    // `_pendingCheckinTime`, relying on `didChangeAppLifecycleState`'s
-    // `resumed` case to finish the job later. But on a cold start the app is
-    // already "resumed" the instant SoloApp's observer registers — there is
-    // no transition to catch — so that pending navigation was silently
-    // dropped and the user landed on whatever SplashScreen/Home defaulted
-    // to instead of the SOS/check-in screen.
-    //
-    // Fix: don't navigate here at all. Just record that navigation is owed
-    // (isHandlingAlarm + _pendingCheckinTime). app.dart now fires
-    // retryPendingNavigationIfAny() from a post-frame callback right after
-    // the very first frame — the earliest possible moment the navigator can
-    // exist — so this always actually happens, on every cold start, with no
-    // dependency on a lifecycle transition.
     try {
       final activeTime = await LocalStorage.getActiveCheckinTime();
       DateTime? pendingTime;
@@ -147,17 +122,13 @@ class NotificationService {
             }
           });
 
-          // Prefer the original stored due time (same reasoning as
-          // navigateToCheckin) so the SOS screen shows the correct elapsed
-          // progress instead of restarting from whichever alarm id rang.
+
           pendingTime = activeTime ?? alarm.dateTime;
           break;
         }
       }
 
-      // If nothing is actively ringing, fall back to an overdue saved
-      // check-in (e.g. process was killed by the OS between the due time
-      // and now, so no alarm ever got the chance to ring in this run).
+
       if (pendingTime == null &&
           activeTime != null &&
           DateTime.now().isAfter(activeTime)) {
@@ -325,31 +296,9 @@ class NotificationService {
 
   static bool isHandlingAlarm = false;
 
-  // 🛠️ FIX: Set true/false from CheckinScreen's initState/dispose. Lets the
-  // safety-net check below know a SOS screen is already showing, so it
-  // doesn't re-push a duplicate on top of itself.
   static bool isCheckinScreenActive = false;
 
   static Timer? _overdueSafetyTimer;
-
-  /// 🛠️ FIX: Independent safety net for the "app was open/minimized (not
-  /// killed), missed check-in happened, but the screen stayed on
-  /// Home/ResumeCheckinPage instead of switching to the SOS screen" bug.
-  ///
-  /// The normal path relies entirely on the `Alarm.ringing` stream firing
-  /// at the due time. On several Indian OEMs (MIUI, ColorOS/Oppo, FuntouchOS
-  /// /Vivo, Realme UI) a minimized app's background isolate can get
-  /// throttled/frozen even though the process itself was never killed, so
-  /// that stream event can be delayed or dropped entirely — the app is
-  /// technically "alive" but never actually reacts.
-  ///
-  /// This check doesn't care whether the alarm rang or not: it just asks
-  /// "is there an active check-in whose due time has already passed, and is
-  /// the SOS screen NOT currently showing?" If so, it forces navigation
-  /// itself. It's called from app.dart on every `resumed` lifecycle event
-  /// (covers "user manually reopens/unminimizes the app") AND from a
-  /// periodic timer below (covers "OS wakes the isolate briefly on its own
-  /// schedule while the app sits minimized").
   static Future<void> ensureSosScreenIfOverdue() async {
     if (isCheckinScreenActive) return;
     try {
@@ -371,12 +320,6 @@ class NotificationService {
       ensureSosScreenIfOverdue();
     });
   }
-
-  // 🛠️ FIX: Holds a scheduledTime whose navigation attempt timed out while
-  // the app was frozen in the background. Call retryPendingNavigationIfAny()
-  // from app.dart's WidgetsBindingObserver.didChangeAppLifecycleState when
-  // state == AppLifecycleState.resumed, so we finish the deferred navigation
-  // the moment the user actually looks at the app again.
   static DateTime? _pendingCheckinTime;
 
   static Future<void> retryPendingNavigationIfAny() async {
@@ -389,10 +332,6 @@ class NotificationService {
 
   static Future<void> navigateToCheckin(AlarmSettings settings) async {
     isHandlingAlarm = true;
-
-    // 🚀 CRITICAL: Use the stored active check-in time if available.
-    // This ensures that even if a reminder notification (which triggers later)
-    // opens the screen, the timer still shows progress from the ORIGINAL due time.
     final activeTime = await LocalStorage.getActiveCheckinTime();
     if (activeTime != null) {
       print("🔔 Navigating with stored active check-in time: $activeTime");
@@ -417,11 +356,6 @@ class NotificationService {
     final name = await LocalStorage.getUserName();
     final testWindowSeconds = await LocalStorage.getTestWindowSeconds();
 
-    // Wait for navigator to be ready.
-    // 🛠️ FIX: In a release build, when the app has been frozen/throttled in
-    // the background (Doze / app-standby), the Dart engine can take much
-    // longer than the old 5s budget to resume and attach the navigator.
-    // We now wait up to 20s (200 x 100ms) instead of 5s (50 x 100ms).
     int retryCount = 0;
     while (navigatorKey.currentState == null && retryCount < 200) {
       await Future.delayed(const Duration(milliseconds: 100));
@@ -429,11 +363,7 @@ class NotificationService {
     }
 
     if (navigatorKey.currentState == null) {
-      // 🛠️ FIX: Don't just give up silently. Remember that a navigation is
-      // still owed, so that when the app is actually brought to the
-      // foreground (WidgetsBindingObserver in app.dart calls
-      // retryPendingNavigationIfAny()), we finish the job instead of
-      // leaving the user stuck on whatever screen was frozen on screen.
+
       print("❌ Navigator still not ready after 20 seconds. Deferring navigation.");
       _pendingCheckinTime = scheduledTime;
       _isNavigationInProgress = false;
@@ -444,13 +374,6 @@ class NotificationService {
     print("✅ Navigator ready. Pushing CheckinScreen for $scheduledTime...");
 
     try {
-      // 🛠️ FIX: Previously used `(route) => route.isFirst`, which only
-      // clears routes ABOVE the very first (root) route and leaves that
-      // root route (e.g. Home, ResumeCheckinPage) sitting underneath the
-      // SOS screen. That leftover screen is what could flash/pop back into
-      // view (the "resume screen" the user kept landing on). We now clear
-      // the ENTIRE navigation stack so the SOS check-in screen is always
-      // the only screen, in every situation (foreground, background, or
       // cold start via notification tap).
       await navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(
@@ -496,7 +419,7 @@ class NotificationService {
       androidFullScreenIntent: true,
       volumeSettings: VolumeSettings.fade(
         volume: 1.0,
-        fadeDuration: Duration(seconds: 2),
+        fadeDuration: const Duration(seconds: 2),
         volumeEnforced: true,
       ),
       notificationSettings: NotificationSettings(
@@ -543,15 +466,10 @@ class NotificationService {
     required DateTime dueTime,
     required int alertWindowHours,
   }) async {
-    // Always clear any leftover TEST window override before scheduling a
-    // real schedule, so a previous test run can never leak into real usage.
+
     await LocalStorage.saveTestWindowSeconds(null);
 
-    // 🛠️ FIX: cancelAllCheckinNotifications() internally nulls out the
-    // active check-in time. It must run BEFORE we save the real dueTime,
-    // not after — otherwise the active check-in time would end up null in
-    // storage, and the app-startup "overdue check-in" recovery check (used
-    // when the app was killed and later relaunched) would never trigger.
+
     await cancelAllCheckinNotifications();
     await LocalStorage.saveActiveCheckinTime(dueTime);
 
@@ -595,17 +513,6 @@ class NotificationService {
     await showOngoingMonitoringNotification(dueTime);
   }
 
-  /// 🧪 DEV/TEST ONLY — triggers the exact same missed-checkin alert
-  /// pipeline (same alarm ids, same full-screen notification, same
-  /// navigation code) but compressed into seconds instead of hours, so you
-  /// can validate background/killed-app behaviour in under a minute instead
-  /// of waiting for a real schedule window.
-  ///
-  /// After calling this: lock the phone (or kill the app from recents) and
-  /// wait `delaySeconds`. The full-screen check-in alarm should appear on
-  /// the lock screen. If you don't tap check-in, a reminder fires at the
-  /// halfway point and an "Emergency Alert Triggered" notification fires
-  /// once `windowSeconds` elapses — mirroring the real missed-checkin flow.
   static Future<void> triggerQuickTestAlert({
     int delaySeconds = 15,
     int windowSeconds = 90,

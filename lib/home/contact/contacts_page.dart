@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
@@ -21,8 +22,8 @@ class ContactsPage extends StatefulWidget {
 }
 
 class _ContactsPageState extends State<ContactsPage> {
-  Map<String, String>? manualContact1;
-  Map<String, String>? manualContact2;
+  Map<String, dynamic>? manualContact1;
+  Map<String, dynamic>? manualContact2;
 
   bool isContact1Enabled = false;
   bool isContact2Enabled = false;
@@ -46,12 +47,8 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Future<void> pickContact(int index) async {
-    print("\n================= DYNAMIC GLOBAL CONTACT PICKER STARTED =================");
-    print("Picking contact for Index: $index");
-
     final status = await Permission.contacts.request();
     if (!status.isGranted) {
-      print("[ERROR] Contacts permission denied!");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Contacts permission denied")),
@@ -62,10 +59,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
     try {
       final contact = await FlutterContacts.openExternalPick();
-      if (contact == null) {
-        print("[CANCELLED] User closed contact picker.");
-        return;
-      }
+      if (contact == null) return;
 
       final full = await FlutterContacts.getContact(contact.id);
       if (full == null) return;
@@ -75,29 +69,20 @@ class _ContactsPageState extends State<ContactsPage> {
 
       if (full.phones.isNotEmpty) {
         String rawPhone = full.phones.first.number.trim();
-        print("[DEBUG] Device raw phone string: '$rawPhone'");
-
-        // Remove spaces, hyphens, brackets
         rawPhone = rawPhone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-
-        // Strictly extract digits
         String digitsOnly = rawPhone.replaceAll(RegExp(r'\D'), '');
 
         if (rawPhone.startsWith('+')) {
           if (digitsOnly.startsWith('91') && digitsOnly.length == 12) {
-            // Indian Number (+91XXXXXXXXXX)
             countryCode = "+91";
             phone = digitsOnly.substring(2);
           } else if (digitsOnly.startsWith('65') && digitsOnly.length == 10) {
-            // Singapore Number (+65XXXXXXXX)
             countryCode = "+65";
             phone = digitsOnly.substring(2);
           } else if (digitsOnly.startsWith('1') && digitsOnly.length == 11) {
-            // US/Canada Number (+1XXXXXXXXXX)
             countryCode = "+1";
             phone = digitsOnly.substring(1);
           } else {
-            // Generic International Number Split
             final match = RegExp(r'^(\d{1,3})(\d{7,10})$').firstMatch(digitsOnly);
             if (match != null) {
               countryCode = "+${match.group(1)}";
@@ -108,9 +93,7 @@ class _ContactsPageState extends State<ContactsPage> {
             }
           }
         } else {
-          // Without '+' in raw number
           final Locale deviceLocale = WidgetsBinding.instance.platformDispatcher.locale;
-
           if (digitsOnly.length == 10) {
             countryCode = "+91";
             phone = digitsOnly;
@@ -123,8 +106,6 @@ class _ContactsPageState extends State<ContactsPage> {
           }
         }
       }
-
-      print("[PARSED DYNAMIC DATA] Name: '${full.displayName}', CountryCode: '$countryCode', Phone: '$phone'");
 
       if (phone.isEmpty) {
         if (mounted) {
@@ -141,10 +122,6 @@ class _ContactsPageState extends State<ContactsPage> {
         "phone": phone,
       };
 
-      // Keep a backup so we can roll back if the API call fails.
-      final previousData = index == 1 ? manualContact1 : manualContact2;
-      final previousEnabled = index == 1 ? isContact1Enabled : isContact2Enabled;
-
       setState(() {
         if (index == 1) {
           manualContact1 = contactData;
@@ -155,29 +132,8 @@ class _ContactsPageState extends State<ContactsPage> {
         }
       });
 
-      final success = await sendContactsToApi();
-
-      // if (!success && mounted) {
-      //   // Roll back so the UI doesn't lie about what's saved on the server.
-      //   setState(() {
-      //     if (index == 1) {
-      //       manualContact1 = previousData;
-      //       isContact1Enabled = previousEnabled;
-      //     } else {
-      //       manualContact2 = previousData;
-      //       isContact2Enabled = previousEnabled;
-      //     }
-      //   });
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     const SnackBar(
-      //       content: Text("Couldn't save this contact. Check the number and try again."),
-      //     ),
-      //   );
-      // }
-
-      print("================= DYNAMIC PICKER FINISHED =================\n");
-    } catch (e, stackTrace) {
-      print("[EXCEPTION] Dynamic Pick Error: $e\n$stackTrace");
+      await sendContactsToApi();
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Something went wrong while picking the contact")),
@@ -204,7 +160,6 @@ class _ContactsPageState extends State<ContactsPage> {
       'ID': '+62',
       'SA': '+966',
     };
-
     return countryCodes[regionCode?.toUpperCase()] ?? '+91';
   }
 
@@ -212,15 +167,14 @@ class _ContactsPageState extends State<ContactsPage> {
     final existing = index == 1 ? manualContact1 : manualContact2;
     if (existing == null) return;
 
-    TextEditingController nameCtrl =
-    TextEditingController(text: existing["name"] ?? "");
-    TextEditingController phoneCtrl =
-    TextEditingController(text: existing["phone"] ?? "");
+    TextEditingController nameCtrl = TextEditingController(text: existing["name"] ?? "");
+    TextEditingController phoneCtrl = TextEditingController(text: existing["phone"] ?? "");
     String selectedCountryCode = existing["countryCode"] ?? "+65";
 
     await showDialog(
       context: context,
-      builder: (_) => Dialog(
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
         child: Padding(
@@ -240,20 +194,14 @@ class _ContactsPageState extends State<ContactsPage> {
               const SizedBox(height: 20),
               _dialogField(nameCtrl, "Name", Icons.person_outline),
               const SizedBox(height: 12),
-              _dialogField(
-                phoneCtrl,
-                "Phone",
-                Icons.phone_outlined,
-                keyboard: TextInputType.phone,
-              ),
+              _dialogField(phoneCtrl, "Phone", Icons.phone_outlined, keyboard: TextInputType.phone),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton.icon(
-                    onPressed: () async {
-                      final previousData = index == 1 ? manualContact1 : manualContact2;
-                      final previousEnabled = index == 1 ? isContact1Enabled : isContact2Enabled;
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
 
                       setState(() {
                         if (index == 1) {
@@ -265,43 +213,21 @@ class _ContactsPageState extends State<ContactsPage> {
                         }
                       });
 
-                      final success = await sendContactsToApi();
-                      if (!success && mounted) {
-                        setState(() {
-                          if (index == 1) {
-                            manualContact1 = previousData;
-                            isContact1Enabled = previousEnabled;
-                          } else {
-                            manualContact2 = previousData;
-                            isContact2Enabled = previousEnabled;
-                          }
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Couldn't remove contact. Try again.")),
-                        );
-                      }
-
-                      if (mounted) Navigator.pop(context);
+                      sendContactsToApi();
                     },
-                    icon: const Icon(Icons.delete_outline,
-                        color: Colors.redAccent, size: 17),
-                    label: const Text("Remove",
-                        style: TextStyle(color: Colors.redAccent)),
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 17),
+                    label: const Text("Remove", style: TextStyle(color: Colors.redAccent)),
                   ),
                   Row(
                     children: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Cancel",
-                            style: TextStyle(color: _subtitleColor)),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text("Cancel", style: TextStyle(color: _subtitleColor)),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
                         onPressed: () async {
-                          final previousData = index == 1 ? manualContact1 : manualContact2;
-
                           final rawDigits = phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
-
                           if (rawDigits.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Enter a valid phone number")),
@@ -309,15 +235,13 @@ class _ContactsPageState extends State<ContactsPage> {
                             return;
                           }
 
-                          final fullPhone = rawDigits.startsWith('91') || rawDigits.startsWith('65')
-                              ? "+$rawDigits"
-                              : "$selectedCountryCode$rawDigits";
-
                           final updated = {
                             "name": nameCtrl.text.trim(),
                             "countryCode": selectedCountryCode,
-                            "phone": fullPhone,
+                            "phone": rawDigits,
                           };
+
+                          Navigator.of(dialogContext).pop();
 
                           setState(() {
                             if (index == 1) {
@@ -327,36 +251,15 @@ class _ContactsPageState extends State<ContactsPage> {
                             }
                           });
 
-                          final success = await sendContactsToApi();
-
-                          if (!success && mounted) {
-                            setState(() {
-                              if (index == 1) {
-                                manualContact1 = previousData;
-                              } else {
-                                manualContact2 = previousData;
-                              }
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Couldn't save this contact. Check the number and try again."),
-                              ),
-                            );
-                            return; // keep dialog open so user can fix it
-                          }
-
-                          if (mounted) Navigator.pop(context);
+                          await sendContactsToApi();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _numCircle,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 17, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
                         ),
-                        child: const Text("Save",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text("Save", style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -369,12 +272,7 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _dialogField(
-      TextEditingController ctrl,
-      String label,
-      IconData icon, {
-        TextInputType keyboard = TextInputType.text,
-      }) {
+  Widget _dialogField(TextEditingController ctrl, String label, IconData icon, {TextInputType keyboard = TextInputType.text}) {
     return TextField(
       controller: ctrl,
       keyboardType: keyboard,
@@ -385,28 +283,21 @@ class _ContactsPageState extends State<ContactsPage> {
         prefixIcon: Icon(icon, color: _numCircle, size: 18),
         filled: true,
         fillColor: const Color(0xFFF9F8F5),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _divider),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _divider),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _numCircle, width: 1.5),
-        ),
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _divider)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _divider)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _numCircle, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     );
   }
+
   Future<bool> sendContactsToApi() async {
     print("\n---------------- API PAYLOAD PREPARATION ----------------");
     final token = await TokenStorage.getToken();
 
-    final List<Map<String, String>> contacts = [];
+    final locationData = await LocationService.getCurrentLocationData();
+
+    final List<Map<String, dynamic>> contacts = [];
     if (isContact1Enabled && manualContact1 != null) {
       contacts.add(manualContact1!);
     }
@@ -414,42 +305,41 @@ class _ContactsPageState extends State<ContactsPage> {
       contacts.add(manualContact2!);
     }
 
-    await LocalStorage.saveContacts(contacts);
-    print("[SUCCESS] Contacts saved to LocalStorage.");
+    await LocalStorage.saveContacts(
+      contacts.map((e) => e.map((k, v) => MapEntry(k, v.toString()))).toList(),
+    );
 
-    if (contacts.isEmpty) {
-      print("[INFO] No enabled contacts to send.");
-      print("----------------------------------------------------------\n");
-      return true;
-    }
+    if (contacts.isEmpty) return true;
 
     final url = Uri.parse("${ApiConfig.baseUrl}/contacts");
     bool allSucceeded = true;
 
     for (final contact in contacts) {
       try {
-        print("[API REQUEST] POST $url");
-
-        // Format clean phone digits (e.g. "8540047732" instead of "+918540047732")
         String rawPhone = contact["phone"] ?? "";
         String cleanDigits = rawPhone.replaceAll(RegExp(r'\D'), '');
         String countryCode = contact["countryCode"] ?? "+91";
 
-        // Remove country code from phone if accidentally prefixed
         if (countryCode == "+91" && cleanDigits.startsWith("91") && cleanDigits.length == 12) {
           cleanDigits = cleanDigits.substring(2);
         } else if (countryCode == "+65" && cleanDigits.startsWith("65") && cleanDigits.length == 10) {
           cleanDigits = cleanDigits.substring(2);
         }
 
-        // Exact Postman Payload Match
         final body = jsonEncode({
           "name": contact["name"],
           "phone": cleanDigits,
           "countryCode": countryCode,
+          if (locationData != null) ...{
+            "latitude": locationData["latitude"],
+            "longitude": locationData["longitude"],
+            "mapsUrl": locationData["mapsUrl"],
+            "timestamp": locationData["timestamp"],
+          }
         });
 
-        print("[API BODY PAYLOAD]: $body");
+        print("[API REQUEST] POST $url");
+        print("[API BODY PAYLOAD WITH LOCATION]: $body");
 
         final response = await http.post(
           url,
@@ -464,31 +354,11 @@ class _ContactsPageState extends State<ContactsPage> {
         print("[API RESPONSE] Status Code: ${response.statusCode}");
         print("[API RESPONSE] Response Body: ${response.body}");
 
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          print("[SUCCESS] Emergency contact added to MongoDB!");
-        } else {
-          String message = "Failed to save contact (${response.statusCode})";
-          try {
-            final decoded = jsonDecode(response.body);
-            if (decoded is Map && decoded["message"] != null) {
-              message = decoded["message"].toString();
-            }
-          } catch (_) {}
-
-          print("[API ERROR] $message");
+        if (response.statusCode < 200 || response.statusCode >= 300) {
           allSucceeded = false;
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(message),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
         }
       } catch (e) {
-        print("[API ERROR] Failed to send contact to backend: $e");
+        print("[API ERROR] $e");
         allSucceeded = false;
       }
     }
@@ -496,16 +366,14 @@ class _ContactsPageState extends State<ContactsPage> {
     print("----------------------------------------------------------\n");
     return allSucceeded;
   }
+
   Future<bool> canUseContacts(BuildContext context) async {
     int status = await TokenStorage.getSubscriptionStatus();
     int maxContacts = await TokenStorage.getMaxContacts();
     int current = getCurrentContacts();
 
     if (status == 0) {
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => const SubscriptionPage()));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage()));
       return false;
     }
     if (current >= maxContacts) {
@@ -521,6 +389,22 @@ class _ContactsPageState extends State<ContactsPage> {
   void initState() {
     super.initState();
     loadContacts();
+  }
+
+  Future<void> loadContacts() async {
+    final data = await LocalStorage.getContacts();
+    if (data.isNotEmpty) {
+      setState(() {
+        if (data.length >= 1) {
+          manualContact1 = Map<String, dynamic>.from(data[0]);
+          isContact1Enabled = true;
+        }
+        if (data.length >= 2) {
+          manualContact2 = Map<String, dynamic>.from(data[1]);
+          isContact2Enabled = true;
+        }
+      });
+    }
   }
 
   @override
@@ -557,18 +441,16 @@ class _ContactsPageState extends State<ContactsPage> {
                       ),
                     ),
                     SizedBox(height: 16.h),
-                    Container(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Column(
-                          children: [
-                            const Divider(height: 1, color: Colors.black12),
-                            _contactRow(index: 1),
-                            const Divider(height: 1, color: Colors.black12),
-                            _contactRow(index: 2),
-                            const Divider(height: 1, color: Colors.black12),
-                          ],
-                        ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Column(
+                        children: [
+                          const Divider(height: 1, color: Colors.black12),
+                          _contactRow(index: 1),
+                          const Divider(height: 1, color: Colors.black12),
+                          _contactRow(index: 2),
+                          const Divider(height: 1, color: Colors.black12),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -593,27 +475,21 @@ class _ContactsPageState extends State<ContactsPage> {
               ),
             ),
             Container(
-              padding: EdgeInsets.only(left: 24.w, right: 24.w),
+              padding: EdgeInsets.only(left: 24.w, right: 24.w, bottom: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      color: _subtitleColor,
-                      size: 24,
-                    ),
+                    child: const Icon(Icons.arrow_back, color: _subtitleColor, size: 24),
                   ),
                   Builder(builder: (context) {
-                    final canProceed =
-                        manualContact1 != null || manualContact2 != null;
+                    final canProceed = manualContact1 != null || manualContact2 != null;
                     return GestureDetector(
                       onTap: canProceed
                           ? () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (_) => const ResumeCheckinPage()),
+                        MaterialPageRoute(builder: (_) => const ResumeCheckinPage()),
                       )
                           : null,
                       child: Row(
@@ -621,9 +497,7 @@ class _ContactsPageState extends State<ContactsPage> {
                           Text(
                             "Next",
                             style: TextStyle(
-                              color: canProceed
-                                  ? _headingColor
-                                  : _headingColor.withValues(alpha: 0.3),
+                              color: canProceed ? _headingColor : _headingColor.withValues(alpha: 0.3),
                               fontSize: 20,
                               fontWeight: FontWeight.w400,
                             ),
@@ -631,11 +505,7 @@ class _ContactsPageState extends State<ContactsPage> {
                           const SizedBox(width: 10),
                           Opacity(
                             opacity: canProceed ? 1.0 : 0.3,
-                            child: SvgPicture.asset(
-                              'assets/svg/nextbutton.svg',
-                              width: 60.w,
-                              height: 60.w,
-                            ),
+                            child: SvgPicture.asset('assets/svg/nextbutton.svg', width: 60.w, height: 60.w),
                           ),
                         ],
                       ),
@@ -663,18 +533,11 @@ class _ContactsPageState extends State<ContactsPage> {
           Container(
             width: 30,
             height: 30,
-            decoration: const BoxDecoration(
-              color: _numCircle,
-              shape: BoxShape.circle,
-            ),
+            decoration: const BoxDecoration(color: _numCircle, shape: BoxShape.circle),
             child: Center(
               child: Text(
                 "$index",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -685,24 +548,17 @@ class _ContactsPageState extends State<ContactsPage> {
               children: [
                 const Text(
                   "Contact",
-                  style: TextStyle(
-                    color: _contactLabel,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.2,
-                  ),
+                  style: TextStyle(color: _contactLabel, fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 3),
                 hasContact
                     ? Text(
-                  data!["name"] ?? "",
+                  data["name"] ?? "",
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     color: _contactText,
                     fontSize: 18,
                     fontWeight: FontWeight.w400,
-                    height: 28 / 18,
-                    letterSpacing: 0,
                   ),
                 )
                     : const Text(
@@ -712,8 +568,6 @@ class _ContactsPageState extends State<ContactsPage> {
                     color: _contactSubtext,
                     fontSize: 18,
                     fontWeight: FontWeight.w400,
-                    height: 28 / 18,
-                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -732,23 +586,12 @@ class _ContactsPageState extends State<ContactsPage> {
               width: 28,
               height: 28,
               margin: const EdgeInsets.only(right: 4),
-              decoration: const BoxDecoration(
-                color: _plusBtn,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.edit,
-                color: Colors.white,
-                size: 16,
-              ),
+              decoration: const BoxDecoration(color: _plusBtn, shape: BoxShape.circle),
+              child: const Icon(Icons.edit, color: Colors.white, size: 16),
             )
                 : Padding(
               padding: const EdgeInsets.only(right: 4),
-              child: SvgPicture.asset(
-                'assets/svg/plus.svg',
-                width: 28.w,
-                height: 28.w,
-              ),
+              child: SvgPicture.asset('assets/svg/plus.svg', width: 28.w, height: 28.w),
             ),
           ),
           const SizedBox(width: 3),
@@ -757,15 +600,12 @@ class _ContactsPageState extends State<ContactsPage> {
             onChanged: (value) async {
               if (!hasContact) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text("Please add a contact first")),
+                  const SnackBar(content: Text("Please add a contact first")),
                 );
                 return;
               }
               bool allowed = await canUseContacts(context);
               if (!allowed && value == true) return;
-
-              final previousEnabled = enabled;
 
               setState(() {
                 if (index == 1) {
@@ -774,42 +614,12 @@ class _ContactsPageState extends State<ContactsPage> {
                   isContact2Enabled = value;
                 }
               });
-
-              final success = await sendContactsToApi();
-              if (!success && mounted) {
-                setState(() {
-                  if (index == 1) {
-                    isContact1Enabled = previousEnabled;
-                  } else {
-                    isContact2Enabled = previousEnabled;
-                  }
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Couldn't update contact. Try again.")),
-                );
-              }
+              await sendContactsToApi();
             },
           ),
         ],
       ),
     );
-  }
-
-  Future<void> loadContacts() async {
-    final data = await LocalStorage.getContacts();
-    print("[LOAD CONTACTS] Saved local contacts loaded: ${data.length}");
-    if (data.isNotEmpty) {
-      setState(() {
-        if (data.length >= 1) {
-          manualContact1 = data[0];
-          isContact1Enabled = true;
-        }
-        if (data.length >= 2) {
-          manualContact2 = data[1];
-          isContact2Enabled = true;
-        }
-      });
-    }
   }
 
   Widget customSwitch({required bool value, required Function(bool) onChanged}) {
@@ -830,13 +640,75 @@ class _ContactsPageState extends State<ContactsPage> {
           child: Container(
             width: 24.w,
             height: 24.w,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-            ),
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
           ),
         ),
       ),
     );
+  }
+}
+
+class LocationService {
+  static Future<bool> requestLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      print("[LOCATION LOG] GPS Service is Disabled");
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print("[LOCATION LOG] Permission Denied");
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      print("[LOCATION LOG] Permission Denied Forever");
+      return false;
+    }
+
+    return true;
+  }
+
+  static Future<Map<String, dynamic>?> getCurrentLocationData() async {
+    try {
+      final allowed = await requestLocationPermission();
+      if (!allowed) return null;
+
+      print("\n================= FETCHING LIVE GPS LOCATION =================");
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      final now = DateTime.now().toLocal();
+      final formattedTime =
+          "${now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour)}:${now.minute.toString().padLeft(2, '0')} ${now.hour >= 12 ? 'PM' : 'AM'}, ${now.day}/${now.month}/${now.year}";
+      final googleMapsUrl =
+          "https://maps.google.com/?q=${position.latitude},${position.longitude}";
+
+      final data = {
+        "latitude": position.latitude,
+        "longitude": position.longitude,
+        "mapsUrl": googleMapsUrl,
+        "timestamp": formattedTime,
+      };
+
+      print("[LOCATION LOG] Latitude: ${position.latitude}");
+      print("[LOCATION LOG] Longitude: ${position.longitude}");
+      print("[LOCATION LOG] Maps Link: $googleMapsUrl");
+      print("[LOCATION LOG] Timestamp: $formattedTime");
+      print("==============================================================\n");
+
+      return data;
+    } catch (e) {
+      print("[LOCATION ERROR] Failed to fetch GPS: $e");
+      return null;
+    }
   }
 }
