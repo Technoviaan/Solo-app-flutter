@@ -10,6 +10,7 @@ import 'package:solo_app/home/notification/notification_api.dart';
 import 'package:solo_app/home/checkin/checkin_api.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/core/utils/app_size.dart';
+import 'package:solo_app/core/utils/solo_sounds.dart';
 
 class CheckinScreen extends StatefulWidget {
   final String userName;
@@ -63,6 +64,42 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
     _calculateRemainingTime();
     startTimer();
+
+    // 🔊 The check-in "screen take over" has just popped up. Play the
+    // short notification chime for it, unless we're just showing the
+    // early "waiting" state (check-in isn't due yet, so this isn't a real
+    // reminder take-over).
+    if (state != "waiting") {
+      _playEffect(SoloSounds.screenTakeoverNotification);
+    }
+  }
+
+  /// Plays a short, voice-independent sound effect once, fire-and-forget.
+  Future<void> _playEffect(String assetPath) async {
+    try {
+      final player = AudioPlayer();
+      await player.play(AssetSource(assetPath.replaceFirst('assets/', '')));
+    } catch (e) {
+      debugPrint("⚠️ [CheckinScreen] Error playing effect $assetPath: $e");
+    }
+  }
+
+  /// Plays an optional sound effect immediately, then (if the user hasn't
+  /// selected "None" for voice) follows it with the matching preset voice
+  /// line a beat later, so the chime and the spoken message don't overlap.
+  Future<void> _playCue({String? effectAsset, required String Function(String voice) voiceAssetFor}) async {
+    try {
+      if (effectAsset != null) {
+        await _playEffect(effectAsset);
+      }
+      final voice = await LocalStorage.getVoice();
+      if (voice != "None") {
+        await Future.delayed(const Duration(milliseconds: 450));
+        await _playEffect(voiceAssetFor(voice));
+      }
+    } catch (e) {
+      debugPrint("⚠️ [CheckinScreen] Error playing SOLO voice cue: $e");
+    }
   }
 
   void _calculateRemainingTime() {
@@ -134,12 +171,12 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
     await NotificationService.cancelAllCheckinNotifications();
 
-    try {
-      final player = AudioPlayer();
-      await player.play(AssetSource('audio/checkin.mp3'));
-    } catch (e) {
-      print("Error playing check-in sound: $e");
-    }
+    // 🔊 "Successful Check-in" chime, followed by the "Glad you're okay.
+    // Take care." voice line in the user's chosen voice.
+    unawaited(_playCue(
+      effectAsset: SoloSounds.checkinButtonTapped,
+      voiceAssetFor: (voice) => SoloSounds.checkinConfirmed(voice),
+    ));
 
     final apiOk = await CheckinApi.confirmCheckin();
     debugPrint("📡 [CheckinScreen] CheckinApi.confirmCheckin() -> success=$apiOk");
@@ -191,6 +228,13 @@ class _CheckinScreenState extends State<CheckinScreen> {
       contacts: contactNames,
     );
     debugPrint("⚠️ [CheckinScreen] triggerAlert() FINISHED — NOTE: this only logs locally, no backend/contact-notify API call is made here.");
+
+    // 🔊 6th phase — alert sent voice confirmation (the scheduled alarm's
+    // looping tone already played the earlier phase reminders leading up
+    // to this moment).
+    unawaited(_playCue(
+      voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
+    ));
   }
 
   void onSOS() {
@@ -201,6 +245,13 @@ class _CheckinScreenState extends State<CheckinScreen> {
         isSOSPending = true;
         state = "alert";
       });
+
+      // 🔊 SOS radar alert sound, followed by "Please tap SOS again to
+      // confirm the emergency alert." in the user's chosen voice.
+      unawaited(_playCue(
+        effectAsset: SoloSounds.sosButtonTapped,
+        voiceAssetFor: (voice) => SoloSounds.sosTappedOnce(voice),
+      ));
 
       sosTimer = Timer.periodic(const Duration(seconds: 1), (t) {
         setState(() {
@@ -238,6 +289,12 @@ class _CheckinScreenState extends State<CheckinScreen> {
       contacts: contactNames,
     );
     debugPrint("✅ [CheckinScreen] triggerSosAlert() FINISHED — alert logged, backend notified=$apiOk");
+
+    // 🔊 "Your contacts have been notified" — 6th phase / alert-sent voice
+    // line, confirming the emergency alert actually went out.
+    unawaited(_playCue(
+      voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
+    ));
 
     setState(() {
       state = "alert";

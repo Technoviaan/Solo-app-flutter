@@ -3,11 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
-import '../home/shedule/schedule_page.dart';
 import '../home/checkin/local_storage.dart';
 import 'stripe_api.dart';
 import 'subscription_api.dart';
-import '../home/home_page.dart';
 
 class SubscriptionPage extends StatefulWidget {
   const SubscriptionPage({super.key});

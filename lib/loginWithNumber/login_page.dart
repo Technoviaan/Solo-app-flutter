@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:country_code_picker/country_code_picker.dart';
-import 'package:libphonenumber_plugin/libphonenumber_plugin.dart';
 import 'package:http/http.dart' as http;
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/home_page.dart';
@@ -16,8 +17,6 @@ import 'auth_event.dart';
 import 'auth_state.dart';
 import '../widgets/solo_eye.dart';
 import '../core/utils/app_size.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -27,7 +26,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String selectedDialCode = "+91"; // Initial Default
+  String selectedDialCode = "+91";
 
   String phone = "";
   String otp = "";
@@ -37,7 +36,7 @@ class _LoginPageState extends State<LoginPage> {
   String lastUsedDialCode = "";
   String lastUsedPhone = "";
 
-  // 🚀 Full World Major ISO-to-DialCode Mapping
+  // 🚀 Country ISO to DialCode Mapping
   static const Map<String, String> _worldIsoToDialCode = {
     'IN': '+91',  'US': '+1',   'CA': '+1',   'NP': '+977', 'GB': '+44',
     'AU': '+61',  'AE': '+971', 'SA': '+966', 'PK': '+92',  'BD': '+880',
@@ -50,16 +49,56 @@ class _LoginPageState extends State<LoginPage> {
     'NO': '+47',  'FI': '+358', 'DK': '+45',  'CH': '+41',  'AT': '+43',
   };
 
+  // 🚀 DialCode to Exact Required Number Length
+  static const Map<String, int> _dialCodeToRequiredLength = {
+    '+91': 10,  // India
+    '+1': 10,   // US / Canada
+    '+977': 10, // Nepal
+    '+44': 10,  // UK (standard mobile)
+    '+61': 9,   // Australia
+    '+971': 9,  // UAE
+    '+966': 9,  // Saudi Arabia
+    '+92': 10,  // Pakistan
+    '+880': 10, // Bangladesh
+    '+94': 9,   // Sri Lanka
+    '+49': 10,  // Germany
+    '+33': 9,   // France
+    '+81': 10,  // Japan
+    '+86': 11,  // China
+    '+7': 10,   // Russia
+    '+55': 11,  // Brazil
+    '+52': 10,  // Mexico
+    '+27': 9,   // South Africa
+    '+39': 10,  // Italy
+    '+34': 9,   // Spain
+    '+65': 8,   // Singapore
+    '+60': 9,   // Malaysia
+    '+62': 10,  // Indonesia
+    '+66': 9,   // Thailand
+    '+63': 10,  // Philippines
+    '+84': 9,   // Vietnam
+    '+82': 10,  // South Korea
+    '+64': 9,   // New Zealand
+  };
+
+  int get _currentRequiredPhoneLength => _dialCodeToRequiredLength[selectedDialCode] ?? 10;
+
+  bool get _isNextButtonEnabled {
+    if (!isOtpSent) {
+      return phone.length == _currentRequiredPhoneLength;
+    } else {
+      return otp.length == 6;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _fetchDefaultCountryCode(); // App start hote hi user country detect karega
+    _fetchDefaultCountryCode();
   }
 
-  // 🚀 App Start: Detect device country location / IP region
   Future<void> _fetchDefaultCountryCode() async {
     try {
-      // Step 1: Device Locale (Instant & Offline)
       final locale = View.of(context).platformDispatcher.locale;
       final countryCode = locale.countryCode;
 
@@ -72,7 +111,6 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      // Step 2: Fallback to Fast IP Geolocation
       final response = await http.get(Uri.parse('http://ip-api.com/json')).timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -85,63 +123,7 @@ class _LoginPageState extends State<LoginPage> {
           }
         }
       }
-    } catch (_) {
-      // Default retained (+91) if detection fails
-    }
-  }
-
-  // 🚀 Dynamic Auto-Detect Logic on keypress
-  Future<void> _autoDetectCountryCode(String inputNumber) async {
-    if (inputNumber.isEmpty) return;
-
-    // Fast local rule check
-    if (inputNumber.length == 1) {
-      if (['6', '7', '8', '9'].contains(inputNumber)) {
-        setState(() => selectedDialCode = "+91");
-        return;
-      } else if (inputNumber == '1') {
-        setState(() => selectedDialCode = "+1");
-        return;
-      }
-    }
-
-    // Nepal Mobiles (980x, 981x, 982x, 984x, 986x)
-    if (inputNumber.length >= 3) {
-      if (inputNumber.startsWith('980') ||
-          inputNumber.startsWith('981') ||
-          inputNumber.startsWith('982') ||
-          inputNumber.startsWith('984') ||
-          inputNumber.startsWith('986')) {
-        setState(() => selectedDialCode = "+977");
-        return;
-      }
-    }
-
-    // Australia Mobiles
-    if (inputNumber.startsWith('4') && inputNumber.length >= 2) {
-      setState(() => selectedDialCode = "+61");
-      return;
-    }
-
-    try {
-      final regionInfo = await PhoneNumberUtil.getRegionInfo(
-        inputNumber,
-        'IN',
-      );
-
-      final isoCode = regionInfo.isoCode;
-
-      if (isoCode != null && isoCode.isNotEmpty) {
-        final dialCode = _worldIsoToDialCode[isoCode.toUpperCase()];
-        if (dialCode != null && mounted) {
-          setState(() {
-            selectedDialCode = dialCode;
-          });
-        }
-      }
-    } catch (_) {
-      // Ignore
-    }
+    } catch (_) {}
   }
 
   void addDigit(String digit) {
@@ -151,9 +133,9 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       error = "";
       if (!isOtpSent) {
-        if (phone.length < 15) {
+        // Strict limit: Selected country ke required length se zyada allow nahi karega
+        if (phone.length < _currentRequiredPhoneLength) {
           phone += digit;
-          _autoDetectCountryCode(phone);
         }
       } else {
         if (otp.length < 6) {
@@ -177,9 +159,6 @@ class _LoginPageState extends State<LoginPage> {
       if (!isOtpSent) {
         if (phone.isNotEmpty) {
           phone = phone.substring(0, phone.length - 1);
-          if (phone.isNotEmpty) {
-            _autoDetectCountryCode(phone);
-          }
         }
       } else {
         if (otp.isNotEmpty) {
@@ -190,30 +169,14 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void validateAndSend() {
-    if (phone.isEmpty) {
-      setState(() => error = "Phone number required");
+    if (phone.length != _currentRequiredPhoneLength) {
+      setState(() => error = "Please enter complete $_currentRequiredPhoneLength digit number");
       return;
     }
 
-    if (phone.length < 5) {
-      setState(() => error = "Invalid phone number");
-      return;
-    }
-
-    // 🛠️ GUARD: the "+" key can only be pressed as the very first digit
-    // (see numberButton("+", ...) above), so `phone` could end up holding a
-    // manually-typed leading "+" (and even the dial code itself) even
-    // though `selectedDialCode` is already sent as a separate field. Strip
-    // that here so the backend never receives the country code twice.
     String sanitizedPhone = phone;
     if (sanitizedPhone.startsWith('+')) {
-      debugPrint(
-        "⚠️ [LoginPage] phone had a manually-typed '+' ($sanitizedPhone) — "
-            "stripping it so countryCode isn't duplicated in the request.",
-      );
       sanitizedPhone = sanitizedPhone.replaceFirst(RegExp(r'^\+'), '');
-      // If the user typed the dial code digits themselves too (e.g. dial
-      // code +91 and phone "919876543210"), drop that duplicate prefix.
       final dialDigits = selectedDialCode.replaceFirst('+', '');
       if (sanitizedPhone.startsWith(dialDigits)) {
         sanitizedPhone = sanitizedPhone.substring(dialDigits.length);
@@ -223,9 +186,6 @@ class _LoginPageState extends State<LoginPage> {
     error = "";
     lastUsedDialCode = selectedDialCode;
     lastUsedPhone = sanitizedPhone;
-    debugPrint(
-      "📞 [LoginPage] sending OTP with countryCode=$lastUsedDialCode phone=$lastUsedPhone",
-    );
     FocusScope.of(context).unfocus();
     context.read<AuthBloc>().add(
       SendOtpEvent(
@@ -264,10 +224,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget numberButton(
-      String number, {
-        VoidCallback? onTap,
-      }) {
+  Widget numberButton(String number, {VoidCallback? onTap}) {
     return Material(
       color: const Color(0xFF16374E),
       shape: const CircleBorder(),
@@ -414,12 +371,6 @@ class _LoginPageState extends State<LoginPage> {
                   Column(
                     children: [
                       Text(
-                        // 🔑 Pehle yahan hamesha hardcoded "Incorrect code"
-                        // dikhta tha, chahe backend ne kuch bhi bheja ho —
-                        // isliye banned user ko bhi "incorrect OTP" dikhta
-                        // tha. Ab asli backend message (ban message included)
-                        // yahan dikhta hai; sirf jab error generic/empty ho
-                        // tabhi default "Incorrect code" fallback use hota hai.
                         error.isNotEmpty
                             ? error
                             : (otp.isEmpty ? "Enter 6 Digit Code" : otp),
@@ -493,6 +444,10 @@ class _LoginPageState extends State<LoginPage> {
                             onChanged: (country) {
                               setState(() {
                                 selectedDialCode = country.dialCode ?? "+91";
+                                // Country change hone par agar current number naye length se bada ho to truncate karein
+                                if (phone.length > _currentRequiredPhoneLength) {
+                                  phone = phone.substring(0, _currentRequiredPhoneLength);
+                                }
                               });
                             },
                             initialSelection: selectedDialCode,
@@ -619,10 +574,9 @@ class _LoginPageState extends State<LoginPage> {
                           Text(
                             "Next",
                             style: TextStyle(
-                              color: (!isOtpSent && phone.length >= 5) ||
-                                  (isOtpSent && otp.length == 6)
+                              color: _isNextButtonEnabled
                                   ? const Color(0xFF6E97AE)
-                                  : const Color(0xFF6E97AE).withOpacity(0.5),
+                                  : const Color(0xFF6E97AE).withOpacity(0.4),
                               fontSize: 20.sp,
                               fontWeight: FontWeight.w300,
                             ),
@@ -630,30 +584,26 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(width: 14.w),
                           GestureDetector(
                             onTap: () {
-                              if (context.read<AuthBloc>().state is AuthLoading) {
+                              if (!_isNextButtonEnabled ||
+                                  context.read<AuthBloc>().state is AuthLoading) {
                                 return;
                               }
                               if (!isOtpSent) {
-                                if (phone.length >= 5) validateAndSend();
+                                validateAndSend();
                               } else {
-                                if (otp.length == 6) verifyOtp();
+                                verifyOtp();
                               }
                             },
                             child: BlocBuilder<AuthBloc, AuthState>(
                               builder: (context, state) {
-                                final isEnabled =
-                                    (!isOtpSent && phone.length >= 5) ||
-                                        (isOtpSent && otp.length == 6);
-
                                 if (state is AuthLoading) {
                                   return Container(
                                     width: 60.w,
                                     height: 60.w,
                                     decoration: BoxDecoration(
-                                      color: isEnabled
+                                      color: _isNextButtonEnabled
                                           ? const Color(0xFFB5D43C)
-                                          : const Color(0xFFB5D43C)
-                                          .withOpacity(0.4),
+                                          : const Color(0xFFB5D43C).withOpacity(0.4),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
@@ -670,7 +620,7 @@ class _LoginPageState extends State<LoginPage> {
                                 }
 
                                 return Opacity(
-                                  opacity: isEnabled ? 1.0 : 0.4,
+                                  opacity: _isNextButtonEnabled ? 1.0 : 0.4,
                                   child: SvgPicture.asset(
                                     "assets/svg/nextbutton.svg",
                                     width: 60.w,
@@ -693,3 +643,5 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
+

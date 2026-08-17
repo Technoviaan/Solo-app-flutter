@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
+import 'package:solo_app/core/utils/solo_sounds.dart';
 
 /// ✅ GLOBAL NAVIGATOR KEY (ADD THIS)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -402,15 +403,25 @@ class NotificationService {
         required int id,
         required String title,
         required String body,
+        String? audioPathOverride,
       }) async {
     if (scheduledTime.isBefore(DateTime.now())) return;
 
     final voice = await LocalStorage.getVoice();
-    String audioPath = "assets/audio/alarm.mp3";
-    if (voice == "Male") {
-      audioPath = "assets/audio/male.mp3";
+
+    // 🔊 If a specific phase voice line was passed in (e.g. "1st Phase
+    // Reminder", "Final Warning", "Alert Sent"), use that. Otherwise fall
+    // back to the old generic per-voice tone, and to a plain alarm beep
+    // when the user picked "None".
+    String audioPath;
+    if (audioPathOverride != null && voice != "None") {
+      audioPath = audioPathOverride;
+    } else if (voice == "Male") {
+      audioPath = SoloSounds.phaseReminder("Male", 1);
     } else if (voice == "Female") {
-      audioPath = "assets/audio/Female.mp3";
+      audioPath = SoloSounds.phaseReminder("Female", 1);
+    } else {
+      audioPath = SoloSounds.silentAlarmFallback;
     }
 
     final settings = AlarmSettings(
@@ -479,18 +490,31 @@ class NotificationService {
 
     final prefs = await SharedPreferences.getInstance();
     final notificationsEnabled = prefs.getBool("missed_checkin_notification_enabled") ?? true;
+    final voice = await LocalStorage.getVoice();
 
     if (notificationsEnabled) {
+      // 1st Phase Reminder — the moment check-in becomes due.
       await scheduleNotification(
         dueTime,
         id: 1000,
         title: "Check-in Time",
         body: "Tap to check in now.",
+        audioPathOverride: SoloSounds.phaseReminder(voice, 1),
       );
     }
 
     final totalMinutes = alertWindowHours * 60;
     final reminderMinutes = _buildReminderOffsets(totalMinutes);
+    // 🔊 Chronological phase voice lines for each of the reminder
+    // checkpoints below (2nd, 3rd, 4th regular reminders, then the 5th
+    // "final warning" ~2 minutes before the alert fires).
+    final phaseAudioForReminder = [
+      SoloSounds.phaseReminder(voice, 2),
+      SoloSounds.phaseReminder(voice, 3),
+      SoloSounds.phaseReminder(voice, 4),
+      SoloSounds.phaseFinalWarning(voice),
+      SoloSounds.phaseFinalWarning(voice),
+    ];
     for (var i = 0; i < reminderMinutes.length; i++) {
       final minute = reminderMinutes[i];
       final triggerTime = dueTime.add(Duration(minutes: minute));
@@ -503,15 +527,20 @@ class NotificationService {
           body: left > 0
               ? "$left minutes left before emergency alert."
               : "Final reminder before emergency alert.",
+          audioPathOverride: i < phaseAudioForReminder.length
+              ? phaseAudioForReminder[i]
+              : SoloSounds.phaseFinalWarning(voice),
         );
       }
     }
 
+    // 6th Phase — Alert Sent, once contacts have actually been notified.
     await scheduleNotification(
       dueTime.add(Duration(minutes: totalMinutes)),
       id: 1200,
       title: "Emergency Alert Triggered",
       body: "No check-in received. Contacts will be alerted.",
+      audioPathOverride: SoloSounds.phaseAlertSent(voice),
     );
 
     await showOngoingMonitoringNotification(dueTime);

@@ -28,16 +28,39 @@ class _ContactsPageState extends State<ContactsPage> {
   bool isContact1Enabled = false;
   bool isContact2Enabled = false;
 
+  int _subscriptionStatus = 0;
+  int _maxContacts = 2;
+
   static const Color _bg = Color(0xFFF7F8F3);
   static const Color _headingColor = Color(0xFF1B3A4B);
   static const Color _subtitleColor = Color(0xFF5A6C7D);
   static const Color _numCircle = Color(0xFF78BCC4);
-  static const Color _plusBtn = Color(0xFF002C3E);
   static const Color _contactLabel = Color(0xFF5A6C7D);
   static const Color _contactText = Color(0xFF5A6C7D);
   static const Color _contactSubtext = Color(0xFF8A99A6);
-  static const Color _divider = Color(0xFFDDD9D0);
   static const Color _nextGreen = Color(0xFFB5D43C);
+
+  @override
+  void initState() {
+    super.initState();
+    loadContacts();
+    _loadSubscriptionLimits();
+  }
+
+  Future<void> _loadSubscriptionLimits() async {
+    final status = await TokenStorage.getSubscriptionStatus();
+    final maxAllowed = await TokenStorage.getMaxContacts();
+    if (mounted) {
+      setState(() {
+        _subscriptionStatus = status;
+        _maxContacts = (status == 1) ? 1 : (maxAllowed > 0 ? maxAllowed : 2);
+      });
+    }
+  }
+
+  bool _isContactLocked(int index) {
+    return index > _maxContacts;
+  }
 
   int getCurrentContacts() {
     int count = 0;
@@ -163,145 +186,15 @@ class _ContactsPageState extends State<ContactsPage> {
     return countryCodes[regionCode?.toUpperCase()] ?? '+91';
   }
 
-  Future<void> editContact(int index) async {
-    final existing = index == 1 ? manualContact1 : manualContact2;
-    if (existing == null) return;
-
-    TextEditingController nameCtrl = TextEditingController(text: existing["name"] ?? "");
-    TextEditingController phoneCtrl = TextEditingController(text: existing["phone"] ?? "");
-    String selectedCountryCode = existing["countryCode"] ?? "+65";
-
-    await showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Edit Contact $index",
-                style: const TextStyle(
-                  color: _headingColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _dialogField(nameCtrl, "Name", Icons.person_outline),
-              const SizedBox(height: 12),
-              _dialogField(phoneCtrl, "Phone", Icons.phone_outlined, keyboard: TextInputType.phone),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-
-                      setState(() {
-                        if (index == 1) {
-                          manualContact1 = null;
-                          isContact1Enabled = false;
-                        } else {
-                          manualContact2 = null;
-                          isContact2Enabled = false;
-                        }
-                      });
-
-                      sendContactsToApi();
-                    },
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 17),
-                    label: const Text("Remove", style: TextStyle(color: Colors.redAccent)),
-                  ),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: const Text("Cancel", style: TextStyle(color: _subtitleColor)),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () async {
-                          final rawDigits = phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
-                          if (rawDigits.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Enter a valid phone number")),
-                            );
-                            return;
-                          }
-
-                          final updated = {
-                            "name": nameCtrl.text.trim(),
-                            "countryCode": selectedCountryCode,
-                            "phone": rawDigits,
-                          };
-
-                          Navigator.of(dialogContext).pop();
-
-                          setState(() {
-                            if (index == 1) {
-                              manualContact1 = updated;
-                            } else {
-                              manualContact2 = updated;
-                            }
-                          });
-
-                          await sendContactsToApi();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _numCircle,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
-                        ),
-                        child: const Text("Save", style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _dialogField(TextEditingController ctrl, String label, IconData icon, {TextInputType keyboard = TextInputType.text}) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: keyboard,
-      style: const TextStyle(color: _headingColor, fontSize: 14),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: _subtitleColor, fontSize: 13),
-        prefixIcon: Icon(icon, color: _numCircle, size: 18),
-        filled: true,
-        fillColor: const Color(0xFFF9F8F5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _divider)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _divider)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _numCircle, width: 1.5)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      ),
-    );
-  }
-
   Future<bool> sendContactsToApi() async {
-    print("\n---------------- API PAYLOAD PREPARATION ----------------");
     final token = await TokenStorage.getToken();
-
     final locationData = await LocationService.getCurrentLocationData();
 
     final List<Map<String, dynamic>> contacts = [];
     if (isContact1Enabled && manualContact1 != null) {
       contacts.add(manualContact1!);
     }
-    if (isContact2Enabled && manualContact2 != null) {
+    if (isContact2Enabled && manualContact2 != null && !_isContactLocked(2)) {
       contacts.add(manualContact2!);
     }
 
@@ -338,9 +231,6 @@ class _ContactsPageState extends State<ContactsPage> {
           }
         });
 
-        print("[API REQUEST] POST $url");
-        print("[API BODY PAYLOAD WITH LOCATION]: $body");
-
         final response = await http.post(
           url,
           headers: {
@@ -351,25 +241,19 @@ class _ContactsPageState extends State<ContactsPage> {
           body: body,
         );
 
-        print("[API RESPONSE] Status Code: ${response.statusCode}");
-        print("[API RESPONSE] Response Body: ${response.body}");
-
         if (response.statusCode < 200 || response.statusCode >= 300) {
           allSucceeded = false;
         }
       } catch (e) {
-        print("[API ERROR] $e");
         allSucceeded = false;
       }
     }
-
-    print("----------------------------------------------------------\n");
     return allSucceeded;
   }
 
   Future<bool> canUseContacts(BuildContext context) async {
     int status = await TokenStorage.getSubscriptionStatus();
-    int maxContacts = await TokenStorage.getMaxContacts();
+    int maxContacts = _maxContacts;
     int current = getCurrentContacts();
 
     if (status == 0) {
@@ -377,25 +261,16 @@ class _ContactsPageState extends State<ContactsPage> {
       return false;
     }
     if (current >= maxContacts) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Max $maxContacts contacts allowed")),
-      );
       return false;
     }
     return true;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    loadContacts();
-  }
-
   Future<void> loadContacts() async {
     final data = await LocalStorage.getContacts();
-    if (data.isNotEmpty) {
+    if (data.isNotEmpty && mounted) {
       setState(() {
-        if (data.length >= 1) {
+        if (data.isNotEmpty) {
           manualContact1 = Map<String, dynamic>.from(data[0]);
           isContact1Enabled = true;
         }
@@ -484,7 +359,7 @@ class _ContactsPageState extends State<ContactsPage> {
                     child: const Icon(Icons.arrow_back, color: _subtitleColor, size: 24),
                   ),
                   Builder(builder: (context) {
-                    final canProceed = manualContact1 != null || manualContact2 != null;
+                    final canProceed = manualContact1 != null || (manualContact2 != null && !_isContactLocked(2));
                     return GestureDetector(
                       onTap: canProceed
                           ? () => Navigator.push(
@@ -521,6 +396,7 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _contactRow({required int index}) {
+    final isLocked = _isContactLocked(index);
     final data = index == 1 ? manualContact1 : manualContact2;
     final enabled = index == 1 ? isContact1Enabled : isContact2Enabled;
     final hasContact = data != null;
@@ -533,7 +409,10 @@ class _ContactsPageState extends State<ContactsPage> {
           Container(
             width: 30,
             height: 30,
-            decoration: const BoxDecoration(color: _numCircle, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: isLocked ? const Color(0xFFB0BEC5) : _numCircle,
+              shape: BoxShape.circle,
+            ),
             child: Center(
               child: Text(
                 "$index",
@@ -551,21 +430,11 @@ class _ContactsPageState extends State<ContactsPage> {
                   style: TextStyle(color: _contactLabel, fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 3),
-                hasContact
-                    ? Text(
-                  data["name"] ?? "",
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    color: _contactText,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                  ),
-                )
-                    : const Text(
-                  "No contact added yet",
+                Text(
+                  hasContact ? (data["name"] ?? "") : "No contact added yet",
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    color: _contactSubtext,
+                    color: hasContact ? _contactText : _contactSubtext,
                     fontSize: 18,
                     fontWeight: FontWeight.w400,
                   ),
@@ -573,66 +442,75 @@ class _ContactsPageState extends State<ContactsPage> {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () async {
-              if (hasContact) {
-                // Directly remove the contact without showing any dialog
+          if (!isLocked) ...[
+            GestureDetector(
+              onTap: () async {
+                if (hasContact) {
+                  setState(() {
+                    if (index == 1) {
+                      manualContact1 = null;
+                      isContact1Enabled = false;
+                    } else {
+                      manualContact2 = null;
+                      isContact2Enabled = false;
+                    }
+                  });
+                  await sendContactsToApi();
+                } else {
+                  await pickContact(index);
+                }
+              },
+              child: hasContact
+                  ? Container(
+                width: 28,
+                height: 28,
+                margin: const EdgeInsets.only(right: 4),
+                decoration: const BoxDecoration(color: Color(0xFF002C3E), shape: BoxShape.circle),
+                child: const Icon(Icons.remove, color: Colors.white, size: 16),
+              )
+                  : Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: SvgPicture.asset('assets/svg/plus.svg', width: 28.w, height: 28.w),
+              ),
+            ),
+            const SizedBox(width: 3),
+            customSwitch(
+              value: enabled,
+              onChanged: (value) async {
+                if (!hasContact) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please add a contact first")),
+                  );
+                  return;
+                }
+                bool allowed = await canUseContacts(context);
+                if (!allowed && value == true) return;
+
                 setState(() {
                   if (index == 1) {
-                    manualContact1 = null;
-                    isContact1Enabled = false;
+                    isContact1Enabled = value;
                   } else {
-                    manualContact2 = null;
-                    isContact2Enabled = false;
+                    isContact2Enabled = value;
                   }
                 });
                 await sendContactsToApi();
-              } else {
-                // Open phone book to pick a contact
-                await pickContact(index);
-              }
-            },
-            child: hasContact
-                ? Container(
-              width: 28,
-              height: 28,
-              margin: const EdgeInsets.only(right: 4),
-              decoration: const BoxDecoration(color: Color(0xFF002C3E), shape: BoxShape.circle),
-              child: const Icon(Icons.remove, color: Colors.white, size: 16),
-            )
-                : Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: SvgPicture.asset('assets/svg/plus.svg', width: 28.w, height: 28.w),
+              },
             ),
-          ),
-          const SizedBox(width: 3),
-          customSwitch(
-            value: enabled,
-            
-            onChanged: (value) async {
-              if (!hasContact) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Please add a contact first")),
-                );
-                return;
-              }
-              bool allowed = await canUseContacts(context);
-              if (!allowed && value == true) return;
-
-              setState(() {
-                if (index == 1) {
-                  isContact1Enabled = value;
-                } else {
-                  isContact2Enabled = value;
-                }
-              });
-              await sendContactsToApi();
-            },
-          ),
+          ] else ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: Icon(
+                Icons.lock_outline,
+                color: Color(0xFF8A99A6),
+                size: 26,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+
   Widget customSwitch({required bool value, required Function(bool) onChanged}) {
     return GestureDetector(
       onTap: () => onChanged(!value),
@@ -663,7 +541,6 @@ class LocationService {
   static Future<bool> requestLocationPermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      print("[LOCATION LOG] GPS Service is Disabled");
       return false;
     }
 
@@ -671,13 +548,11 @@ class LocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        print("[LOCATION LOG] Permission Denied");
         return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      print("[LOCATION LOG] Permission Denied Forever");
       return false;
     }
 
@@ -689,7 +564,6 @@ class LocationService {
       final allowed = await requestLocationPermission();
       if (!allowed) return null;
 
-      print("\n================= FETCHING LIVE GPS LOCATION =================");
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -703,22 +577,13 @@ class LocationService {
       final googleMapsUrl =
           "https://maps.google.com/?q=${position.latitude},${position.longitude}";
 
-      final data = {
+      return {
         "latitude": position.latitude,
         "longitude": position.longitude,
         "mapsUrl": googleMapsUrl,
         "timestamp": formattedTime,
       };
-
-      print("[LOCATION LOG] Latitude: ${position.latitude}");
-      print("[LOCATION LOG] Longitude: ${position.longitude}");
-      print("[LOCATION LOG] Maps Link: $googleMapsUrl");
-      print("[LOCATION LOG] Timestamp: $formattedTime");
-      print("==============================================================\n");
-
-      return data;
     } catch (e) {
-      print("[LOCATION ERROR] Failed to fetch GPS: $e");
       return null;
     }
   }

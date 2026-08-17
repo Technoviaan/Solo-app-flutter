@@ -10,6 +10,7 @@ import 'package:solo_app/home/home_page.dart';
 import 'package:solo_app/home/profile/profile_api.dart';
 import 'package:solo_app/subscription/subscription_api.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
+import 'package:solo_app/core/utils/solo_sounds.dart';
 
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
@@ -843,13 +844,15 @@ class _SchedulePageState extends State<SchedulePage> {
       return;
     }
 
-    String assetPath = "";
+    // 🔊 "Hello, I'm SOLO, your daily Check-in Buddy." sample in the
+    // selected voice; "None" just previews the plain alarm tone.
+    String assetPath;
     if (selectedVoice == "Male") {
-      assetPath = "audio/male.mp3";
+      assetPath = SoloSounds.voiceSample("Male").replaceFirst('assets/', '');
     } else if (selectedVoice == "Female") {
-      assetPath = "audio/Female.mp3";
+      assetPath = SoloSounds.voiceSample("Female").replaceFirst('assets/', '');
     } else {
-      assetPath = "audio/alarm.mp3";
+      assetPath = SoloSounds.silentAlarmFallback.replaceFirst('assets/', '');
     }
 
     await _audioPlayer.stop();
