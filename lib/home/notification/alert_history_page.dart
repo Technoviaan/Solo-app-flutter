@@ -17,10 +17,20 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
   List<Map<String, dynamic>> localHistory = [];
   bool loading = true;
 
+  // 🛠️ FIX: Scrollbar needs an explicit ScrollController to know which
+  // scrollable to attach the visible thumb to.
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future load() async {
@@ -63,23 +73,23 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
   List<Map<String, String>> _rows() {
     final apiRows = history
         .map((e) => {
-              "createdAt": e.createdAt,
-              "type": e.type,
-              "contact": "—",
-            })
+      "createdAt": e.createdAt,
+      "type": e.type,
+      "contact": "—",
+    })
         .toList();
 
     final localRows = localHistory
         .map((e) => {
-              "createdAt": (e["createdAt"] ?? "").toString(),
-              "type": (e["type"] ?? "").toString(),
-              "contact": (e["contact"] ?? "—").toString(),
-            })
+      "createdAt": (e["createdAt"] ?? "").toString(),
+      "type": (e["type"] ?? "").toString(),
+      "contact": (e["contact"] ?? "—").toString(),
+    })
         .toList();
 
     final rows = [...localRows, ...apiRows];
     rows.sort(
-      (a, b) => DateTime.parse(b["createdAt"]!)
+          (a, b) => DateTime.parse(b["createdAt"]!)
           .compareTo(DateTime.parse(a["createdAt"]!)),
     );
     return rows;
@@ -113,77 +123,111 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
                 child: loading
                     ? const Center(child: CircularProgressIndicator())
                     : rows.isEmpty
-                        ? Align(
-                            alignment: Alignment.topCenter,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: const Color(0x808A99A6),
-                                  width: 1,
-                                ),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    headerRow(),
-                                    Container(
-                                      height: 48,
-                                      alignment: Alignment.center,
-                                      child: const Text(
-                                        "No missed check-in or SOS alerts yet",
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF8A99A6),
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(
-                                color: const Color(0x808A99A6),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Column(
-                                children: [
-                                  headerRow(),
-                                  Expanded(
-                                    child: ListView.separated(
-                                      physics: const BouncingScrollPhysics(),
-                                      itemCount: rows.length,
-                                      separatorBuilder: (context, index) =>
-                                          const Divider(
-                                        height: 1,
-                                        color: Color(0xFFE5E7EB),
-                                      ),
-                                      itemBuilder: (_, i) {
-                                        final item = rows[i];
-                                        return dataRow(
-                                          item["type"]!,
-                                          item["createdAt"]!,
-                                          item["contact"]!,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
+                    ? Align(
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      // 🛠️ FIX: row fill matches the page
+                      // background (#F7F8F3), same as the
+                      // Past Check-ins table, not pure white.
+                      color: const Color(0xFFF7F8F3),
+                      border: Border.all(
+                        color: const Color(0x808A99A6),
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          headerRow(),
+                          Container(
+                            height: 48,
+                            alignment: Alignment.center,
+                            child: const Text(
+                              "No missed check-in or SOS alerts yet",
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF8A99A6),
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+                    : Container(
+                  decoration: BoxDecoration(
+                    // 🛠️ FIX: row fill matches the page
+                    // background (#F7F8F3), same as the
+                    // Past Check-ins table, not pure white.
+                    color: const Color(0xFFF7F8F3),
+                    border: Border.all(
+                      color: const Color(0x808A99A6),
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Column(
+                      children: [
+                        headerRow(),
+                        Expanded(
+                          // 🛠️ FIX: RawScrollbar (plain Scrollbar
+                          // has no color param) adds the visible
+                          // right-side scroll thumb, in the same
+                          // coral as this page's header (#EC6A52).
+                          child: RawScrollbar(
+                            controller: _scrollController,
+                            thumbVisibility: true,
+                            thickness: 4,
+                            radius: const Radius.circular(8),
+                            thumbColor: const Color(0xFFEC6A52),
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              physics:
+                              const BouncingScrollPhysics(),
+                              padding: EdgeInsets.zero,
+                              itemCount: rows.length,
+                              itemBuilder: (_, i) {
+                                final item = rows[i];
+                                // 🛠️ FIX: was ListView.separated,
+                                // which only draws a divider
+                                // BETWEEN items — the last row
+                                // never got a divider under it.
+                                // Now every row (including the
+                                // last) draws its own divider
+                                // directly beneath it.
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    dataRow(
+                                      item["type"]!,
+                                      item["createdAt"]!,
+                                      item["contact"]!,
+                                    ),
+                                    const Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      indent: 16,
+                                      endIndent: 16,
+                                      color: Color(0xFFCED5D6),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               GestureDetector(

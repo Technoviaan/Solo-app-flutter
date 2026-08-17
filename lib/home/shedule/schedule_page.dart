@@ -34,7 +34,7 @@ class _SchedulePageState extends State<SchedulePage> {
     super.initState();
     loadData();
     loadSchedule();
-    
+
     _audioPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) {
         setState(() {
@@ -45,22 +45,19 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Future<void> loadData() async {
-    // Pull the latest subscription/credits from the backend first, so any
-    // admin credit adjustment (or usage) is reflected immediately instead of
-    // showing a stale cached value.
     await SubscriptionApi.getSubscriptionStatus();
 
     subscriptionStatus = await TokenStorage.getSubscriptionStatus();
     maxCheckins = await TokenStorage.getMaxCheckins();
     credits = await TokenStorage.getCredits();
     final voice = await LocalStorage.getVoice();
-    
+
     final profile = await ProfileApi.getProfile();
     if (profile != null) {
       final userMap = profile["user"] ?? profile;
       userName = userMap["name"] ?? "User";
     }
-    
+
     setState(() {
       selectedVoice = voice;
     });
@@ -116,10 +113,7 @@ class _SchedulePageState extends State<SchedulePage> {
                         Container(
                           width: 44,
                           height: 44,
-                          decoration: const BoxDecoration(
-                            //color: Color(0xFFE0F2F1), // Light teal background
-                            //shape: BoxShape.circle, 
-                          ),
+                          decoration: const BoxDecoration(),
                           child: Center(
                             child: SvgPicture.asset(
                               'assets/svg/schudel.svg',
@@ -134,14 +128,14 @@ class _SchedulePageState extends State<SchedulePage> {
                           style: TextStyle(
                             fontSize: 23,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF002C3E), 
+                            color: Color(0xFF002C3E),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     const Divider(color: Color(0xFF8A99A6), thickness: 1),
-                    
+
                     // WHEEL PICKER AREA
                     Expanded(
                       child: Stack(
@@ -159,7 +153,7 @@ class _SchedulePageState extends State<SchedulePage> {
                           // THE PICKER
                           ShaderMask(
                             shaderCallback: (rect) {
-                              return const LinearGradient( 
+                              return const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [Colors.transparent, Color(0xFF8A99A6),Color(0xFF8A99A6), Colors.transparent],
@@ -224,7 +218,7 @@ class _SchedulePageState extends State<SchedulePage> {
                         ],
                       ),
                     ),
-              
+
                     // BUTTONS
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -256,7 +250,7 @@ class _SchedulePageState extends State<SchedulePage> {
                           ),
                         ),
                         SizedBox(width: AppSize.w(12)),
-              
+
                         // Confirm — filled navy
                         SizedBox(
                           width: AppSize.w(111),
@@ -354,20 +348,14 @@ class _SchedulePageState extends State<SchedulePage> {
   /// ================= CHECK-IN TILE =================
   Widget checkinTile(int index) {
     return Container(
-      //margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.only(left: 0, right: 0, top: 14, bottom: 14),
-      decoration: const BoxDecoration(
-       // color: (index == 1 && subscriptionStatus == 1) ? Colors.black.withOpacity(0.02) : Colors.transparent,
-        //borderRadius: BorderRadius.circular(16),
-       // border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
       child: Row(
         children: [
           Container(
             width: 32,
             height: 32,
             decoration: const BoxDecoration(
-              color: Color(0xFF76BDCB), // Teal color from design
+              color: Color(0xFF76BDCB),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -393,7 +381,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 Text(
                   formatTime(checkins[index]),
                   style: const TextStyle(
-                    color: Color(0xFF8A99A6), // Lighter gray for placeholder/result
+                    color: Color(0xFF8A99A6),
                     fontSize: 18,
                     fontWeight: FontWeight.w400,
                   ),
@@ -401,16 +389,15 @@ class _SchedulePageState extends State<SchedulePage> {
               ],
             ),
           ),
-          // const SizedBox(width: 8),
           GestureDetector(
             onTap: () => pickTime(index),
             child: (index == 1 && subscriptionStatus == 1)
                 ? const Icon(Icons.lock, color: Colors.black26, size: 28)
                 : SvgPicture.asset(
-                    'assets/svg/plus.svg',
-                    width: 28.w,
-                    height: 28.w,
-                  ),
+              'assets/svg/plus.svg',
+              width: 28.w,
+              height: 28.w,
+            ),
           ),
           const SizedBox(width: 8),
           customSwitch(
@@ -421,16 +408,10 @@ class _SchedulePageState extends State<SchedulePage> {
                 goToSubscription();
                 return;
               }
-              
-              if (val) {
-                // If turning ON, open picker
-                pickTime(index);
-              } else {
-                // If turning OFF, just update state
-                setState(() {
-                  enabled[index] = false;
-                });
-              }
+
+              setState(() {
+                enabled[index] = val;
+              });
             },
           ),
         ],
@@ -464,10 +445,10 @@ class _SchedulePageState extends State<SchedulePage> {
                     Text(
                       "Schedule up to 2 preferred check-in times daily. I'll be there to check on you, and you can change or pause reminders anytime.",
                       style: TextStyle(
-                        fontSize: 14.sp,
-                        color: const Color(0xFF5A6C7D),
-                        height: 1.4,
-                        fontWeight: FontWeight.w400
+                          fontSize: 14.sp,
+                          color: const Color(0xFF5A6C7D),
+                          height: 1.4,
+                          fontWeight: FontWeight.w400
                       ),
                     ),
                     SizedBox(height: 16.h),
@@ -479,7 +460,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
                     SizedBox(height: 16.h),
                     Text(
-                      "Send alert after missed check-in", 
+                      "Send alert after missed check-in",
                       style: TextStyle(
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w500,
@@ -608,10 +589,9 @@ class _SchedulePageState extends State<SchedulePage> {
 
             // BOTTOM NAVIGATION BAR
             Container(
-              //padding: EdgeInsets.fromLTRB(24.w, 0.h, 24.w, AppSize.bottom(0)),
               padding: EdgeInsets.only(left: 24.w, right: 24.w),
               color: Colors.transparent,
-              child: Row(  
+              child: Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
@@ -655,7 +635,7 @@ class _SchedulePageState extends State<SchedulePage> {
                         await CheckinApi.saveCheckinTimes(formattedTimes);
 
                         if (!mounted) return;
-                        
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -719,18 +699,18 @@ class _SchedulePageState extends State<SchedulePage> {
             width: 2.w,
           ),
         ),
-        child: isSelected 
-          ? Center(
-              child: Container(
-                width: 14.w,
-                height: 14.w,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF76BDCB),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            )
-          : null,
+        child: isSelected
+            ? Center(
+          child: Container(
+            width: 14.w,
+            height: 14.w,
+            decoration: const BoxDecoration(
+              color: Color(0xFF76BDCB),
+              shape: BoxShape.circle,
+            ),
+          ),
+        )
+            : null,
       ),
     );
   }
@@ -749,18 +729,18 @@ class _SchedulePageState extends State<SchedulePage> {
             width: 2.w,
           ),
         ),
-        child: isSelected 
-          ? Center(
-              child: Container(
-                width: 14.w,
-                height: 14.w,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF76BDCB),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            )
-          : null,
+        child: isSelected
+            ? Center(
+          child: Container(
+            width: 14.w,
+            height: 14.w,
+            decoration: const BoxDecoration(
+              color: Color(0xFF76BDCB),
+              shape: BoxShape.circle,
+            ),
+          ),
+        )
+            : null,
       ),
     );
   }
@@ -827,7 +807,7 @@ class _SchedulePageState extends State<SchedulePage> {
     } else {
       assetPath = "audio/alarm.mp3";
     }
-    
+
     await _audioPlayer.stop();
     await _audioPlayer.play(AssetSource(assetPath));
   }
@@ -838,4 +818,3 @@ class _SchedulePageState extends State<SchedulePage> {
     super.dispose();
   }
 }
-

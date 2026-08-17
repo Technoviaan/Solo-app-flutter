@@ -144,15 +144,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
   }
 
-  /// ================= 1. CARD TAP PAYMENT HANDLER =================
-  /// Card click par direct checkout session banega ya ALREADY ACTIVE wala Alert aayega.
-  /// (Yahan se Portal open nahi hoga)
   Future<void> _handlePayment(Map<String, dynamic> plan) async {
     final planId = plan["id"] as String;
     final priceId = plan["priceId"] as String?;
     final isTopup = planId.startsWith("credit_");
 
-    // 1. Top-up Restriction Check
     if (isTopup) {
       if (_subscriptionStatus != 2 && _subscriptionStatus != 3) {
         showTopupRestrictedDialog(context);
@@ -160,7 +156,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
 
-    // 2. Trial Plan Selection Check (Agar user pehle se trial ya paid sub pe hai)
     if (planId == "trial") {
       if (_subscriptionStatus >= 1) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -170,7 +165,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
 
-    // 3. Same Plan / Active Subscription Check (Card click pe alert aayega)
     if ((planId == "monthly" && _subscriptionStatus == 2) ||
         (planId == "yearly" && _subscriptionStatus == 3)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -188,7 +182,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     } else if (planId == "trial" && _subscriptionStatus == 0) {
       sessionUrl = await StripeApi.createTrialSession(priceId!);
     } else {
-      // New direct checkout
       sessionUrl = await StripeApi.createSubscriptionSession(priceId!);
     }
 
@@ -198,41 +191,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     if (sessionUrl != null && sessionUrl.isNotEmpty) {
       final uri = Uri.parse(sessionUrl);
       try {
-        // 🛠️ FIX: Record that a real Stripe checkout is now in flight
-        // BEFORE handing off to the external browser. `launchUrl(...,
-        // mode: LaunchMode.externalApplication)` below opens the full
-        // system browser (a separate app/task), not an in-app custom tab.
-        // While the user is entering card details there — which can take
-        // 30s-2min — Android is free to kill our process for memory, and
-        // on some OEM builds the solo://payment-success deep link doesn't
-        // get redelivered reliably when that happens. This flag lets
-        // SplashScreen fall back to showing PaymentResultPage on the next
-        // app open even if the OS-level deep link never arrives. See the
-        // doc comment on TokenStorage.getPendingCheckout() for the full
-        // explanation.
         await TokenStorage.savePendingCheckout(true);
-
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-        // 🛠️ FIX: Removed the old "wait 3.5s, optimistically add credits
-        // locally, then immediately re-sync with the backend" logic here.
-        // It was actively harmful: the re-sync call almost always ran
-        // BEFORE the Stripe webhook had actually landed on the backend
-        // (webhooks routinely take longer than 3.5s), so it fetched STALE
-        // pre-purchase data and overwrote the optimistic local credit
-        // add with the old (wrong) number. The only reason credits ever
-        // ended up correct was that the LATER solo://payment-success deep
-        // link (PaymentResultPage) happened to re-poll and fix it — but if
-        // that deep link is ever missed (the cold-start case fixed above),
-        // credits would stay stuck at the stale value even though the
-        // user was actually charged.
-        //
-        // PaymentResultPage (reached via the deep link, or via the
-        // TokenStorage.pendingCheckout fallback in SplashScreen if the
-        // deep link itself doesn't arrive) is the single source of truth
-        // for confirming a purchase now — it polls the real backend up to
-        // 5 times over 10s specifically so it catches the webhook. This
-        // page just needs to hand off to Stripe and get out of the way.
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -260,8 +220,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
   }
 
-  /// ================= 2. UPGRADE TEXT / BUTTON TAP HANDLER =================
-  /// Sirf "Upgrade plan / Upgrade your plan" text ya arrow par click karne se Stripe Customer Portal khulega
   Future<void> _handleBottomActionTap(Map<String, dynamic> plan) async {
     final planId = plan["id"].toString();
     final isTopup = planId.startsWith("credit_");
@@ -271,20 +229,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       return;
     }
 
-    // 🔥 Agar user Trial (status 1) ya Paid Plan (status 2, 3) par hai:
-    // Toh "Upgrade plan" par click karne par seedha Stripe Customer Portal open hoga!
     if (_subscriptionStatus >= 1) {
       debugPrint("💳 [SubscriptionPage] Opening Stripe Portal for upgrade (status $_subscriptionStatus)...");
       await _openManagePortal();
       return;
     }
 
-    // Status 0 wale fresh user ke liye checkout flow
     await _handlePayment(plan);
   }
 
   Future<void> _openManagePortal() async {
-    // Status 1, 2 aur 3 teeno ke liye allow karein
     if (_subscriptionStatus < 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -301,11 +255,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     if (portalUrl != null && portalUrl.isNotEmpty) {
       final uri = Uri.parse(portalUrl);
       try {
-        // NOTE: intentionally NOT setting TokenStorage.savePendingCheckout()
-        // here — the Stripe Customer Portal is for managing an existing
-        // subscription, not a new checkout, and doesn't redirect back via
-        // solo://payment-success. Setting the flag here would make Splash
-        // wrongly show PaymentResultPage next time the app opens.
         await launchUrl(uri, mode: LaunchMode.externalApplication);
 
         await Future.delayed(const Duration(milliseconds: 2000));
@@ -508,7 +457,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     super.dispose();
   }
 
-  /// ================= UNIFIED CARD WIDGET =================
   Widget dynamicCard({
     required String id,
     required String bigNumber,
@@ -522,6 +470,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     double progress = 0.6,
   }) {
     final bool isMonthly = (id == "monthly");
+    final bool isTrial = (id == "trial");
 
     return Transform.scale(
       scale: scale,
@@ -577,9 +526,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                      style: TextStyle(
+                        fontSize: isTrial ? 16.0 : 20.0,
+                        fontWeight: isTrial ? FontWeight.w400 : FontWeight.bold,
                         color: Colors.black,
                         letterSpacing: 0.5,
                       ),
@@ -666,6 +615,53 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   Widget build(BuildContext context) {
     AppSize.init(context);
 
+    // Determine the active focused card index and its data
+    final activePlanIndex = (_currentPage.round() % _plans.length);
+    final activePlan = _plans[activePlanIndex];
+    final String activePlanId = activePlan["id"].toString();
+    final bool isTopupFocused = activePlanId.startsWith("credit_");
+
+    // Dynamic text switching between "Plans" and "Add Credits" based on focus
+    final String dynamicHeadingTitle = isTopupFocused ? "Add Credits" : "Plans";
+
+    // Calculate display values for the focused card context
+    String displayHeaderTitle = "Available\nCredits";
+    String displaySubtitle = isTopupFocused ? "Top-up Pack" : "This Month";
+
+    String planLabel = "1 free credit to start";
+    String? renewalText;
+
+    if (_activePromoPlan != null) {
+      planLabel = _activePromoPlan!;
+      if (_promoActivationTime != null) {
+        if (_activePromoPlan == "1 Month Free Access") {
+          final exp = _promoActivationTime!.add(const Duration(days: 30));
+          renewalText = "Next renewal ${_formatDate(exp)}";
+        } else if (_activePromoPlan == "1 Year Free Access") {
+          final exp = _promoActivationTime!.add(const Duration(days: 365));
+          renewalText = "Next renewal ${_formatDate(exp)}";
+        } else if (_activePromoPlan == "Unlimited Free Access") {
+          renewalText = "No Expiry";
+        }
+      }
+    } else if (_subscriptionStatus == 1) {
+      planLabel = "Free Trial Plan";
+    } else if (_subscriptionStatus == 2) {
+      planLabel = "Monthly Subscription";
+    } else if (_subscriptionStatus == 3) {
+      planLabel = "Yearly Subscription";
+    }
+
+    final String mainDisplayValue = isTopupFocused
+        ? "+${activePlan['big']}"
+        : "$_credits";
+
+    final double dynamicFontSize = mainDisplayValue.length <= 1
+        ? 100.0
+        : mainDisplayValue.length == 2
+        ? 75.0
+        : 52.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFF002C3E),
       body: SafeArea(
@@ -744,20 +740,23 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               padding: EdgeInsets.symmetric(horizontal: 6),
                               child: Divider(color: Colors.white24),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     "Plans",
                                     style: TextStyle(
-                                        color: Colors.white54, fontSize: 18, fontWeight: FontWeight.w600),
+                                      color: !isTopupFocused ? Colors.white : Colors.white54,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   Text(
                                     "Add Credits",
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: isTopupFocused ? Colors.white : Colors.white54,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -796,7 +795,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                       benefits: List<String>.from(plan["benefits"]),
                                       progress: plan["progress"] ?? 0.6,
                                       scale: scale,
-                                      // Card click uses regular flow (alerts on active plan)
                                       onTap: () => _handlePayment(plan),
                                     ),
                                   );
@@ -827,11 +825,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               child: Divider(color: Colors.white24),
                             ),
                             const SizedBox(height: 16),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
                               child: Text(
-                                "Your credits at a glance",
-                                style: TextStyle(
+                                dynamicHeadingTitle,
+                                style: const TextStyle(
                                   color: Color(0xFF78BCC4),
                                   fontSize: 26,
                                   fontWeight: FontWeight.w600,
@@ -839,134 +837,96 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            FutureBuilder<int>(
-                              future: Future.value(_credits),
-                              builder: (context, snapshot) {
-                                final credits = _credits;
-
-                                String planLabel = "1 free credit to start";
-                                String? renewalText;
-
-                                if (_activePromoPlan != null) {
-                                  planLabel = _activePromoPlan!;
-                                  if (_promoActivationTime != null) {
-                                    if (_activePromoPlan == "1 Month Free Access") {
-                                      final exp = _promoActivationTime!.add(const Duration(days: 30));
-                                      renewalText = "Next renewal ${_formatDate(exp)}";
-                                    } else if (_activePromoPlan == "1 Year Free Access") {
-                                      final exp = _promoActivationTime!.add(const Duration(days: 365));
-                                      renewalText = "Next renewal ${_formatDate(exp)}";
-                                    } else if (_activePromoPlan == "Unlimited Free Access") {
-                                      renewalText = "No Expiry";
-                                    }
-                                  }
-                                } else if (_subscriptionStatus == 1) {
-                                  planLabel = "Free Trial Plan";
-                                } else if (_subscriptionStatus == 2) {
-                                  planLabel = "Monthly Subscription";
-                                } else if (_subscriptionStatus == 3) {
-                                  planLabel = "Yearly Subscription";
-                                }
-
-                                final String creditStr = "$credits";
-                                final double dynamicFontSize = creditStr.length <= 1
-                                    ? 100.0
-                                    : creditStr.length == 2
-                                    ? 75.0
-                                    : 52.0;
-
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF114B5F),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                          children: [
-                                            Expanded(
-                                              flex: 5,
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Text(
-                                                    "Available\nCredits",
-                                                    style: TextStyle(
-                                                      color: Color(0xFFA8B6C2),
-                                                      fontSize: 26,
-                                                      fontWeight: FontWeight.w600,
-                                                      height: 1.1,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  const Text(
-                                                    "This Month",
-                                                    style: TextStyle(
-                                                      color: Color(0xff89BCC8),
-                                                      fontSize: 15,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  Text(
-                                                    planLabel,
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFA8B6C2),
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w400,
-                                                    ),
-                                                  ),
-                                                  if (renewalText != null) ...[
-                                                    const SizedBox(height: 2),
-                                                    Text(
-                                                      renewalText,
-                                                      style: const TextStyle(
-                                                        color: Color(0xff89BCC8),
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF114B5F),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          flex: 5,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                displayHeaderTitle,
+                                                style: const TextStyle(
+                                                  color: Color(0xFFA8B6C2),
+                                                  fontSize: 26,
+                                                  fontWeight: FontWeight.w600,
+                                                  height: 1.1,
+                                                ),
                                               ),
-                                            ),
-                                            Container(
-                                              width: 1,
-                                              height: 90,
-                                              color: const Color(0xff8A99A6),
-                                              margin: const EdgeInsets.symmetric(horizontal: 12),
-                                            ),
-                                            Expanded(
-                                              flex: 4,
-                                              child: Center(
-                                                child: FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  child: Text(
-                                                    creditStr,
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      color: const Color(0xFFA8B6C2),
-                                                      fontSize: dynamicFontSize,
-                                                      fontWeight: FontWeight.w500,
-                                                      height: 1.0,
-                                                    ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                displaySubtitle,
+                                                style: const TextStyle(
+                                                  color: Color(0xff89BCC8),
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              Text(
+                                                planLabel,
+                                                style: const TextStyle(
+                                                  color: Color(0xFFA8B6C2),
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                              ),
+                                              if (renewalText != null) ...[
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  renewalText,
+                                                  style: const TextStyle(
+                                                    color: Color(0xff89BCC8),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 1,
+                                          height: 90,
+                                          color: const Color(0xff8A99A6),
+                                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                                        ),
+                                        Expanded(
+                                          flex: 4,
+                                          child: Center(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                mainDisplayValue,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: const Color(0xFFA8B6C2),
+                                                  fontSize: dynamicFontSize,
+                                                  fontWeight: FontWeight.w500,
+                                                  height: 1.0,
                                                 ),
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                );
-                              },
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 40),
                           ],
@@ -977,8 +937,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 ),
                 Builder(
                   builder: (context) {
-                    final activePlanIndex = _currentPage.round() % _plans.length;
-                    final activePlan = _plans[activePlanIndex];
                     final planId = activePlan["id"].toString();
                     final isTopup = planId.startsWith("credit_");
                     final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
@@ -1019,7 +977,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       color: const Color(0xFF002C3E),
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        // 🔥 YAHAN: Bottom "Upgrade" Text / Button pe tap karne se seedha Portal khulega
                         onTap: shouldDisableClick ? null : () => _handleBottomActionTap(activePlan),
                         child: Row(
                           children: [

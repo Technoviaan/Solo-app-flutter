@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:solo_app/core/widgets/solo_logo.dart';
+import 'package:solo_app/home/privacy_policy_page.dart';
+import 'package:solo_app/home/terms_of_use_page.dart';
 import '../core/utils/app_size.dart';
+// TODO: Apne project ke actual path ke hisaab se pages import kar lena
+// import 'privacy_policy_page.dart';
+// import 'terms_of_use_page.dart';
 
 class AboutUsPage extends StatelessWidget {
   const AboutUsPage({super.key});
@@ -13,18 +18,17 @@ class AboutUsPage extends StatelessWidget {
       backgroundColor: const Color(0xFFF8FAF7),
       body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSize.w(20), vertical: AppSize.h(10)),
-              child: const SoloLogo(),
-            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSize.h(10)),
+                      child: const SoloLogo(),
+                    ),
                     SizedBox(height: AppSize.h(20)),
                     Text(
                       "About Us",
@@ -80,17 +84,18 @@ class AboutUsPage extends StatelessWidget {
                       ],
                     ),
                     SizedBox(height: AppSize.h(30)),
-                    versionInfo(),
+                    versionInfo(context),
                     SizedBox(height: AppSize.h(40)),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Padding(
-                        padding: EdgeInsets.only(bottom: 30),
-                        child: Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 28),
-                      ),
-                    ),
                   ],
                 ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: AppSize.w(24), vertical: AppSize.h(16)),
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 28),
               ),
             ),
           ],
@@ -100,9 +105,10 @@ class AboutUsPage extends StatelessWidget {
   }
 
   Widget rateButton(String sub, String main, Color color) {
-    return Expanded(
+    return SizedBox(
+      width: 124.w,
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: AppSize.h(8)),
+        height: 39.h,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(12),
@@ -111,7 +117,7 @@ class AboutUsPage extends StatelessWidget {
           children: [
             Text(
               sub,
-              style: const TextStyle(color: Color(0xFFF5F5F5), fontSize: 12, fontWeight: FontWeight.w400), 
+              style: const TextStyle(color: Color(0xFFF5F5F5), fontSize: 12, fontWeight: FontWeight.w400),
             ),
             Text(
               main,
@@ -123,39 +129,49 @@ class AboutUsPage extends StatelessWidget {
     );
   }
 
-  Widget versionInfo() {
+  Widget versionInfo(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           "Version 1.0.0",
-          style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12,fontWeight: FontWeight.w400),
+          style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12, fontWeight: FontWeight.w400),
         ),
         const Text(
           "SOLO © 2026 Social Rebels™ Design. All rights reserved.",
-          style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12,fontWeight: FontWeight.w400),
+          style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12, fontWeight: FontWeight.w400),
         ),
         Row(
           children: [
-            Text(
-              "Privacy Policy",
-              style: TextStyle(
-                color: const Color(0xFF8A99A6),
-                fontSize: 10,
-                fontWeight: FontWeight.w400,
-                decoration: TextDecoration.underline,
-                decorationColor: const Color(0xFF8A99A6).withValues(alpha: 0.5),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()));
+              },
+              child: Text(
+                "Privacy Policy",
+                style: TextStyle(
+                  color: const Color(0xFF8A99A6),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                  decoration: TextDecoration.underline,
+                  decorationColor: const Color(0xFF8A99A6).withValues(alpha: 0.5),
+                ),
               ),
             ),
             const Text(" | ", style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12)),
-            Text(
-              "Terms of Use",
-              style: TextStyle(
-                color: const Color(0xFF8A99A6),
-                fontWeight: FontWeight.w400,
-                fontSize: 10,
-                decoration: TextDecoration.underline,
-                decorationColor: const Color(0xFF8A99A6).withValues(alpha: 0.5),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsOfUsePage()));
+              },
+              child: Text(
+                "Terms of Use",
+                style: TextStyle(
+                  color: const Color(0xFF8A99A6),
+                  fontWeight: FontWeight.w400,
+                  fontSize: 10,
+                  decoration: TextDecoration.underline,
+                  decorationColor: const Color(0xFF8A99A6).withValues(alpha: 0.5),
+                ),
               ),
             ),
           ],

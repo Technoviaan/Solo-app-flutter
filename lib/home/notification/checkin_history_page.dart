@@ -17,10 +17,20 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
   List<Map<String, dynamic>> localHistory = [];
   bool loading = true;
 
+  // 🛠️ FIX: Scrollbar needs an explicit ScrollController to know which
+  // scrollable to attach the visible thumb to.
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future load() async {
@@ -67,22 +77,22 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
     final apiRows = history
         .map(
           (e) => {
-            "createdAt": e.createdAt,
-            "status": e.status,
-          },
-        )
+        "createdAt": e.createdAt,
+        "status": e.status,
+      },
+    )
         .toList();
     final localRows = localHistory
         .map(
           (e) => {
-            "createdAt": (e["createdAt"] ?? "").toString(),
-            "status": (e["status"] ?? "").toString(),
-          },
-        )
+        "createdAt": (e["createdAt"] ?? "").toString(),
+        "status": (e["status"] ?? "").toString(),
+      },
+    )
         .toList();
     final rows = [...localRows, ...apiRows];
     rows.sort(
-      (a, b) => DateTime.parse(b["createdAt"]!)
+          (a, b) => DateTime.parse(b["createdAt"]!)
           .compareTo(DateTime.parse(a["createdAt"]!)),
     );
     return rows;
@@ -116,77 +126,119 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
                 child: loading
                     ? const Center(child: CircularProgressIndicator())
                     : rows.isEmpty
-                        ? Align(
-                            alignment: Alignment.topCenter,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: const Color(0x808A99A6),
-                                  width: 1,
-                                ),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    headerRow(),
-                                    Container(
-                                      height: 48,
-                                      alignment: Alignment.center,
-                                      child: const Text(
-                                        "No past check-ins yet",
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF8A99A6),
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(
-                                color: const Color(0x808A99A6),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Column(
-                                children: [
-                                  headerRow(),
-                                  Expanded(
-                                    child: ListView.separated(
-                                      physics: const BouncingScrollPhysics(),
-                                      itemCount: rows.length,
-                                      separatorBuilder: (context, index) =>
-                                          const Divider(
-                                        height: 1,
-                                        color: Color(0xFFE5E7EB),
-                                      ),
-                                      itemBuilder: (_, i) {
-                                        final item = rows[i];
-                                        return dataRow(
-                                          getDate(item["createdAt"]!),
-                                          getTime(item["createdAt"]!),
-                                          item["status"]!,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
+                    ? Align(
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      // 🛠️ FIX: image sample shows row fill is the
+                      // same off-white as the page background
+                      // (#F7F8F3), not pure white.
+                      color: const Color(0xFFF7F8F3),
+                      border: Border.all(
+                        color: const Color(0x808A99A6),
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          headerRow(),
+                          Container(
+                            height: 48,
+                            alignment: Alignment.center,
+                            child: const Text(
+                              "No past check-ins yet",
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF8A99A6),
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+                    : Container(
+                  decoration: BoxDecoration(
+                    // 🛠️ FIX: image sample shows row fill is the
+                    // same off-white as the page background
+                    // (#F7F8F3), not pure white.
+                    color: const Color(0xFFF7F8F3),
+                    border: Border.all(
+                      color: const Color(0x808A99A6),
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Column(
+                      children: [
+                        headerRow(),
+                        Expanded(
+                          // 🛠️ FIX: RawScrollbar (not plain
+                          // Scrollbar, which has no color param)
+                          // adds the visible right-side scroll
+                          // thumb seen in the design, in the same
+                          // teal as the header (#78BCC4).
+                          child: RawScrollbar(
+                            controller: _scrollController,
+                            thumbVisibility: true,
+                            thickness: 4,
+                            radius: const Radius.circular(8),
+                            thumbColor: const Color(0xFF78BCC4),
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              physics:
+                              const BouncingScrollPhysics(),
+                              padding: EdgeInsets.zero,
+                              itemCount: rows.length,
+                              itemBuilder: (_, i) {
+                                final item = rows[i];
+                                // 🛠️ FIX: was ListView.separated,
+                                // which only draws a divider
+                                // BETWEEN items — the last row
+                                // never got a divider under it.
+                                // Now every row (including the
+                                // last) draws its own divider
+                                // directly beneath it.
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    dataRow(
+                                      getDate(item["createdAt"]!),
+                                      getTime(item["createdAt"]!),
+                                      item["status"]!,
+                                    ),
+                                    // 🛠️ FIX: sampled exact grey
+                                    // from the design image
+                                    // (#CED5D6, was #E5E7EB), and
+                                    // it's inset from the left/
+                                    // right edges (not edge-to-
+                                    // edge) — indent matches the
+                                    // row text's left padding.
+                                    const Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      indent: 16,
+                                      endIndent: 16,
+                                      color: Color(0xFFCED5D6),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               GestureDetector(
@@ -209,7 +261,9 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
 
   Widget headerRow() {
     return Container(
-      color: const Color(0xFF7CBBC9),
+      // 🛠️ FIX: sampled exact teal from the design image (#78BCC4), was
+      // slightly off (#7CBBC9).
+      color: const Color(0xFF78BCC4),
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
@@ -325,14 +379,14 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
                       color: Color(0xFF5A6C7D),
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
-    ],
-  ),
-);
-}
+    );
+  }
 }

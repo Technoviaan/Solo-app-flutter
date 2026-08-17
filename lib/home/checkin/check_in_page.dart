@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -367,18 +366,20 @@ class _CheckinScreenState extends State<CheckinScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Transform.rotate(
-                      angle: -math.pi / 2,
-                      child: SizedBox(
-                        height: 308.w,
-                        width: 308.w,
-                        child: CircularProgressIndicator(
-                          value: getProgress(),
-                          strokeWidth: 6.w,
-                          strokeCap: StrokeCap.round,
-                          backgroundColor: const Color(0xFF2D6F81),
-                          valueColor: const AlwaysStoppedAnimation(Color(0xFF78AEBE)),
-                        ),
+                    // 🛠️ FIX: was wrapped in Transform.rotate(angle: -pi/2),
+                    // which shifted the countdown ring's start point away
+                    // from top-center (Flutter's CircularProgressIndicator
+                    // already starts at 12 o'clock and sweeps clockwise by
+                    // default, so the extra rotation is removed).
+                    SizedBox(
+                      height: 308.w,
+                      width: 308.w,
+                      child: CircularProgressIndicator(
+                        value: getProgress(),
+                        strokeWidth: 6.w,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: const Color(0xFF2D6F81),
+                        valueColor: const AlwaysStoppedAnimation(Color(0xFF78AEBE)),
                       ),
                     ),
                     GestureDetector(

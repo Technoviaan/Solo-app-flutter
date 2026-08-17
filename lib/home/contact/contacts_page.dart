@@ -576,8 +576,19 @@ class _ContactsPageState extends State<ContactsPage> {
           GestureDetector(
             onTap: () async {
               if (hasContact) {
-                await editContact(index);
+                // Directly remove the contact without showing any dialog
+                setState(() {
+                  if (index == 1) {
+                    manualContact1 = null;
+                    isContact1Enabled = false;
+                  } else {
+                    manualContact2 = null;
+                    isContact2Enabled = false;
+                  }
+                });
+                await sendContactsToApi();
               } else {
+                // Open phone book to pick a contact
                 await pickContact(index);
               }
             },
@@ -586,8 +597,8 @@ class _ContactsPageState extends State<ContactsPage> {
               width: 28,
               height: 28,
               margin: const EdgeInsets.only(right: 4),
-              decoration: const BoxDecoration(color: _plusBtn, shape: BoxShape.circle),
-              child: const Icon(Icons.edit, color: Colors.white, size: 16),
+              decoration: const BoxDecoration(color: Color(0xFF002C3E), shape: BoxShape.circle),
+              child: const Icon(Icons.remove, color: Colors.white, size: 16),
             )
                 : Padding(
               padding: const EdgeInsets.only(right: 4),
@@ -597,6 +608,7 @@ class _ContactsPageState extends State<ContactsPage> {
           const SizedBox(width: 3),
           customSwitch(
             value: enabled,
+            
             onChanged: (value) async {
               if (!hasContact) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -621,7 +633,6 @@ class _ContactsPageState extends State<ContactsPage> {
       ),
     );
   }
-
   Widget customSwitch({required bool value, required Function(bool) onChanged}) {
     return GestureDetector(
       onTap: () => onChanged(!value),

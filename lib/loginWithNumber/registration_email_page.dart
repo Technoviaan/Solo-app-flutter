@@ -1,3 +1,4 @@
+import 'dart:async'; // Required for Timer
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -20,11 +21,17 @@ class RegistrationEmailPage extends StatefulWidget {
 
 class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
   final TextEditingController emailController = TextEditingController();
-  String error = "";
+
+  // Separate error variables for targeted placement
+  String emailError = "";
+  String termsError = "";
+
   bool loading = false;
   bool agree = false;
   late TapGestureRecognizer _privacyRecognizer;
   late TapGestureRecognizer _termsRecognizer;
+
+  Timer? _errorTimer;
 
   @override
   void initState() {
@@ -35,10 +42,29 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
 
   @override
   void dispose() {
+    _errorTimer?.cancel();
     _privacyRecognizer.dispose();
     _termsRecognizer.dispose();
     emailController.dispose();
     super.dispose();
+  }
+
+  // Helper function to clear errors automatically after 4 seconds
+  void _triggerError( {String? email, String? terms}) {
+    _errorTimer?.cancel();
+    setState(() {
+      emailError = email ?? "";
+      termsError = terms ?? "";
+    });
+
+    _errorTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) {
+        setState(() {
+          emailError = "";
+          termsError = "";
+        });
+      }
+    });
   }
 
   void _openPrivacyPolicy() {
@@ -64,23 +90,24 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     final email = emailController.text.trim();
 
     if (email.isEmpty) {
-      setState(() => error = "Email required");
+      _triggerError(email: "Email required");
       return;
     }
 
     if (!isValidEmail(email)) {
-      setState(() => error = "Invalid email");
+      _triggerError(email: "Invalid email");
       return;
     }
 
     if (!agree) {
-      setState(() => error = "Please accept terms");
+      _triggerError(terms: "Please accept terms");
       return;
     }
 
     setState(() {
       loading = true;
-      error = "";
+      emailError = "";
+      termsError = "";
     });
 
     final res = await UserApi.saveEmail(email);
@@ -92,23 +119,22 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
 
       final subscriptionStatus = await TokenStorage.getSubscriptionStatus();
 
+      if (!mounted) return;
       if (subscriptionStatus == 0) {
-        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const SubscriptionPage()),
         );
       } else {
-        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomePage()),
         );
       }
     } else if (res["status"] == 2) {
-      setState(() => error = "Email already exists");
+      _triggerError(email: "Email already exists");
     } else {
-      setState(() => error = "Something went wrong");
+      _triggerError(email: "Something went wrong");
     }
   }
 
@@ -139,6 +165,18 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                     ),
                   ),
                   SizedBox(height: AppSize.h(30)),
+
+                  // Email Error displayed right above the text field if active
+                  if (emailError.isNotEmpty) ...[
+                    Padding(
+                      padding: EdgeInsets.only(bottom: AppSize.h(6), left: 10.0),
+                      child: Text(
+                        emailError,
+                        style: TextStyle(color: Colors.red, fontSize: AppSize.sp(12), fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+
                   Container(
                     width: double.infinity,
                     height: AppSize.h(56),
@@ -155,7 +193,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                           color: Colors.grey.withValues(alpha: 0.12),
                           blurRadius: 0,
                           offset: const Offset(5, 8),
-
                         ),
                       ],
                     ),
@@ -249,7 +286,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                 text: "Privacy Policy",
                                 recognizer: _privacyRecognizer,
                                 style: const TextStyle(
-                                  color:  Color(0xFF5A6C7D),
+                                  color: Color(0xFF5A6C7D),
                                   decoration: TextDecoration.underline,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -259,8 +296,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                 text: "Terms of Service",
                                 recognizer: _termsRecognizer,
                                 style: const TextStyle(
-                                  color:  Color(0xFF5A6C7D),
-
+                                  color: Color(0xFF5A6C7D),
                                   decoration: TextDecoration.underline,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -275,11 +311,14 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                       ),
                     ],
                   ),
-                  if (error.isNotEmpty)
+
+                  // Terms error displayed right below the terms checkbox row if active
+                  if (termsError.isNotEmpty)
                     Padding(
-                      padding: EdgeInsets.only(top: AppSize.h(8)),
-                      child: Text(error, style: const TextStyle(color: Colors.red)),
+                      padding: EdgeInsets.only(top: AppSize.h(8), left: 10.0),
+                      child: Text(termsError, style: TextStyle(color: Colors.red, fontSize: AppSize.sp(12))),
                     ),
+
                   const Spacer(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
