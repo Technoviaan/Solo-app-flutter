@@ -11,13 +11,23 @@ import 'app.dart';
 import 'loginWithNumber/auth_bloc.dart';
 
 Future<void> requestPermissions() async {
-  // Batch request — Prevents "A request for permissions is already running" PlatformException
-  await [
-    Permission.notification,
-    Permission.scheduleExactAlarm,
-    Permission.systemAlertWindow,
-    Permission.ignoreBatteryOptimizations,
-  ].request();
+  // Request basic notification permission
+  await Permission.notification.request();
+
+  // Request exact alarm permission (Android 13+)
+  if (await Permission.scheduleExactAlarm.isDenied) {
+    await Permission.scheduleExactAlarm.request();
+  }
+
+  // Request System Alert Window (to show over other apps)
+  if (await Permission.systemAlertWindow.isDenied) {
+    await Permission.systemAlertWindow.request();
+  }
+  
+  // Request Battery Optimization exclusion
+  if (!await Permission.ignoreBatteryOptimizations.isGranted) {
+    await Permission.ignoreBatteryOptimizations.request();
+  }
 }
 
 void openBatteryOptimizationSettings() {
@@ -32,8 +42,11 @@ void openBatteryOptimizationSettings() {
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   debugPrint("Handling a background message: ${message.messageId}");
-
+  
+  // Initialize Alarm so it can schedule and show the intent
   await Alarm.init();
+
+  // Trigger immediate check-in alarm using NotificationService
   await NotificationService.triggerImmediateCheckinAlarm();
 }
 
@@ -43,9 +56,11 @@ void main() async {
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
+    
     await NotificationService.init();
-    await requestPermissions();
+    // We call this but don't strictly await it to block the app from starting
+    // if the OS is slow to respond to permission requests.
+    requestPermissions();
   } catch (e) {
     debugPrint("Startup Error: $e");
   }

@@ -416,22 +416,22 @@ class _EmailPageState extends State<EmailPage> {
                             : (isOtpSent ? verifyOtp : submitEmail),
                         child: loading
                             ? Container(
-                                width: AppSize.w(62),
-                                height: AppSize.w(62),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFB5D43C),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                      color: Color(0xFF002C3E), strokeWidth: 2),
-                                ),
-                              )
+                          width: AppSize.w(62),
+                          height: AppSize.w(62),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFB5D43C),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                                color: Color(0xFF002C3E), strokeWidth: 2),
+                          ),
+                        )
                             : SvgPicture.asset(
-                                "assets/svg/nextbutton.svg",
-                                width: AppSize.w(62),
-                                height: AppSize.w(62),
-                              ),
+                          "assets/svg/nextbutton.svg",
+                          width: AppSize.w(62),
+                          height: AppSize.w(62),
+                        ),
                       ),
                     ],
                   ),
