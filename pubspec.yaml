@@ -97,6 +97,9 @@ flutter:
     - assets/svg/
     - assets/images/helloImage/
     - assets/audio/
+    - assets/audio/voices/male/
+    - assets/audio/voices/female/
+    - assets/audio/effects/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

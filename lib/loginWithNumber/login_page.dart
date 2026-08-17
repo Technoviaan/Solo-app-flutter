@@ -37,53 +37,77 @@ class _LoginPageState extends State<LoginPage> {
   String lastUsedDialCode = "";
   String lastUsedPhone = "";
 
+  // Document ke anusar Excluded / Sanctioned Countries list
+  static const Set<String> _excludedIsoCodes = {
+    // APAC Excluded: North Korea, Iran, Myanmar, USA
+    'KP', 'IR', 'MM', 'US',
+    // EMEA Excluded: Belarus, CAR, DR Congo, Iraq, Lebanon, Liberia, Libya, Russia, Somalia, Sudan, Syria, Yemen, Zimbabwe
+    'BY', 'CF', 'CD', 'IQ', 'LB', 'LR', 'LY', 'RU', 'SO', 'SD', 'SY', 'YE', 'ZW',
+    // LATAM Excluded: Cuba, Nicaragua, Venezuela
+    'CU', 'NI', 'VE',
+  };
+
+  // Supported Country Codes from PDF (APAC, EMEA, LATAM, Other)
   static const Map<String, String> _worldIsoToDialCode = {
-    'IN': '+91',  'US': '+1',   'CA': '+1',   'NP': '+977', 'GB': '+44',
-    'AU': '+61',  'AE': '+971', 'SA': '+966', 'PK': '+92',  'BD': '+880',
-    'LK': '+94',  'DE': '+49',  'FR': '+33',  'JP': '+81',  'CN': '+86',
-    'RU': '+7',   'BR': '+55',  'MX': '+52',  'ZA': '+27',  'IT': '+39',
-    'ES': '+34',  'SG': '+65',  'MY': '+60',  'ID': '+62',  'TH': '+66',
-    'PH': '+63',  'VN': '+84',  'KR': '+82',  'NZ': '+64',  'EG': '+20',
-    'NG': '+234', 'KE': '+254', 'AR': '+54',  'CL': '+56',  'CO': '+57',
-    'TR': '+90',  'UA': '+380', 'PL': '+48',  'NL': '+31',  'SE': '+46',
-    'NO': '+47',  'FI': '+358', 'DK': '+45',  'CH': '+41',  'AT': '+43',
-    'KW': '+965', 'QA': '+974', 'OM': '+968', 'BH': '+973', 'IE': '+353',
+    // --- APAC ---
+    'AF': '+93', 'AS': '+1684', 'AU': '+61', 'BD': '+880', 'BT': '+975',
+    'BN': '+673', 'KH': '+855', 'CN': '+86', 'CK': '+682', 'TL': '+670',
+    'FJ': '+679', 'PF': '+689', 'GU': '+1671', 'HK': '+852', 'IN': '+91',
+    'ID': '+62', 'JP': '+81', 'KI': '+686', 'LA': '+856', 'MO': '+853',
+    'MY': '+60', 'MV': '+960', 'MH': '+692', 'FM': '+691', 'MN': '+976',
+    'NR': '+674', 'NP': '+977', 'NC': '+687', 'NZ': '+64', 'NU': '+683',
+    'MP': '+1670', 'PK': '+92', 'PW': '+680', 'PG': '+675', 'PH': '+63',
+    'WS': '+685', 'SG': '+65', 'SB': '+677', 'KR': '+82', 'LK': '+94',
+    'TW': '+886', 'TH': '+66', 'TO': '+676', 'TV': '+688', 'VU': '+678',
+    'VN': '+84',
+
+    // --- EMEA ---
+    'AL': '+355', 'DZ': '+213', 'AD': '+376', 'AO': '+244', 'AT': '+43',
+    'AZ': '+994', 'BH': '+973', 'BE': '+32', 'BJ': '+229', 'BA': '+387',
+    'BW': '+267', 'BG': '+359', 'BF': '+226', 'BI': '+257', 'CV': '+238',
+    'CM': '+237', 'TD': '+235', 'KM': '+269', 'CG': '+242', 'CI': '+225',
+    'HR': '+385', 'CY': '+357', 'CZ': '+420', 'DK': '+45', 'DJ': '+253',
+    'EG': '+20', 'GQ': '+240', 'ER': '+291', 'EE': '+372', 'SZ': '+268',
+    'ET': '+251', 'FI': '+358', 'FR': '+33', 'GA': '+241', 'GM': '+220',
+    'GE': '+995', 'DE': '+49', 'GH': '+233', 'GR': '+30', 'GN': '+224',
+    'GW': '+245', 'HU': '+36', 'IS': '+354', 'IE': '+353', 'IL': '+972',
+    'IT': '+39', 'JO': '+962', 'KZ': '+7', 'KE': '+254', 'XK': '+383',
+    'KW': '+965', 'KG': '+996', 'LV': '+371', 'LS': '+266', 'LI': '+423',
+    'LT': '+370', 'LU': '+352', 'MG': '+261', 'MW': '+265', 'ML': '+223',
+    'MT': '+356', 'MR': '+222', 'MU': '+230', 'MD': '+373', 'MC': '+377',
+    'ME': '+382', 'MA': '+212', 'MZ': '+258', 'NA': '+264', 'NL': '+31',
+    'NE': '+227', 'NG': '+234', 'MK': '+389', 'NO': '+47', 'OM': '+968',
+    'PS': '+970', 'PL': '+48', 'PT': '+351', 'QA': '+974', 'RO': '+40',
+    'RW': '+250', 'SM': '+378', 'ST': '+239', 'SA': '+966', 'SN': '+221',
+    'RS': '+381', 'SC': '+248', 'SL': '+232', 'SK': '+421', 'SI': '+386',
+    'ZA': '+27', 'SS': '+211', 'ES': '+34', 'SE': '+46', 'CH': '+41',
+    'TJ': '+992', 'TZ': '+255', 'TG': '+228', 'TN': '+216', 'TR': '+90',
+    'TM': '+993', 'UG': '+256', 'UA': '+380', 'AE': '+971', 'GB': '+44',
+    'UZ': '+998', 'VA': '+379', 'ZM': '+260',
+
+    // --- LATAM ---
+    'AG': '+1268', 'AR': '+54', 'BS': '+1242', 'BB': '+1246', 'BZ': '+501',
+    'BO': '+591', 'BR': '+55', 'CL': '+56', 'CO': '+57', 'CR': '+506',
+    'DM': '+1767', 'DO': '+1809', 'EC': '+593', 'SV': '+503', 'GD': '+1473',
+    'GT': '+502', 'GY': '+592', 'HT': '+509', 'HN': '+504', 'JM': '+1876',
+    'MX': '+52', 'PA': '+507', 'PY': '+595', 'PE': '+51', 'KN': '+1869',
+    'LC': '+1758', 'VC': '+1784', 'SR': '+597', 'TT': '+1868', 'UY': '+598',
+
+    // --- OTHER ---
+    'CA': '+1', 'GL': '+299', 'PM': '+508', 'BM': '+1441',
   };
 
   static const Map<String, int> _dialCodeToRequiredLength = {
-    '+91': 10,
-    '+1': 10,
-    '+977': 10,
-    '+44': 10,
-    '+61': 9,
-    '+971': 9,
-    '+966': 9,
-    '+92': 10,
-    '+880': 10,
-    '+94': 9,
-    '+49': 10,
-    '+33': 9,
-    '+81': 10,
-    '+86': 11,
-    '+7': 10,
-    '+55': 11,
-    '+52': 10,
-    '+27': 9,
-    '+39': 10,
-    '+34': 9,
-    '+65': 8,
-    '+60': 9,
-    '+62': 10,
-    '+66': 9,
-    '+63': 10,
-    '+84': 9,
-    '+82': 10,
-    '+64': 9,
-    '+965': 8,
-    '+974': 8,
-    '+968': 8,
-    '+973': 8,
-    '+353': 9,
+    '+91': 10, '+1': 10, '+977': 10, '+44': 10, '+61': 9,
+    '+971': 9, '+966': 9, '+92': 10, '+880': 10, '+94': 9,
+    '+49': 10, '+33': 9, '+81': 10, '+86': 11, '+55': 11,
+    '+52': 10, '+27': 9, '+39': 10, '+34': 9, '+65': 8,
+    '+60': 9, '+62': 10, '+66': 9, '+63': 10, '+84': 9,
+    '+82': 10, '+64': 9, '+965': 8, '+974': 8, '+968': 8,
+    '+973': 8, '+353': 9, '+31': 9, '+46': 9, '+47': 8,
+    '+41': 9, '+43': 10, '+32': 9, '+351': 9, '+48': 9,
+    '+90': 10, '+234': 10, '+254': 9, '+20': 10, '+54': 10,
+    '+56': 9, '+57': 10, '+51': 9,
   };
 
   int get _currentRequiredPhoneLength => _dialCodeToRequiredLength[selectedDialCode] ?? 10;
@@ -102,28 +126,25 @@ class _LoginPageState extends State<LoginPage> {
     _autoFetchUserCountry();
   }
 
-  // Multi-tier Auto Fetching (Fast Locale -> Geo IP) with debug console logs
   Future<void> _autoFetchUserCountry() async {
     // 1. Device Locale Check
     try {
       final locale = WidgetsBinding.instance.platformDispatcher.locale;
       final countryCode = locale.countryCode?.toUpperCase();
-      debugPrint("📱 [Country Detect] Device Locale Code: $countryCode");
 
-      if (countryCode != null && _worldIsoToDialCode.containsKey(countryCode)) {
+      if (countryCode != null &&
+          !_excludedIsoCodes.contains(countryCode) &&
+          _worldIsoToDialCode.containsKey(countryCode)) {
         if (mounted) {
           setState(() {
             selectedIsoCode = countryCode;
             selectedDialCode = _worldIsoToDialCode[countryCode]!;
           });
-          debugPrint("✅ [Country Detect] Initialized via Locale: $selectedIsoCode ($selectedDialCode)");
         }
       }
-    } catch (e) {
-      debugPrint("❌ [Country Detect] Locale Error: $e");
-    }
+    } catch (_) {}
 
-    // 2. Real-time Network Location Check (Accurate according to actual country/Play Store region)
+    // 2. Geo IP Check
     try {
       final response = await http
           .get(Uri.parse('https://ipapi.co/json/'))
@@ -133,24 +154,23 @@ class _LoginPageState extends State<LoginPage> {
         final data = jsonDecode(response.body);
         final ipCountry = data['country_code']?.toString().toUpperCase();
         final ipCallingCode = data['country_calling_code']?.toString();
-        debugPrint("🌐 [Country Detect] Primary Geo-IP Response: Country=$ipCountry, CallingCode=$ipCallingCode");
 
-        if (ipCountry != null && mounted) {
+        if (ipCountry != null &&
+            !_excludedIsoCodes.contains(ipCountry) &&
+            mounted) {
           setState(() {
             selectedIsoCode = ipCountry;
             if (ipCallingCode != null && ipCallingCode.isNotEmpty) {
-              selectedDialCode = ipCallingCode.startsWith('+') ? ipCallingCode : '+$ipCallingCode';
+              selectedDialCode =
+              ipCallingCode.startsWith('+') ? ipCallingCode : '+$ipCallingCode';
             } else if (_worldIsoToDialCode.containsKey(ipCountry)) {
               selectedDialCode = _worldIsoToDialCode[ipCountry]!;
             }
           });
-          debugPrint("✅ [Country Detect] Final Country Selected: $selectedIsoCode ($selectedDialCode) | Required Digits: $_currentRequiredPhoneLength");
           return;
         }
       }
-    } catch (e) {
-      debugPrint("⚠️ [Country Detect] Primary IP check skipped/failed: $e");
-      // Fallback secondary IP API
+    } catch (_) {
       try {
         final fallbackRes = await http
             .get(Uri.parse('http://ip-api.com/json'))
@@ -158,13 +178,14 @@ class _LoginPageState extends State<LoginPage> {
         if (fallbackRes.statusCode == 200) {
           final data = jsonDecode(fallbackRes.body);
           final ipCountry = data['countryCode']?.toString().toUpperCase();
-          debugPrint("🌐 [Country Detect] Fallback Geo-IP Response: Country=$ipCountry");
-          if (ipCountry != null && _worldIsoToDialCode.containsKey(ipCountry) && mounted) {
+          if (ipCountry != null &&
+              !_excludedIsoCodes.contains(ipCountry) &&
+              _worldIsoToDialCode.containsKey(ipCountry) &&
+              mounted) {
             setState(() {
               selectedIsoCode = ipCountry;
               selectedDialCode = _worldIsoToDialCode[ipCountry]!;
             });
-            debugPrint("✅ [Country Detect] Final Country via Fallback: $selectedIsoCode ($selectedDialCode)");
           }
         }
       } catch (_) {}
@@ -213,8 +234,14 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void validateAndSend() {
+    if (_excludedIsoCodes.contains(selectedIsoCode)) {
+      setState(() => error = "Service is not available in your region");
+      return;
+    }
+
     if (phone.length != _currentRequiredPhoneLength) {
-      setState(() => error = "Please enter complete $_currentRequiredPhoneLength digit number");
+      setState(() =>
+      error = "Please enter complete $_currentRequiredPhoneLength digit number");
       return;
     }
 
@@ -487,6 +514,7 @@ class _LoginPageState extends State<LoginPage> {
                         children: [
                           CountryCodePicker(
                             key: ValueKey(selectedIsoCode),
+                            countryFilter: _worldIsoToDialCode.keys.toList(),
                             onChanged: (country) {
                               setState(() {
                                 selectedIsoCode = country.code ?? "IN";
@@ -497,7 +525,7 @@ class _LoginPageState extends State<LoginPage> {
                               });
                             },
                             initialSelection: selectedIsoCode,
-                            favorite: const ['+91', 'IN', '+1', 'US', '+977', 'NP'],
+                            favorite: const ['SG', 'AU', 'KR', 'JP', 'IN', 'GB'],
                             showCountryOnly: false,
                             showOnlyCountryWhenClosed: false,
                             alignLeft: false,
