@@ -1,9 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
-import '../home/home_page.dart';
+import '../home/shedule/schedule_page.dart';
 import 'subscription_api.dart';
 import 'subscription_page.dart';
 
@@ -596,14 +595,14 @@ class _PaymentResultPageState extends State<PaymentResultPage>
                                     Navigator.of(context).pushAndRemoveUntil(
                                       MaterialPageRoute(
                                         builder: (_) => success
-                                            ? const HomePage()
+                                            ? const SchedulePage()
                                             : const SubscriptionPage(),
                                       ),
                                           (route) => false,
                                     );
                                   },
                                   child: Text(
-                                    success ? "Continue to Home" : "Return to Plans",
+                                    success ? "Continue to Schedule" : "Return to Plans",
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,

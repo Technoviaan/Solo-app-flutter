@@ -1,14 +1,15 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/core/utils/app_size.dart';
-import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/checkin/checkin_api.dart';
+import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/contact/contacts_page.dart';
+import 'package:solo_app/home/home_page.dart';
 import 'package:solo_app/home/profile/profile_api.dart';
-import 'package:solo_app/subscription/subscription_page.dart';
 import 'package:solo_app/subscription/subscription_api.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:solo_app/subscription/subscription_page.dart';
 
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
@@ -28,6 +29,7 @@ class _SchedulePageState extends State<SchedulePage> {
   String selectedVoice = "Male";
   bool _isPlaying = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  String userName = "User";
 
   @override
   void initState() {
@@ -58,12 +60,25 @@ class _SchedulePageState extends State<SchedulePage> {
       userName = userMap["name"] ?? "User";
     }
 
-    setState(() {
-      selectedVoice = voice;
-    });
+    if (mounted) {
+      setState(() {
+        selectedVoice = voice;
+      });
+    }
   }
 
-  String userName = "User";
+  /// ================= SAFE BACK NAVIGATION =================
+  void _handleBackNavigation() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+            (route) => false,
+      );
+    }
+  }
 
   /// ================= CUSTOM TIME PICKER =================
   void pickTime(int index) async {
@@ -141,7 +156,7 @@ class _SchedulePageState extends State<SchedulePage> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Selection Indicators (Dark Navy Lines)
+                          // Selection Indicators
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -156,7 +171,12 @@ class _SchedulePageState extends State<SchedulePage> {
                               return const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Color(0xFF8A99A6),Color(0xFF8A99A6), Colors.transparent],
+                                colors: [
+                                  Colors.transparent,
+                                  Color(0xFF8A99A6),
+                                  Color(0xFF8A99A6),
+                                  Colors.transparent,
+                                ],
                                 stops: [0.0, 0.2, 0.8, 1.0],
                               ).createShader(rect);
                             },
@@ -177,7 +197,14 @@ class _SchedulePageState extends State<SchedulePage> {
                                   },
                                   isHour: true,
                                 ),
-                                const Text(" : ", style: TextStyle(fontSize: 34, fontWeight: FontWeight.w400, color: Color(0xFF002C3E))),
+                                const Text(
+                                  " : ",
+                                  style: TextStyle(
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xFF002C3E),
+                                  ),
+                                ),
                                 // MINUTES
                                 _timeColumn(
                                   count: 60,
@@ -195,7 +222,7 @@ class _SchedulePageState extends State<SchedulePage> {
                                 // PERIOD
                                 SizedBox(
                                   width: 70,
-                                  height: 180, // Explicit height for the picker
+                                  height: 180,
                                   child: ListWheelScrollView(
                                     itemExtent: 60,
                                     physics: const FixedExtentScrollPhysics(),
@@ -223,7 +250,6 @@ class _SchedulePageState extends State<SchedulePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Cancel — outlined
                         SizedBox(
                           width: AppSize.w(111),
                           height: AppSize.h(46),
@@ -250,8 +276,6 @@ class _SchedulePageState extends State<SchedulePage> {
                           ),
                         ),
                         SizedBox(width: AppSize.w(12)),
-
-                        // Confirm — filled navy
                         SizedBox(
                           width: AppSize.w(111),
                           height: AppSize.h(46),
@@ -403,7 +427,6 @@ class _SchedulePageState extends State<SchedulePage> {
           customSwitch(
             value: enabled[index],
             onChanged: (val) async {
-              // Restriction: 7-day trial users (Status 1) can only use the first check-in
               if (val && index == 1 && subscriptionStatus == 1) {
                 goToSubscription();
                 return;
@@ -421,265 +444,286 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9F5),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 27.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Set your\ndaily check-in\nschedule",
-                      style: TextStyle(
-                        fontSize: 44.sp,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF002C3E),
-                        height: 1.1,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackNavigation();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9F5),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 27.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Set your\ndaily check-in\nschedule",
+                        style: TextStyle(
+                          fontSize: 44.sp,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF002C3E),
+                          height: 1.1,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 16.h),
-                    Text(
-                      "Schedule up to 2 preferred check-in times daily. I'll be there to check on you, and you can change or pause reminders anytime.",
-                      style: TextStyle(
+                      SizedBox(height: 16.h),
+                      Text(
+                        "Schedule up to 2 preferred check-in times daily. I'll be there to check on you, and you can change or pause reminders anytime.",
+                        style: TextStyle(
                           fontSize: 14.sp,
                           color: const Color(0xFF5A6C7D),
                           height: 1.4,
-                          fontWeight: FontWeight.w400
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 16.h),
-                    const Divider(height: 1, color: Color(0xFF8A99A6)),
-                    checkinTile(0),
-                    const Divider(height: 1, color:Color(0xFF8A99A6)),
-                    checkinTile(1),
-                    const Divider(height: 1, color: Color(0xFF8A99A6)),
-
-                    SizedBox(height: 16.h),
-                    Text(
-                      "Send alert after missed check-in",
-                      style: TextStyle(
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF5A6C7D),
+                      SizedBox(height: 16.h),
+                      const Divider(height: 1, color: Color(0xFF8A99A6)),
+                      checkinTile(0),
+                      const Divider(height: 1, color: Color(0xFF8A99A6)),
+                      checkinTile(1),
+                      const Divider(height: 1, color: Color(0xFF8A99A6)),
+                      SizedBox(height: 16.h),
+                      Text(
+                        "Send alert after missed check-in",
+                        style: TextStyle(
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF5A6C7D),
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 12.h),
-                    Row(
-                      children: [
-                        customRadio(1, selectedAlertHour, (val) => setState(() => selectedAlertHour = val!)),
-                        SizedBox(width: 8.w),
-                        Text("1 Hour", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp)),
-                        SizedBox(width: 24.w),
-                        customRadio(2, selectedAlertHour, (val) => setState(() => selectedAlertHour = val!)),
-                        SizedBox(width: 8.w),
-                        Text("2 Hours (Default)", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp)),
-                      ],
-                    ),
-                    SizedBox(height: 16.h),
-                    const Divider(height: 1, color: Color(0xFF8A99A6)),
-
-                    SizedBox(height: 15.h),
-                    // VOICE SELECTION SECTION
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 73.w,
-                          height: 73.w,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8705B),
-                            borderRadius: BorderRadius.circular(16.w),
-                          ),
-                          child: Center(
-                            child: SvgPicture.asset(
-                              'assets/svg/play.svg',
-                              width: 32.w,
-                              height: 32.w,
-                              colorFilter: const ColorFilter.mode(
-                                Colors.white,
-                                BlendMode.srcIn,
+                      SizedBox(height: 12.h),
+                      Row(
+                        children: [
+                          customRadio(1, selectedAlertHour, (val) => setState(() => selectedAlertHour = val!)),
+                          SizedBox(width: 8.w),
+                          Text("1 Hour", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp)),
+                          SizedBox(width: 24.w),
+                          customRadio(2, selectedAlertHour, (val) => setState(() => selectedAlertHour = val!)),
+                          SizedBox(width: 8.w),
+                          Text("2 Hours (Default)", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp)),
+                        ],
+                      ),
+                      SizedBox(height: 16.h),
+                      const Divider(height: 1, color: Color(0xFF8A99A6)),
+                      SizedBox(height: 15.h),
+                      // VOICE SELECTION SECTION
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 73.w,
+                            height: 73.w,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8705B),
+                              borderRadius: BorderRadius.circular(16.w),
+                            ),
+                            child: Center(
+                              child: SvgPicture.asset(
+                                'assets/svg/play.svg',
+                                width: 32.w,
+                                height: 32.w,
+                                colorFilter: const ColorFilter.mode(
+                                  Colors.white,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(width: 13.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  RichText(
-                                    text: TextSpan(
-                                      text: "Voice ",
-                                      style: TextStyle(
-                                        color: const Color(0xFF5A6C7D),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16.sp,
-                                      ),
-                                      children: [
-                                        TextSpan(
-                                          text: "(Optional)",
-                                          style: TextStyle(
-                                            color: const Color(0xFF5A6C7D),
-                                            fontWeight: FontWeight.normal,
-                                            fontSize: 12.sp,
+                          SizedBox(width: 13.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    RichText(
+                                      text: TextSpan(
+                                        text: "Voice ",
+                                        style: TextStyle(
+                                          color: const Color(0xFF5A6C7D),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16.sp,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: "(Optional)",
+                                            style: TextStyle(
+                                              color: const Color(0xFF5A6C7D),
+                                              fontWeight: FontWeight.normal,
+                                              fontSize: 12.sp,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: _playVoice,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
-                                          color: const Color(0xFFE8705B),
-                                          size: 20.sp,
-                                        ),
-                                        SizedBox(width: 6.w),
-                                        Text(
-                                          _isPlaying ? "Pause" : "Play",
-                                          style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp),
-                                        ),
-                                      ],
+                                    GestureDetector(
+                                      onTap: _playVoice,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                                            color: const Color(0xFFE8705B),
+                                            size: 20.sp,
+                                          ),
+                                          SizedBox(width: 6.w),
+                                          Text(
+                                            _isPlaying ? "Pause" : "Play",
+                                            style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+                                  ],
+                                ),
+                                SizedBox(height: 5.h),
+                                Text(
+                                  "Choose a voice for your check-in reminder",
+                                  style: TextStyle(
+                                    color: const Color(0xFF5A6C7D),
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w400,
                                   ),
-                                ],
-                              ),
-                              SizedBox(height: 5.h),
-                              Text(
-                                "Choose a voice for your check-in reminder",
-                                style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp,fontWeight: FontWeight.w400),
-                              ),
-                              SizedBox(height: 5.h),
-                              Row(
-                                children: [
-                                  customRadioString("Male", selectedVoice, (val) => setState(() => selectedVoice = val!)),
-                                  SizedBox(width: 6.w),
-                                  Text("Male", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
-                                  SizedBox(width: 16.w),
-                                  customRadioString("Female", selectedVoice, (val) => setState(() => selectedVoice = val!)),
-                                  SizedBox(width: 6.w),
-                                  Text("Female", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
-                                  SizedBox(width: 16.w),
-                                  customRadioString("None", selectedVoice, (val) => setState(() => selectedVoice = val!)),
-                                  SizedBox(width: 6.w),
-                                  Text("None", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
-                                ],
-                              ),
-                            ],
+                                ),
+                                SizedBox(height: 5.h),
+                                Row(
+                                  children: [
+                                    customRadioString(
+                                      "Male",
+                                      selectedVoice,
+                                          (val) => setState(() => selectedVoice = val!),
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Text("Male", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
+                                    SizedBox(width: 16.w),
+                                    customRadioString(
+                                      "Female",
+                                      selectedVoice,
+                                          (val) => setState(() => selectedVoice = val!),
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Text("Female", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
+                                    SizedBox(width: 16.w),
+                                    customRadioString(
+                                      "None",
+                                      selectedVoice,
+                                          (val) => setState(() => selectedVoice = val!),
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Text("None", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      SizedBox(height: 16.h),
+                      const Divider(height: 1, color: Color(0xFF8A99A6)),
+                      SizedBox(height: 20.h),
+                    ],
+                  ),
+                ),
+              ),
+
+              // BOTTOM NAVIGATION BAR
+              Container(
+                padding: EdgeInsets.only(left: 24.w, right: 24.w),
+                color: Colors.transparent,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: _handleBackNavigation,
+                      icon: Icon(Icons.arrow_back, color: Colors.black45, size: 28.sp),
                     ),
-                    SizedBox(height: 16.h),
-                    const Divider(height: 1, color: Color(0xFF8A99A6)),
-                    SizedBox(height: 20.h),
+                    const Spacer(),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () async {
+                        final activeTimes = checkins
+                            .asMap()
+                            .entries
+                            .where((entry) => enabled[entry.key] && entry.value != null)
+                            .map((entry) => entry.value!)
+                            .toList();
+
+                        if (activeTimes.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Please select and enable at least one check-in"),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final minutes = activeTimes
+                              .map((time) => (time.hour * 60) + time.minute)
+                              .toList()
+                            ..sort();
+
+                          await LocalStorage.saveScheduleMinutes(minutes);
+                          await LocalStorage.saveAlertWindowHours(selectedAlertHour);
+                          await LocalStorage.saveVoice(selectedVoice);
+                          await LocalStorage.saveUserName(userName);
+
+                          final List<String> formattedTimes = activeTimes.map((t) {
+                            return "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
+                          }).toList();
+                          await CheckinApi.saveCheckinTimes(formattedTimes);
+
+                          if (!mounted) return;
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ContactsPage(),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error saving schedule: $e")),
+                          );
+                        }
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Next",
+                            style: TextStyle(
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w400,
+                              color: checkins.asMap().entries.any((e) => enabled[e.key] && e.value != null)
+                                  ? const Color(0xFF5A6C7D)
+                                  : Colors.black26,
+                            ),
+                          ),
+                          SizedBox(width: 16.w),
+                          Opacity(
+                            opacity: checkins.asMap().entries.any((e) => enabled[e.key] && e.value != null)
+                                ? 1.0
+                                : 0.3,
+                            child: SvgPicture.asset(
+                              'assets/svg/nextbutton.svg',
+                              width: 60.w,
+                              height: 60.w,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-
-            // BOTTOM NAVIGATION BAR
-            Container(
-              padding: EdgeInsets.only(left: 24.w, right: 24.w),
-              color: Colors.transparent,
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.arrow_back, color: Colors.black45, size: 28.sp),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () async {
-                      final activeTimes = checkins
-                          .asMap()
-                          .entries
-                          .where((entry) => enabled[entry.key] && entry.value != null)
-                          .map((entry) => entry.value!)
-                          .toList();
-
-                      if (activeTimes.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Please select and enable at least one check-in"),
-                            backgroundColor: Colors.redAccent,
-                          ),
-                        );
-                        return;
-                      }
-
-                      try {
-                        final minutes = activeTimes
-                            .map((time) => (time.hour * 60) + time.minute)
-                            .toList()
-                          ..sort();
-
-                        await LocalStorage.saveScheduleMinutes(minutes);
-                        await LocalStorage.saveAlertWindowHours(selectedAlertHour);
-                        await LocalStorage.saveVoice(selectedVoice);
-                        await LocalStorage.saveUserName(userName);
-
-                        final List<String> formattedTimes = activeTimes.map((t) {
-                          return "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
-                        }).toList();
-                        await CheckinApi.saveCheckinTimes(formattedTimes);
-
-                        if (!mounted) return;
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ContactsPage(),
-                          ),
-                        );
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Error saving schedule: $e")),
-                        );
-                      }
-                    },
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "Next",
-                          style: TextStyle(
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.w400,
-                            color: checkins.asMap().entries.any((e) => enabled[e.key] && e.value != null)
-                                ? const Color(0xFF5A6C7D)
-                                : Colors.black26,
-                          ),
-                        ),
-                        SizedBox(width: 16.w),
-                        Opacity(
-                          opacity: checkins.asMap().entries.any((e) => enabled[e.key] && e.value != null)
-                              ? 1.0
-                              : 0.3,
-                          child: SvgPicture.asset(
-                            'assets/svg/nextbutton.svg',
-                            width: 60.w,
-                            height: 60.w,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

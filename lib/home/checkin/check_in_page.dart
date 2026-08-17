@@ -16,7 +16,6 @@ class CheckinScreen extends StatefulWidget {
   final DateTime scheduledTime;
   final int alertWindowHours;
 
-
   final int? testWindowSeconds;
 
   const CheckinScreen({
@@ -151,12 +150,21 @@ class _CheckinScreenState extends State<CheckinScreen> {
       status: "CHECKED_IN",
       scheduledTime: widget.scheduledTime,
     );
-    debugPrint("✅ [CheckinScreen] Check-in CONFIRMED and logged. Closing app now.");
+    debugPrint("✅ [CheckinScreen] Check-in CONFIRMED and logged. Showing confirmed state, then closing.");
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Check-in successful")),
-    );
+
+    // 🛠️ FIX: Pehle "confirmed" state dikhao (Green.svg + "Check-in
+    // confirmed, Glad you're OK" text) taaki user ko visual feedback mile,
+    // fir 2 sec baad app close karo. Pehle seedha pop() ho jaata tha isliye
+    // ye confirmation screen kabhi dikhti hi nahi thi.
+    setState(() {
+      state = "confirmed";
+    });
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
 
     NotificationService.isHandlingAlarm = false;
     if (Platform.isAndroid) {
@@ -248,6 +256,26 @@ class _CheckinScreenState extends State<CheckinScreen> {
     debugPrint("↩️ [CheckinScreen] resetSOS() done | state after=$state");
   }
 
+  // 🛠️ FIX: Was a hardcoded ternary with only 3 branches (alert /
+  // isSOSPending / a single fallback that always said "Check-in confirmed,
+  // Glad you're OK"). That fallback was wrongly firing for normal/warning/
+  // waiting states too, because the real "confirmed" flow never actually
+  // reaches this screen's UI — onCheckin() closes the app immediately via
+  // SystemNavigator.pop()/exit(0) right after a successful check-in.
+  // So the default text now correctly greets the user and prompts check-in.
+  String _getStatusText() {
+    if (state == "confirmed") {
+      return "Check-in confirmed\nGlad you're OK";
+    }
+    if (state == "alert") {
+      return "Your contacts have been alerted";
+    }
+    if (isSOSPending) {
+      return "Tap SOS again to confirm";
+    }
+    return "Hi ${widget.userName}, tap to check-in!";
+  }
+
   String _formatAmPm(DateTime time) => time.hour >= 12 ? "PM" : "AM";
 
   String _formatTimeOnly(DateTime time) {
@@ -257,11 +285,12 @@ class _CheckinScreenState extends State<CheckinScreen> {
   }
 
   double getProgress() {
-    if (state == "waiting") return 1.0;
+    if (state == "waiting" || state == "confirmed") return 1.0;
     return (remainingSeconds / totalSeconds).clamp(0.0, 1.0);
   }
 
   String getSvg() {
+    if (state == "confirmed") return "assets/images/Green.svg";
     if (state == "waiting") return "assets/images/Green.svg";
     if (state == "alert" || remainingSeconds <= 0) return "assets/svg/alert.svg";
 
@@ -407,11 +436,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
               /// TEXT
               Center(
                 child: Text(
-                  state == "alert"
-                      ? "Your contacts have been alerted"
-                      : isSOSPending
-                      ? "Tap SOS again to confirm"
-                      : "Check-in confirmed\nGlad you’re OK",
+                  _getStatusText(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: const Color(0xFFD1D9E0),
@@ -592,7 +617,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
     );
   }
 }
-
 
 class _SosSignalWave extends StatefulWidget {
   final bool active;

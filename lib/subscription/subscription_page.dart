@@ -54,7 +54,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     {
       "id": "credit_3",
       "big": "3",
-      "title": "Alert\nCredits",
+      "title": "Topup Alert\nCredits",
       "price": "\$3",
       "color": const Color(0xFFF28D7D),
       "benefits": ["Keep daily check-ins", "Stay connected", "For subscribers only"],
@@ -64,7 +64,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     {
       "id": "credit_5",
       "big": "5",
-      "title": "Alert\nCredits",
+      "title": "Topup Alert\nCredits",
       "price": "\$6",
       "color": const Color(0xFFE651A3),
       "benefits": ["Keep daily check-ins", "Stay connected", "For subscribers only"],
@@ -624,9 +624,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     // Dynamic text switching between "Plans" and "Add Credits" based on focus
     final String dynamicHeadingTitle = isTopupFocused ? "Add Credits" : "Plans";
 
-    // Calculate display values for the focused card context
-    String displayHeaderTitle = "Available\nCredits";
-    String displaySubtitle = isTopupFocused ? "Top-up Pack" : "This Month";
+    // ---------------------------------------------------------------
+    // "Available Credits" card content — always reflects the user's
+    // actual saved credits/plan, no longer changes when a top-up card
+    // is focused in the carousel above. The focus-based "+N" / "Top-up
+    // Pack" preview has been removed.
+    // ---------------------------------------------------------------
+    const String displayHeaderTitle = "Available\nCredits";
+    const String displaySubtitle = "This Month";
 
     String planLabel = "1 free credit to start";
     String? renewalText;
@@ -652,9 +657,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       planLabel = "Yearly Subscription";
     }
 
-    final String mainDisplayValue = isTopupFocused
-        ? "+${activePlan['big']}"
-        : "$_credits";
+    final String mainDisplayValue = "$_credits";
 
     final double dynamicFontSize = mainDisplayValue.length <= 1
         ? 100.0
@@ -857,9 +860,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Text(
+                                              const Text(
                                                 displayHeaderTitle,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   color: Color(0xFFA8B6C2),
                                                   fontSize: 26,
                                                   fontWeight: FontWeight.w600,
@@ -867,9 +870,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                 ),
                                               ),
                                               const SizedBox(height: 2),
-                                              Text(
+                                              const Text(
                                                 displaySubtitle,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   color: Color(0xff89BCC8),
                                                   fontSize: 15,
                                                   fontWeight: FontWeight.w600,
@@ -1038,6 +1041,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       ),
                     ],
                   ),
+
                 ),
               ),
           ],
