@@ -6,6 +6,7 @@ import 'package:solo_app/subscription/subscription_page.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import '../core/utils/app_size.dart';
 import 'auth_api.dart';
+import 'login_page.dart';
 
 class EmailPage extends StatefulWidget {
   const EmailPage({super.key});
@@ -220,15 +221,24 @@ class _EmailPageState extends State<EmailPage> {
                           SizedBox(height: AppSize.h(14)),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: GestureDetector(
-                              onTap: () => Navigator.pop(context),
+                            child:GestureDetector(
+                              onTap: () {
+                                if (Navigator.canPop(context)) {
+                                  Navigator.pop(context);
+                                } else {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                                  );
+                                }
+                              },
                               child: Text.rich(
-                                TextSpan(
+                                const TextSpan(
                                   text: "Sign in with ",
                                   children: [
                                     TextSpan(
                                       text: "Phone Number",
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         decoration: TextDecoration.underline,
                                         fontWeight: FontWeight.w700,
                                         decorationColor: Color(0xFF8A99A6),
@@ -366,12 +376,32 @@ class _EmailPageState extends State<EmailPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Sign up",
+                  GestureDetector(
+                    onTap: () {
+                      bool canGoBackToLogin = true;
+
+                      if (canGoBackToLogin) {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LoginPage()),
+                          );
+                        }
+                      }
+                    },
+
+                    child: Text(
+                      "Sign up",
                       style: TextStyle(
-                          color: const Color(0xFF002C3E).withValues(alpha: 0.2),
-                          fontSize: AppSize.sp(19),
-                          fontWeight: FontWeight.w500)),
-                  Row(
+                        color: const Color(0xFF002C3E).withValues(alpha: 0.2),
+                        fontSize: AppSize.sp(19),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),                  Row(
                     children: [
                       Text("Sign In",
                           style: TextStyle(

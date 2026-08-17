@@ -27,6 +27,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   String selectedDialCode = "+91";
+  String selectedIsoCode = "IN";
 
   String phone = "";
   String otp = "";
@@ -36,7 +37,6 @@ class _LoginPageState extends State<LoginPage> {
   String lastUsedDialCode = "";
   String lastUsedPhone = "";
 
-  // 🚀 Country ISO to DialCode Mapping
   static const Map<String, String> _worldIsoToDialCode = {
     'IN': '+91',  'US': '+1',   'CA': '+1',   'NP': '+977', 'GB': '+44',
     'AU': '+61',  'AE': '+971', 'SA': '+966', 'PK': '+92',  'BD': '+880',
@@ -47,38 +47,43 @@ class _LoginPageState extends State<LoginPage> {
     'NG': '+234', 'KE': '+254', 'AR': '+54',  'CL': '+56',  'CO': '+57',
     'TR': '+90',  'UA': '+380', 'PL': '+48',  'NL': '+31',  'SE': '+46',
     'NO': '+47',  'FI': '+358', 'DK': '+45',  'CH': '+41',  'AT': '+43',
+    'KW': '+965', 'QA': '+974', 'OM': '+968', 'BH': '+973', 'IE': '+353',
   };
 
-  // 🚀 DialCode to Exact Required Number Length
   static const Map<String, int> _dialCodeToRequiredLength = {
-    '+91': 10,  // India
-    '+1': 10,   // US / Canada
-    '+977': 10, // Nepal
-    '+44': 10,  // UK (standard mobile)
-    '+61': 9,   // Australia
-    '+971': 9,  // UAE
-    '+966': 9,  // Saudi Arabia
-    '+92': 10,  // Pakistan
-    '+880': 10, // Bangladesh
-    '+94': 9,   // Sri Lanka
-    '+49': 10,  // Germany
-    '+33': 9,   // France
-    '+81': 10,  // Japan
-    '+86': 11,  // China
-    '+7': 10,   // Russia
-    '+55': 11,  // Brazil
-    '+52': 10,  // Mexico
-    '+27': 9,   // South Africa
-    '+39': 10,  // Italy
-    '+34': 9,   // Spain
-    '+65': 8,   // Singapore
-    '+60': 9,   // Malaysia
-    '+62': 10,  // Indonesia
-    '+66': 9,   // Thailand
-    '+63': 10,  // Philippines
-    '+84': 9,   // Vietnam
-    '+82': 10,  // South Korea
-    '+64': 9,   // New Zealand
+    '+91': 10,
+    '+1': 10,
+    '+977': 10,
+    '+44': 10,
+    '+61': 9,
+    '+971': 9,
+    '+966': 9,
+    '+92': 10,
+    '+880': 10,
+    '+94': 9,
+    '+49': 10,
+    '+33': 9,
+    '+81': 10,
+    '+86': 11,
+    '+7': 10,
+    '+55': 11,
+    '+52': 10,
+    '+27': 9,
+    '+39': 10,
+    '+34': 9,
+    '+65': 8,
+    '+60': 9,
+    '+62': 10,
+    '+66': 9,
+    '+63': 10,
+    '+84': 9,
+    '+82': 10,
+    '+64': 9,
+    '+965': 8,
+    '+974': 8,
+    '+968': 8,
+    '+973': 8,
+    '+353': 9,
   };
 
   int get _currentRequiredPhoneLength => _dialCodeToRequiredLength[selectedDialCode] ?? 10;
@@ -94,36 +99,76 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _fetchDefaultCountryCode();
+    _autoFetchUserCountry();
   }
 
-  Future<void> _fetchDefaultCountryCode() async {
+  // Multi-tier Auto Fetching (Fast Locale -> Geo IP) with debug console logs
+  Future<void> _autoFetchUserCountry() async {
+    // 1. Device Locale Check
     try {
-      final locale = View.of(context).platformDispatcher.locale;
-      final countryCode = locale.countryCode;
+      final locale = WidgetsBinding.instance.platformDispatcher.locale;
+      final countryCode = locale.countryCode?.toUpperCase();
+      debugPrint("📱 [Country Detect] Device Locale Code: $countryCode");
 
-      if (countryCode != null && _worldIsoToDialCode.containsKey(countryCode.toUpperCase())) {
+      if (countryCode != null && _worldIsoToDialCode.containsKey(countryCode)) {
         if (mounted) {
           setState(() {
-            selectedDialCode = _worldIsoToDialCode[countryCode.toUpperCase()]!;
+            selectedIsoCode = countryCode;
+            selectedDialCode = _worldIsoToDialCode[countryCode]!;
           });
+          debugPrint("✅ [Country Detect] Initialized via Locale: $selectedIsoCode ($selectedDialCode)");
         }
-        return;
       }
+    } catch (e) {
+      debugPrint("❌ [Country Detect] Locale Error: $e");
+    }
 
-      final response = await http.get(Uri.parse('http://ip-api.com/json')).timeout(const Duration(seconds: 3));
+    // 2. Real-time Network Location Check (Accurate according to actual country/Play Store region)
+    try {
+      final response = await http
+          .get(Uri.parse('https://ipapi.co/json/'))
+          .timeout(const Duration(seconds: 3));
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final ipCountry = data['countryCode'];
-        if (ipCountry != null && _worldIsoToDialCode.containsKey(ipCountry.toString().toUpperCase())) {
-          if (mounted) {
-            setState(() {
-              selectedDialCode = _worldIsoToDialCode[ipCountry.toString().toUpperCase()]!;
-            });
-          }
+        final ipCountry = data['country_code']?.toString().toUpperCase();
+        final ipCallingCode = data['country_calling_code']?.toString();
+        debugPrint("🌐 [Country Detect] Primary Geo-IP Response: Country=$ipCountry, CallingCode=$ipCallingCode");
+
+        if (ipCountry != null && mounted) {
+          setState(() {
+            selectedIsoCode = ipCountry;
+            if (ipCallingCode != null && ipCallingCode.isNotEmpty) {
+              selectedDialCode = ipCallingCode.startsWith('+') ? ipCallingCode : '+$ipCallingCode';
+            } else if (_worldIsoToDialCode.containsKey(ipCountry)) {
+              selectedDialCode = _worldIsoToDialCode[ipCountry]!;
+            }
+          });
+          debugPrint("✅ [Country Detect] Final Country Selected: $selectedIsoCode ($selectedDialCode) | Required Digits: $_currentRequiredPhoneLength");
+          return;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("⚠️ [Country Detect] Primary IP check skipped/failed: $e");
+      // Fallback secondary IP API
+      try {
+        final fallbackRes = await http
+            .get(Uri.parse('http://ip-api.com/json'))
+            .timeout(const Duration(seconds: 3));
+        if (fallbackRes.statusCode == 200) {
+          final data = jsonDecode(fallbackRes.body);
+          final ipCountry = data['countryCode']?.toString().toUpperCase();
+          debugPrint("🌐 [Country Detect] Fallback Geo-IP Response: Country=$ipCountry");
+          if (ipCountry != null && _worldIsoToDialCode.containsKey(ipCountry) && mounted) {
+            setState(() {
+              selectedIsoCode = ipCountry;
+              selectedDialCode = _worldIsoToDialCode[ipCountry]!;
+            });
+            debugPrint("✅ [Country Detect] Final Country via Fallback: $selectedIsoCode ($selectedDialCode)");
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   void addDigit(String digit) {
@@ -133,7 +178,6 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       error = "";
       if (!isOtpSent) {
-        // Strict limit: Selected country ke required length se zyada allow nahi karega
         if (phone.length < _currentRequiredPhoneLength) {
           phone += digit;
         }
@@ -291,6 +335,7 @@ class _LoginPageState extends State<LoginPage> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF002C3E),
+        resizeToAvoidBottomInset: false,
         body: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is OtpSent) {
@@ -441,20 +486,28 @@ class _LoginPageState extends State<LoginPage> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           CountryCodePicker(
+                            key: ValueKey(selectedIsoCode),
                             onChanged: (country) {
                               setState(() {
+                                selectedIsoCode = country.code ?? "IN";
                                 selectedDialCode = country.dialCode ?? "+91";
-                                // Country change hone par agar current number naye length se bada ho to truncate karein
                                 if (phone.length > _currentRequiredPhoneLength) {
                                   phone = phone.substring(0, _currentRequiredPhoneLength);
                                 }
                               });
                             },
-                            initialSelection: selectedDialCode,
+                            initialSelection: selectedIsoCode,
                             favorite: const ['+91', 'IN', '+1', 'US', '+977', 'NP'],
                             showCountryOnly: false,
                             showOnlyCountryWhenClosed: false,
                             alignLeft: false,
+                            showFlag: true,
+                            showFlagDialog: true,
+                            flagWidth: 24.w,
+                            dialogSize: Size(
+                              MediaQuery.of(context).size.width * 0.88,
+                              MediaQuery.of(context).size.height * 0.70,
+                            ),
                             textStyle: TextStyle(
                               color: const Color(0xFFF5F5F5),
                               fontSize: 20.sp,
@@ -464,8 +517,16 @@ class _LoginPageState extends State<LoginPage> {
                               fontSize: 16.sp,
                               color: Colors.black,
                             ),
-                            searchDecoration: const InputDecoration(
+                            searchDecoration: InputDecoration(
                               hintText: "Search Country",
+                              prefixIcon: const Icon(Icons.search, color: Color(0xFF002C3E)),
+                              filled: true,
+                              fillColor: const Color(0xFFF0F4F8),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
                             padding: EdgeInsets.zero,
                           ),
@@ -496,8 +557,7 @@ class _LoginPageState extends State<LoginPage> {
                 SizedBox(height: 15.h),
 
                 Padding(
-                  padding:
-                  EdgeInsets.symmetric(horizontal: 30.w, vertical: 10.h),
+                  padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 10.h),
                   child: Column(
                     children: [
                       Row(
@@ -643,5 +703,3 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-
-
