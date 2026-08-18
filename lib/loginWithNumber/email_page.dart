@@ -59,15 +59,21 @@ class _EmailPageState extends State<EmailPage> {
           email = enteredEmail;
         });
       } else {
+        String msg = res['message'] ?? "Account not signed up yet";
+        if (msg.toLowerCase().contains("not found") ||
+            msg.toLowerCase().contains("does not exist") ||
+            msg.toLowerCase().contains("unregistered")) {
+          msg = "Account not signed up yet";
+        }
         setState(() {
           loading = false;
-          error = res['message'] ?? "Failed to send OTP";
+          error = msg;
         });
       }
     } catch (e) {
       setState(() {
         loading = false;
-        error = "An error occurred. Please try again.";
+        error = "Account not signed up yet";
       });
     }
   }
@@ -119,13 +125,24 @@ class _EmailPageState extends State<EmailPage> {
     }
   }
 
+  void _navigateToPhoneSignIn() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     AppSize.init(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF7),
-      resizeToAvoidBottomInset: true, // Allow system keyboard to push content
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
@@ -148,16 +165,17 @@ class _EmailPageState extends State<EmailPage> {
                     ),
                     if (error.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 12.0),
+                        padding: const EdgeInsets.only(top: 14.0),
                         child: Text(
                           error,
-                          style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            color: const Color(0xFFE86B56),
+                            fontSize: AppSize.sp(14),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    SizedBox(height: AppSize.h(45)),
+                    SizedBox(height: error.isNotEmpty ? AppSize.h(25) : AppSize.h(45)),
                     if (!isOtpSent)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,7 +211,7 @@ class _EmailPageState extends State<EmailPage> {
                               decoration: InputDecoration(
                                 hintText: "Your Email",
                                 hintStyle: const TextStyle(
-                                  color: Color(0xFF5A6C7D),
+                                  color: Color(0xFF8A99A6),
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -221,17 +239,8 @@ class _EmailPageState extends State<EmailPage> {
                           SizedBox(height: AppSize.h(14)),
                           Align(
                             alignment: Alignment.centerRight,
-                            child:GestureDetector(
-                              onTap: () {
-                                if (Navigator.canPop(context)) {
-                                  Navigator.pop(context);
-                                } else {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                                  );
-                                }
-                              },
+                            child: GestureDetector(
+                              onTap: _navigateToPhoneSignIn,
                               child: Text.rich(
                                 const TextSpan(
                                   text: "Sign in with ",
@@ -336,13 +345,16 @@ class _EmailPageState extends State<EmailPage> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                Text(
-                                  "Resend",
-                                  style: TextStyle(
-                                    fontSize: AppSize.sp(11.5),
-                                    color: const Color(0xFF8A99A6),
-                                    fontWeight: FontWeight.w600,
-                                    decoration: TextDecoration.underline,
+                                GestureDetector(
+                                  onTap: submitEmail,
+                                  child: Text(
+                                    "Resend",
+                                    style: TextStyle(
+                                      fontSize: AppSize.sp(11.5),
+                                      color: const Color(0xFF8A99A6),
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -366,49 +378,54 @@ class _EmailPageState extends State<EmailPage> {
               ),
             ),
 
-            // System keyboard is now used, so custom keyboard block is removed
             if (isOtpSent) SizedBox(height: AppSize.h(20)),
 
-            // Footer
+            // Footer Section with updated "New User? Sign Up With Phone Number"
             Padding(
               padding: EdgeInsets.fromLTRB(
                   AppSize.w(28), 10, AppSize.w(28), AppSize.bottom(24)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      bool canGoBackToLogin = true;
-
-                      if (canGoBackToLogin) {
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        } else {
-
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const LoginPage()),
-                          );
-                        }
-                      }
-                    },
-
-                    child: Text(
-                      "Sign up",
-                      style: TextStyle(
-                        color: const Color(0xFF002C3E).withValues(alpha: 0.2),
-                        fontSize: AppSize.sp(19),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),                  Row(
-                    children: [
-                      Text("Sign In",
+                    onTap: _navigateToPhoneSignIn,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "New User?",
                           style: TextStyle(
-                            color: const Color(0xFF002C3E).withValues(alpha: 0.7),
-                            fontSize: AppSize.sp(20),
+                            color: const Color(0xFF8A99A6),
+                            fontSize: AppSize.sp(13),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        Text(
+                          "Sign Up With\nPhone Number",
+                          style: TextStyle(
+                            color: const Color(0xFF8A99A6),
+                            fontSize: AppSize.sp(13),
                             fontWeight: FontWeight.w600,
-                          )),
+                            decoration: TextDecoration.underline,
+                            decorationColor: const Color(0xFF8A99A6),
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        "Sign In",
+                        style: TextStyle(
+                          color: const Color(0xFF002C3E).withValues(alpha: 0.7),
+                          fontSize: AppSize.sp(20),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       SizedBox(width: AppSize.w(18)),
                       GestureDetector(
                         onTap: loading
@@ -424,7 +441,9 @@ class _EmailPageState extends State<EmailPage> {
                           ),
                           child: const Center(
                             child: CircularProgressIndicator(
-                                color: Color(0xFF002C3E), strokeWidth: 2),
+                              color: Color(0xFF002C3E),
+                              strokeWidth: 2,
+                            ),
                           ),
                         )
                             : SvgPicture.asset(

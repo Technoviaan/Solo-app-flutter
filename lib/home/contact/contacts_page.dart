@@ -28,6 +28,8 @@ class _ContactsPageState extends State<ContactsPage> {
   bool isContact1Enabled = false;
   bool isContact2Enabled = false;
 
+  int _subscriptionStatus = 0; // 0 = None, 1 = Trial, 2 = Monthly, 3 = Yearly, 4 = Unlimited
+
   static const Color _bg = Color(0xFFF7F8F3);
   static const Color _headingColor = Color(0xFF1B3A4B);
   static const Color _subtitleColor = Color(0xFF5A6C7D);
@@ -38,6 +40,38 @@ class _ContactsPageState extends State<ContactsPage> {
   static const Color _contactSubtext = Color(0xFF8A99A6);
   static const Color _divider = Color(0xFFDDD9D0);
   static const Color _nextGreen = Color(0xFFB5D43C);
+
+  // Check whether Contact 2 is locked based on subscription tier
+  bool get isContact2Locked => _subscriptionStatus <= 1;
+
+  @override
+  void initState() {
+    super.initState();
+    loadContacts();
+    _checkSubStatus();
+  }
+
+  Future<void> _checkSubStatus() async {
+    final status = await TokenStorage.getSubscriptionStatus();
+    if (mounted) {
+      setState(() {
+        _subscriptionStatus = status;
+      });
+    }
+  }
+
+  void _showUpgradePrompt() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Free trial allows only 1 contact. Upgrade to add more!"),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+    ).then((_) => _checkSubStatus());
+  }
 
   int getCurrentContacts() {
     int count = 0;
@@ -301,7 +335,7 @@ class _ContactsPageState extends State<ContactsPage> {
     if (isContact1Enabled && manualContact1 != null) {
       contacts.add(manualContact1!);
     }
-    if (isContact2Enabled && manualContact2 != null) {
+    if (isContact2Enabled && manualContact2 != null && !isContact2Locked) {
       contacts.add(manualContact2!);
     }
 
@@ -365,30 +399,6 @@ class _ContactsPageState extends State<ContactsPage> {
 
     print("----------------------------------------------------------\n");
     return allSucceeded;
-  }
-
-  Future<bool> canUseContacts(BuildContext context) async {
-    int status = await TokenStorage.getSubscriptionStatus();
-    int maxContacts = await TokenStorage.getMaxContacts();
-    int current = getCurrentContacts();
-
-    if (status == 0) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage()));
-      return false;
-    }
-    if (current >= maxContacts) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Max $maxContacts contacts allowed")),
-      );
-      return false;
-    }
-    return true;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    loadContacts();
   }
 
   Future<void> loadContacts() async {
@@ -524,115 +534,172 @@ class _ContactsPageState extends State<ContactsPage> {
     final data = index == 1 ? manualContact1 : manualContact2;
     final enabled = index == 1 ? isContact1Enabled : isContact2Enabled;
     final hasContact = data != null;
+    final isLocked = (index == 2 && isContact2Locked);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: const BoxDecoration(color: _numCircle, shape: BoxShape.circle),
-            child: Center(
-              child: Text(
-                "$index",
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+    return Opacity(
+      opacity: isLocked ? 0.6 : 1.0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: isLocked ? Colors.grey.shade400 : _numCircle,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: isLocked
+                    ? const Icon(Icons.lock, color: Colors.white, size: 16)
+                    : Text(
+                  "$index",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Contact",
-                  style: TextStyle(color: _contactLabel, fontSize: 14, fontWeight: FontWeight.w500),
+            const SizedBox(width: 12),
+            Expanded(
+              child: GestureDetector(
+                onTap: isLocked ? _showUpgradePrompt : null,
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          "Contact",
+                          style: TextStyle(color: _contactLabel, fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        if (isLocked) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD4AF64),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              "PRO",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    hasContact && !isLocked
+                        ? Text(
+                      data["name"] ?? "",
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        color: _contactText,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    )
+                        : Text(
+                      isLocked ? "Upgrade to unlock 2nd contact" : "No contact added yet",
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        color: _contactSubtext,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                hasContact
-                    ? Text(
-                  data["name"] ?? "",
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    color: _contactText,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                  ),
-                )
-                    : const Text(
-                  "No contact added yet",
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    color: _contactSubtext,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          GestureDetector(
-            onTap: () async {
-              if (hasContact) {
-                // Directly remove the contact without showing any dialog
+            GestureDetector(
+              onTap: () async {
+                if (isLocked) {
+                  _showUpgradePrompt();
+                  return;
+                }
+
+                if (hasContact) {
+                  setState(() {
+                    if (index == 1) {
+                      manualContact1 = null;
+                      isContact1Enabled = false;
+                    } else {
+                      manualContact2 = null;
+                      isContact2Enabled = false;
+                    }
+                  });
+                  await sendContactsToApi();
+                } else {
+                  await pickContact(index);
+                }
+              },
+              child: isLocked
+                  ? Container(
+                width: 28,
+                height: 28,
+                margin: const EdgeInsets.only(right: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lock_outline, color: Colors.grey, size: 16),
+              )
+                  : hasContact
+                  ? Container(
+                width: 28,
+                height: 28,
+                margin: const EdgeInsets.only(right: 4),
+                decoration: const BoxDecoration(color: Color(0xFF002C3E), shape: BoxShape.circle),
+                child: const Icon(Icons.remove, color: Colors.white, size: 16),
+              )
+                  : Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: SvgPicture.asset('assets/svg/plus.svg', width: 28.w, height: 28.w),
+              ),
+            ),
+            const SizedBox(width: 3),
+            customSwitch(
+              value: enabled && !isLocked,
+              onChanged: (value) async {
+                if (isLocked) {
+                  _showUpgradePrompt();
+                  return;
+                }
+
+                if (!hasContact) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please add a contact first")),
+                  );
+                  return;
+                }
+
                 setState(() {
                   if (index == 1) {
-                    manualContact1 = null;
-                    isContact1Enabled = false;
+                    isContact1Enabled = value;
                   } else {
-                    manualContact2 = null;
-                    isContact2Enabled = false;
+                    isContact2Enabled = value;
                   }
                 });
                 await sendContactsToApi();
-              } else {
-                // Open phone book to pick a contact
-                await pickContact(index);
-              }
-            },
-            child: hasContact
-                ? Container(
-              width: 28,
-              height: 28,
-              margin: const EdgeInsets.only(right: 4),
-              decoration: const BoxDecoration(color: Color(0xFF002C3E), shape: BoxShape.circle),
-              child: const Icon(Icons.remove, color: Colors.white, size: 16),
-            )
-                : Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: SvgPicture.asset('assets/svg/plus.svg', width: 28.w, height: 28.w),
+              },
             ),
-          ),
-          const SizedBox(width: 3),
-          customSwitch(
-            value: enabled,
-
-            onChanged: (value) async {
-              if (!hasContact) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Please add a contact first")),
-                );
-                return;
-              }
-              bool allowed = await canUseContacts(context);
-              if (!allowed && value == true) return;
-
-              setState(() {
-                if (index == 1) {
-                  isContact1Enabled = value;
-                } else {
-                  isContact2Enabled = value;
-                }
-              });
-              await sendContactsToApi();
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+
   Widget customSwitch({required bool value, required Function(bool) onChanged}) {
     return GestureDetector(
       onTap: () => onChanged(!value),
