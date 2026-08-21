@@ -41,7 +41,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
   late int totalSeconds;
   Timer? timer;
 
-  String state = "normal"; // normal | warning | alert | waiting
+  String state = "normal";
   bool isSOSPending = false;
   int sosSeconds = 20;
   Timer? sosTimer;
@@ -50,9 +50,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
   void initState() {
     super.initState();
 
-    // 🛠️ FIX: Lets NotificationService's overdue safety-net know the SOS
-    // screen is already on screen, so it doesn't try to push a duplicate
-    // copy on top of itself.
     NotificationService.isCheckinScreenActive = true;
 
     // Enable immersive full screen
@@ -66,16 +63,11 @@ class _CheckinScreenState extends State<CheckinScreen> {
     _calculateRemainingTime();
     startTimer();
 
-    // 🔊 The check-in "screen take over" has just popped up. Play the
-    // short notification chime for it, unless we're just showing the
-    // early "waiting" state (check-in isn't due yet, so this isn't a real
-    // reminder take-over).
     if (state != "waiting") {
       _playEffect(SoloSounds.screenTakeoverNotification);
     }
   }
 
-  /// Plays a short, voice-independent sound effect once, fire-and-forget.
   Future<void> _playEffect(String assetPath) async {
     try {
       final player = AudioPlayer();
@@ -192,10 +184,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
     if (!mounted) return;
 
-    // 🛠️ FIX: Pehle "confirmed" state dikhao (Green.svg + "Check-in
-    // confirmed, Glad you're OK" text) taaki user ko visual feedback mile,
-    // fir 2 sec baad app close karo. Pehle seedha pop() ho jaata tha isliye
-    // ye confirmation screen kabhi dikhti hi nahi thi.
     setState(() {
       state = "confirmed";
     });
@@ -230,9 +218,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
     );
     debugPrint("⚠️ [CheckinScreen] triggerAlert() FINISHED — NOTE: this only logs locally, no backend/contact-notify API call is made here.");
 
-    // 🔊 6th phase — alert sent voice confirmation (the scheduled alarm's
-    // looping tone already played the earlier phase reminders leading up
-    // to this moment).
     unawaited(_playCue(
       voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
     ));
@@ -246,9 +231,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
         isSOSPending = true;
         state = "alert";
       });
-
-      // 🔊 SOS radar alert sound, followed by "Please tap SOS again to
-      // confirm the emergency alert." in the user's chosen voice.
       unawaited(_playCue(
         effectAsset: SoloSounds.sosButtonTapped,
         voiceAssetFor: (voice) => SoloSounds.sosTappedOnce(voice),
@@ -290,9 +272,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
       contacts: contactNames,
     );
     debugPrint("✅ [CheckinScreen] triggerSosAlert() FINISHED — alert logged, backend notified=$apiOk");
-
-    // 🔊 "Your contacts have been notified" — 6th phase / alert-sent voice
-    // line, confirming the emergency alert actually went out.
     unawaited(_playCue(
       voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
     ));
@@ -314,13 +293,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
     debugPrint("↩️ [CheckinScreen] resetSOS() done | state after=$state");
   }
 
-  // 🛠️ FIX: Was a hardcoded ternary with only 3 branches (alert /
-  // isSOSPending / a single fallback that always said "Check-in confirmed,
-  // Glad you're OK"). That fallback was wrongly firing for normal/warning/
-  // waiting states too, because the real "confirmed" flow never actually
-  // reaches this screen's UI — onCheckin() closes the app immediately via
-  // SystemNavigator.pop()/exit(0) right after a successful check-in.
-  // So the default text now correctly greets the user and prompts check-in.
   String _getStatusText() {
     if (state == "confirmed") {
       return "Check-in confirmed\nGlad you're OK";
