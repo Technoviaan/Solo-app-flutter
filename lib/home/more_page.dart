@@ -246,7 +246,7 @@ class _MorePageState extends State<MorePage> {
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 20,
-            vertical: 18,
+            vertical: 10,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -254,8 +254,8 @@ class _MorePageState extends State<MorePage> {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                   color: Colors.white,
                   letterSpacing: 0.1,
                 ),
@@ -558,6 +558,7 @@ class _MorePageState extends State<MorePage> {
             ),
           ),
         );
+
       },
     );
   }

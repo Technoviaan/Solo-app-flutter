@@ -298,7 +298,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
       return "Check-in confirmed\nGlad you're OK";
     }
     if (state == "alert") {
-      return "Your contacts have been alerted";
+      return "Your contacts have been alerted\nIf you’re safe, please let them know";
     }
     if (isSOSPending) {
       return "Tap SOS again to confirm";
@@ -425,11 +425,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // 🛠️ FIX: was wrapped in Transform.rotate(angle: -pi/2),
-                    // which shifted the countdown ring's start point away
-                    // from top-center (Flutter's CircularProgressIndicator
-                    // already starts at 12 o'clock and sweeps clockwise by
-                    // default, so the extra rotation is removed).
                     SizedBox(
                       height: 308.w,
                       width: 308.w,
