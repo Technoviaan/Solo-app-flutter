@@ -16,8 +16,6 @@ class CheckinScreen extends StatefulWidget {
   final String userName;
   final DateTime scheduledTime;
   final int alertWindowHours;
-
-
   final int? testWindowSeconds;
 
   const CheckinScreen({
@@ -77,9 +75,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
     }
   }
 
-  /// Plays an optional sound effect immediately, then (if the user hasn't
-  /// selected "None" for voice) follows it with the matching preset voice
-  /// line a beat later, so the chime and the spoken message don't overlap.
   Future<void> _playCue({String? effectAsset, required String Function(String voice) voiceAssetFor}) async {
     try {
       if (effectAsset != null) {
@@ -126,7 +121,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
           remainingSeconds = deadline.difference(now).inSeconds;
           _updateStateByTime();
 
-          // 🔎 DEBUG: prints every 10s so terminal isn't spammed every second
           if (remainingSeconds % 10 == 0) {
             debugPrint("⏱️ [CheckinScreen] state=$state | remainingSeconds=$remainingSeconds | now=$now");
           }
@@ -145,7 +139,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
   void _updateStateByTime() {
     if (state == "alert" && !isSOSPending) return;
-    if (remainingSeconds <= 300) { // 5 minutes warning
+    if (remainingSeconds <= 300) {
       state = "warning";
     } else {
       state = "normal";
@@ -164,8 +158,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
     await NotificationService.cancelAllCheckinNotifications();
 
-    // 🔊 "Successful Check-in" chime, followed by the "Glad you're okay.
-    // Take care." voice line in the user's chosen voice.
     unawaited(_playCue(
       effectAsset: SoloSounds.checkinButtonTapped,
       voiceAssetFor: (voice) => SoloSounds.checkinConfirmed(voice),
@@ -216,7 +208,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
       type: "MISSED",
       contacts: contactNames,
     );
-    debugPrint("⚠️ [CheckinScreen] triggerAlert() FINISHED — NOTE: this only logs locally, no backend/contact-notify API call is made here.");
+    debugPrint("⚠️ [CheckinScreen] triggerAlert() FINISHED");
 
     unawaited(_playCue(
       voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
@@ -237,14 +229,15 @@ class _CheckinScreenState extends State<CheckinScreen> {
       ));
 
       sosTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return;
         setState(() {
           sosSeconds--;
         });
         debugPrint("⏳ [CheckinScreen] SOS countdown: $sosSeconds s left");
 
-        if (sosSeconds == 0) {
+        if (sosSeconds <= 0) {
           t.cancel();
-          debugPrint("⌛ [CheckinScreen] SOS countdown expired with NO 2nd tap -> resetSOS(), no alert sent");
+          debugPrint("⌛ [CheckinScreen] SOS countdown expired with NO 2nd tap -> resetSOS()");
           resetSOS();
         }
       });
@@ -271,11 +264,12 @@ class _CheckinScreenState extends State<CheckinScreen> {
       type: "SOS",
       contacts: contactNames,
     );
-    debugPrint("✅ [CheckinScreen] triggerSosAlert() FINISHED — alert logged, backend notified=$apiOk");
+    debugPrint("✅ [CheckinScreen] triggerSosAlert() FINISHED");
     unawaited(_playCue(
       voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
     ));
 
+    if (!mounted) return;
     setState(() {
       state = "alert";
       isSOSPending = false;
@@ -285,6 +279,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
   void resetSOS() {
     debugPrint("↩️ [CheckinScreen] resetSOS() called | state before=$state");
+    if (!mounted) return;
     setState(() {
       isSOSPending = false;
       sosSeconds = 20;
@@ -297,7 +292,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
     if (state == "confirmed") {
       return "Check-in confirmed\nGlad you're OK";
     }
-    if (state == "alert") {
+    if (state == "alert" && !isSOSPending) {
       return "Your contacts have been alerted\nIf you’re safe, please let them know";
     }
     if (isSOSPending) {
@@ -320,6 +315,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
   }
 
   String getSvg() {
+    if (isSOSPending) return "assets/svg/redd.svg";
     if (state == "confirmed") return "assets/images/Green.svg";
     if (state == "waiting") return "assets/images/Green.svg";
     if (state == "alert" || remainingSeconds <= 0) return "assets/svg/alert.svg";
@@ -328,7 +324,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
     final progress = elapsed / totalSeconds;
 
     if (remainingSeconds <= 120) {
-      // Less than 2 minutes left
       return "assets/svg/-2min.svg";
     } else if (progress >= 0.75) {
       return "assets/svg/75%1.svg";
@@ -338,7 +333,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
       return "assets/svg/25%1.svg";
     }
 
-    // Default for the first 25% of the window
     return "assets/images/Green.svg";
   }
 
@@ -471,7 +465,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                 ),
               ),
 
-              /// TIMER
+              /// TIMER & SOS BUTTON
               const Spacer(),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -617,16 +611,13 @@ class _CheckinScreenState extends State<CheckinScreen> {
                             width: 60.w,
                           ),
                         ),
-
-                        if (state == "alert")
+                        if (isSOSPending)
                           Positioned(
                             top: -10.h,
                             left: -4.w,
                             child: _SosSignalWave(
                               active: isSOSPending,
-                              color: isSOSPending
-                                  ? const Color(0xFFE8695C)
-                                  : const Color(0xFF5A6C7D),
+                              color: const Color(0xFFE8695C),
                               size: 22.w,
                             ),
                           ),
