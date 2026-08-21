@@ -17,6 +17,7 @@ class CheckinScreen extends StatefulWidget {
   final DateTime scheduledTime;
   final int alertWindowHours;
 
+
   final int? testWindowSeconds;
 
   const CheckinScreen({

@@ -24,14 +24,13 @@ class MorePage extends StatefulWidget {
 }
 
 class _MorePageState extends State<MorePage> {
-
   bool deleting = false;
 
   Future<void> _runQuickTestAlert(
-    BuildContext context,
-    int delaySeconds,
-    int windowSeconds,
-  ) async {
+      BuildContext context,
+      int delaySeconds,
+      int windowSeconds,
+      ) async {
     await NotificationService.triggerQuickTestAlert(
       delaySeconds: delaySeconds,
       windowSeconds: windowSeconds,
@@ -42,7 +41,7 @@ class _MorePageState extends State<MorePage> {
         duration: const Duration(seconds: 4),
         content: Text(
           "Test alert set — check-in screen fires in ${delaySeconds}s. "
-          "Lock the phone (or kill the app) now.",
+              "Lock the phone (or kill the app) now.",
         ),
       ),
     );
@@ -50,34 +49,29 @@ class _MorePageState extends State<MorePage> {
 
   @override
   Widget build(BuildContext context) {
-
     AppSize.init(context);
 
     return Scaffold(
-
       backgroundColor: const Color(0xFFF7F8F3),
-
       body: SafeArea(
         child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: AppSize.w(20),
             ),
-
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
-                SizedBox(height: AppSize.h(10)),
+                SizedBox(height: AppSize.h(12)),
 
                 // ── SOLO logo ──
                 const SoloLogo(),
 
-                SizedBox(height: AppSize.h(30)),
+                SizedBox(height: AppSize.h(28)),
 
                 /// ACCOUNT SETTINGS
                 sectionTitle("Account Settings"),
-
                 settingsBox([
                   settingTile(
                     "Profile",
@@ -90,20 +84,13 @@ class _MorePageState extends State<MorePage> {
                       );
                     },
                   ),
-
-
                   settingTile(
                     "Sign Out",
-                    onTap: () {
-                      showSignOutDialog(context);
-                    },
+                    onTap: () => showSignOutDialog(context),
                   ),
-
                   settingTile(
                     "Delete Account",
-                    onTap: () {
-                      showDeleteDialog(context);
-                    },
+                    onTap: () => showDeleteDialog(context),
                   ),
                 ]),
 
@@ -111,22 +98,18 @@ class _MorePageState extends State<MorePage> {
 
                 /// PREFERENCES
                 sectionTitle("Preferences"),
-
                 settingsBox([
                   settingTile(
                     "Notifications",
                     onTap: () {
-
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const NotificationPage(),
                         ),
                       );
-
                     },
                   ),
-
                   settingTile(
                     "History",
                     onTap: () {
@@ -144,7 +127,6 @@ class _MorePageState extends State<MorePage> {
 
                 /// SUPPORT
                 sectionTitle("Support"),
-
                 settingsBox([
                   settingTile(
                     "Common Question",
@@ -203,17 +185,19 @@ class _MorePageState extends State<MorePage> {
                   ),
                 ]),
 
-                SizedBox(height: AppSize.h(40)),
+                SizedBox(height: AppSize.h(20)),
 
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: const Padding(
-                    padding: EdgeInsets.only(top: 32, bottom: 16),
-                    child: Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 24),
+                    padding: EdgeInsets.only(top: 16, bottom: 24),
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: Color(0xFF8A99A6),
+                      size: 26,
+                    ),
                   ),
                 ),
-
-                SizedBox(height: AppSize.h(10)),
               ],
             ),
           ),
@@ -225,55 +209,64 @@ class _MorePageState extends State<MorePage> {
   /// SECTION TITLE
   Widget sectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(left: 4, bottom: AppSize.h(10)),
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 20,
+          fontSize: 19,
           fontWeight: FontWeight.w600,
           color: Color(0xFF002C3E),
+          letterSpacing: -0.2,
         ),
       ),
     );
   }
 
-  /// SETTINGS BOX
+  /// SETTINGS BOX (Equal container layout without extra dividers)
   Widget settingsBox(List<Widget> children) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF7FB4BC),
-          borderRadius: BorderRadius.all(Radius.circular(18)),
+        color: const Color(0xFF7FB4BC),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: children,
         ),
-        child: Column(children: children),
       ),
     );
   }
 
-  /// SETTINGS TILE
+  /// SETTINGS TILE (Balanced padding & responsive touch target)
   Widget settingTile(String title, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  letterSpacing: 0.1,
+                ),
               ),
-            ),
-            const Icon(
-              Icons.chevron_right,
-              color: Colors.white,
-              size: 20,
-            ),
-          ],
+              const Icon(
+                Icons.chevron_right,
+                color: Colors.white,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -290,7 +283,7 @@ class _MorePageState extends State<MorePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          insetPadding: EdgeInsets.zero, // allows perfect exact sizing
+          insetPadding: EdgeInsets.zero,
           child: SizedBox(
             width: AppSize.w(342),
             height: AppSize.h(295),
@@ -302,17 +295,16 @@ class _MorePageState extends State<MorePage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // ── Icon + "Sign Out" title in one row ──
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SvgPicture.asset(
                         'assets/svg/signout.svg',
-                        width: 50,
-                        height: 50,
+                        width: 46,
+                        height: 46,
                       ),
                       const SizedBox(width: 10),
-                      const Text( 
+                      const Text(
                         "Sign Out",
                         style: TextStyle(
                           fontSize: 22,
@@ -322,20 +314,16 @@ class _MorePageState extends State<MorePage> {
                       ),
                     ],
                   ),
-
-                  // ── Main question ──
                   const Text(
                     "Are you sure you would like\nto sign out?",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 19,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF002C3E),
-                      height: 1.4,
+                      height: 1.35,
                     ),
                   ),
-
-                  // ── Sub-caption ──
                   const Text(
                     "You'll need to sign in again to use SOLO.",
                     textAlign: TextAlign.center,
@@ -344,12 +332,9 @@ class _MorePageState extends State<MorePage> {
                       color: Color(0xFF002C3E),
                     ),
                   ),
-
-                  // ── Buttons ──
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Cancel — outlined
                       SizedBox(
                         width: AppSize.w(111),
                         height: AppSize.h(46),
@@ -369,15 +354,13 @@ class _MorePageState extends State<MorePage> {
                           child: const Text(
                             "Cancel",
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
                       SizedBox(width: AppSize.w(12)),
-
-                      // Confirm — filled navy
                       SizedBox(
                         width: AppSize.w(111),
                         height: AppSize.h(46),
@@ -399,13 +382,13 @@ class _MorePageState extends State<MorePage> {
                               MaterialPageRoute(
                                 builder: (_) => const LoginPage(),
                               ),
-                              (route) => false,
+                                  (route) => false,
                             );
                           },
                           child: const Text(
                             "Confirm",
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -420,7 +403,6 @@ class _MorePageState extends State<MorePage> {
         );
       },
     );
-
   }
 
   /// DELETE ACCOUNT DIALOG
@@ -434,25 +416,24 @@ class _MorePageState extends State<MorePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(32),
           ),
-          insetPadding: EdgeInsets.zero, // allows perfect exact sizing
+          insetPadding: EdgeInsets.zero,
           child: SizedBox(
             width: AppSize.w(335),
-            child: Padding( 
+            child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: AppSize.w(20),
-                vertical: AppSize.h(24), 
+                vertical: AppSize.h(24),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Icon + "Delete Account" title in one row ──
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SvgPicture.asset(
                         'assets/svg/delete.svg',
-                        width: 50,
-                        height: 50,
+                        width: 46,
+                        height: 46,
                       ),
                       const SizedBox(width: 10),
                       const Text(
@@ -465,22 +446,18 @@ class _MorePageState extends State<MorePage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-
-                  // ── Main warning text ──
+                  const SizedBox(height: 18),
                   const Text(
                     "All your data will be erased\npermanently. This cannot be\nundone.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 19,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF1B3A4B),
-                      height: 1.4,
+                      height: 1.35,
                     ),
                   ),
                   const SizedBox(height: 8),
-
-                  // ── Sub-caption ──
                   const Text(
                     "Your subscription must be canceled separately\nin your app store settings.",
                     textAlign: TextAlign.center,
@@ -490,13 +467,10 @@ class _MorePageState extends State<MorePage> {
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 28),
-
-                  // ── Buttons ──
+                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Cancel — outlined
                       SizedBox(
                         width: AppSize.w(111),
                         height: AppSize.h(46),
@@ -516,15 +490,13 @@ class _MorePageState extends State<MorePage> {
                           child: const Text(
                             "Cancel",
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
                       SizedBox(width: AppSize.w(12)),
-
-                      // Confirm — filled navy
                       SizedBox(
                         width: AppSize.w(111),
                         height: AppSize.h(46),
@@ -541,42 +513,42 @@ class _MorePageState extends State<MorePage> {
                           onPressed: deleting
                               ? null
                               : () async {
-                                  setState(() => deleting = true);
-                                  final success =
-                                      await DeleteAccountApi.deleteAccount();
-                                  if (!mounted) return;
-                                  if (success) {
-                                    await TokenStorage.clear();
-                                    Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(
-                                        builder: (_) => const LoginPage(),
-                                      ),
-                                      (route) => false,
-                                    );
-                                  } else {
-                                    setState(() => deleting = false);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text("Delete failed")),
-                                    );
-                                  }
-                                },
+                            setState(() => deleting = true);
+                            final success =
+                            await DeleteAccountApi.deleteAccount();
+                            if (!mounted) return;
+                            if (success) {
+                              await TokenStorage.clear();
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginPage(),
+                                ),
+                                    (route) => false,
+                              );
+                            } else {
+                              setState(() => deleting = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text("Delete failed")),
+                              );
+                            }
+                          },
                           child: deleting
                               ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
                               : const Text(
-                                  "Confirm",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                            "Confirm",
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     ],

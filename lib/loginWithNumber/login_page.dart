@@ -127,7 +127,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _autoFetchUserCountry() async {
-    // 1. Device Locale Check
     try {
       final locale = WidgetsBinding.instance.platformDispatcher.locale;
       final countryCode = locale.countryCode?.toUpperCase();
@@ -144,7 +143,6 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (_) {}
 
-    // 2. Geo IP Check
     try {
       final response = await http
           .get(Uri.parse('https://ipapi.co/json/'))
@@ -425,19 +423,25 @@ class _LoginPageState extends State<LoginPage> {
           child: SafeArea(
             child: Column(
               children: [
-                SizedBox(height: 42.h),
+                SizedBox(height: 36.h),
 
+                // Logo & Tagline Section
                 Center(
-                  child: Hero(
-                    tag: 'logo_hero',
-                    child: Material(
-                      color: Colors.transparent,
-                      child: SoloLogoWidget(size: 72.w),
-                    ),
+                  child: Column(
+                    children: [
+                      Hero(
+                        tag: 'logo_hero',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: SoloLogoWidget(size: 72.w),
+                        ),
+                      ),
+
+                    ],
                   ),
                 ),
 
-                SizedBox(height: 120.h),
+                SizedBox(height: 80.h),
 
                 if (isOtpSent)
                   Column(
@@ -648,11 +652,12 @@ class _LoginPageState extends State<LoginPage> {
                           );
                         },
                         child: Text(
-                          "Email Sign In",
+                          "Email Sign Up",
                           style: TextStyle(
-                            color: const Color(0xFF6E97AE),
-                            fontSize: 16.sp,
+                            color: const Color(0xFFD1D9E0),
+                            fontSize: 18.sp,
                             fontWeight: FontWeight.w400,
+                            height: 1.0,
                           ),
                         ),
                       ),
@@ -663,10 +668,11 @@ class _LoginPageState extends State<LoginPage> {
                             "Next",
                             style: TextStyle(
                               color: _isNextButtonEnabled
-                                  ? const Color(0xFF6E97AE)
-                                  : const Color(0xFF6E97AE).withOpacity(0.4),
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w300,
+                                  ? const Color(0xFFD1D9E0)
+                                  : const Color(0xFFD1D9E0).withOpacity(0.4),
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w400,
+                              height: 1.0,
                             ),
                           ),
                           SizedBox(width: 14.w),
