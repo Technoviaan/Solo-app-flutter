@@ -27,10 +27,13 @@ class SoloLogoWidget extends StatelessWidget {
       height: 130.h * scale,
       child: FittedBox(
         fit: BoxFit.contain,
-        child: SvgPicture.asset(
-          'assets/svg/solo.svg',
+        // Animated GIF version of the logo (eyes looking around + ticking clock hand).
+        // Flutter's Image widget plays animated GIFs natively, no extra package needed.
+        child: Image.asset(
+          'assets/eye_clock_animation.gif',
           width: 281,
           height: 131,
+          gaplessPlayback: true, // avoids a blank flash if the widget rebuilds
         ),
       ),
     );
@@ -56,24 +59,20 @@ class _SplashScreenState extends State<SplashScreen> {
   void _playAnimation() async {
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
-    setState(() => _phase = 1); // Phase 1: Logo visible
+    setState(() => _phase = 1);
 
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
-    setState(() => _phase = 2); // Phase 2: Tagline visible
+    setState(() => _phase = 2);
 
-    await Future.delayed(const Duration(seconds: 2)); // Hold at final logo
+    await Future.delayed(const Duration(seconds: 2));
     startApp();
   }
 
   void startApp() async {
     if (!mounted) return;
 
-    // 🔗 If the app was cold-started from solo://payment-success (or
-    // -cancel), let that redirect win: wait briefly for the deep-link
-    // service to finish checking the launch intent, so we don't race it and
-    // land on Home/Subscription before PaymentResultPage gets a chance to
-    // show. Mirrors the isHandlingAlarm guard below for the same reason.
+
     try {
       await DeepLinkService.coldStartCheckDone.future
           .timeout(const Duration(seconds: 3));
@@ -85,16 +84,6 @@ class _SplashScreenState extends State<SplashScreen> {
           "🔗 [Splash] Payment deep link is being handled, SplashScreen skipping default navigation.");
       return;
     }
-
-    // 🛠️ FIX: Fallback for when the solo://payment-success deep link itself
-    // never made it back to us (process was killed mid-checkout in the
-    // external browser and the OS didn't redeliver the intent the way
-    // DeepLinkService expects — see TokenStorage.getPendingCheckout() doc
-    // comment for the full explanation). This is what was causing "splash
-    // screen, then straight to Home" instead of the payment result screen.
-    //
-    // Independent of the deep-link race above: if we know a checkout was
-    // started and never got confirmed, show PaymentResultPage ourselves.
     final pendingCheckout = await TokenStorage.getPendingCheckout();
     if (pendingCheckout) {
       await TokenStorage.savePendingCheckout(false);

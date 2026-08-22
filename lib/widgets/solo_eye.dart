@@ -16,10 +16,12 @@ class SoloLogoWidget extends StatelessWidget {
       height: 130.h * scale,
       child: FittedBox(
         fit: BoxFit.contain,
-        child: SvgPicture.asset(
-          'assets/svg/solo.svg',
+
+        child: Image.asset(
+          'assets/eye_clock_animation.gif',
           width: 281,
           height: 131,
+          gaplessPlayback: true, // avoids a blank flash on rebuild
         ),
       ),
     );
