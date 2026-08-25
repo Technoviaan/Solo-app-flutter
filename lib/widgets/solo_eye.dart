@@ -21,7 +21,7 @@ class SoloLogoWidget extends StatelessWidget {
           'assets/eye_clock_animation.gif',
           width: 281,
           height: 131,
-          gaplessPlayback: true, // avoids a blank flash on rebuild
+          gaplessPlayback: true,
         ),
       ),
     );

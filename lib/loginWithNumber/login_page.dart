@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,8 +28,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String selectedDialCode = "+91";
-  String selectedIsoCode = "IN";
+  // Default to Singapore (+65) as requested fallback
+  String selectedDialCode = "+65";
+  String selectedIsoCode = "SG";
 
   String phone = "";
   String otp = "";
@@ -36,6 +39,12 @@ class _LoginPageState extends State<LoginPage> {
 
   String lastUsedDialCode = "";
   String lastUsedPhone = "";
+
+  // ---- Resend OTP timer ----
+  static const int _resendDuration = 60;
+  Timer? _resendTimer;
+  int _resendSecondsLeft = _resendDuration;
+  bool _canResend = false;
 
   // Document ke anusar Excluded / Sanctioned Countries list
   static const Set<String> _excludedIsoCodes = {
@@ -126,10 +135,49 @@ class _LoginPageState extends State<LoginPage> {
     _autoFetchUserCountry();
   }
 
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    super.dispose();
+  }
+
+  // Starts / restarts the 60 second resend countdown.
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() {
+      _resendSecondsLeft = _resendDuration;
+      _canResend = false;
+    });
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendSecondsLeft <= 1) {
+        timer.cancel();
+        setState(() {
+          _resendSecondsLeft = 0;
+          _canResend = true;
+        });
+      } else {
+        setState(() {
+          _resendSecondsLeft--;
+        });
+      }
+    });
+  }
+
+  String _formatResendTime(int seconds) {
+    final m = (seconds ~/ 60).toString().padLeft(2, '0');
+    final s = (seconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
   Future<void> _autoFetchUserCountry() async {
     try {
       final locale = WidgetsBinding.instance.platformDispatcher.locale;
       final countryCode = locale.countryCode?.toUpperCase();
+      debugPrint("🔍 [AutoFetch] Device Locale Country Code: $countryCode");
 
       if (countryCode != null &&
           !_excludedIsoCodes.contains(countryCode) &&
@@ -139,16 +187,22 @@ class _LoginPageState extends State<LoginPage> {
             selectedIsoCode = countryCode;
             selectedDialCode = _worldIsoToDialCode[countryCode]!;
           });
+          debugPrint("✅ [AutoFetch] Set from Device Locale -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("❌ [AutoFetch] Device Locale Error: $e");
+    }
 
     try {
+      debugPrint("🌐 [AutoFetch] Requesting ipapi.co...");
       final response = await http
           .get(Uri.parse('https://ipapi.co/json/'))
           .timeout(const Duration(seconds: 3));
 
+      debugPrint("📥 [AutoFetch] ipapi.co status: ${response.statusCode}");
       if (response.statusCode == 200) {
+        debugPrint("📥 [AutoFetch] ipapi.co response: ${response.body}");
         final data = jsonDecode(response.body);
         final ipCountry = data['country_code']?.toString().toUpperCase();
         final ipCallingCode = data['country_calling_code']?.toString();
@@ -165,15 +219,20 @@ class _LoginPageState extends State<LoginPage> {
               selectedDialCode = _worldIsoToDialCode[ipCountry]!;
             }
           });
+          debugPrint("✅ [AutoFetch] Set from ipapi.co -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
           return;
         }
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint("⚠️ [AutoFetch] ipapi.co failed: $e. Trying fallback (ip-api.com)...");
       try {
         final fallbackRes = await http
             .get(Uri.parse('http://ip-api.com/json'))
             .timeout(const Duration(seconds: 3));
+
+        debugPrint("📥 [AutoFetch] ip-api.com status: ${fallbackRes.statusCode}");
         if (fallbackRes.statusCode == 200) {
+          debugPrint("📥 [AutoFetch] ip-api.com response: ${fallbackRes.body}");
           final data = jsonDecode(fallbackRes.body);
           final ipCountry = data['countryCode']?.toString().toUpperCase();
           if (ipCountry != null &&
@@ -184,9 +243,12 @@ class _LoginPageState extends State<LoginPage> {
               selectedIsoCode = ipCountry;
               selectedDialCode = _worldIsoToDialCode[ipCountry]!;
             });
+            debugPrint("✅ [AutoFetch] Set from ip-api.com -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
           }
         }
-      } catch (_) {}
+      } catch (fallbackError) {
+        debugPrint("❌ [AutoFetch] All IP lookups failed. Keeping fallback/default -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
+      }
     }
   }
 
@@ -231,6 +293,19 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  bool _isValidPhoneNumber(String number, String dialCode, String isoCode) {
+    if (number.length != _currentRequiredPhoneLength) return false;
+    if (Regz.isRepeatingDigits(number) || number == "1234567890" || number == "9876543210") {
+      return false;
+    }
+    if (dialCode == "+91") {
+      if (!RegExp(r'^[6-9]').hasMatch(number)) return false;
+    } else if (dialCode == "+65") {
+      if (!RegExp(r'^[389]').hasMatch(number)) return false;
+    }
+    return true;
+  }
+
   void validateAndSend() {
     if (_excludedIsoCodes.contains(selectedIsoCode)) {
       setState(() => error = "Service is not available in your region");
@@ -240,6 +315,11 @@ class _LoginPageState extends State<LoginPage> {
     if (phone.length != _currentRequiredPhoneLength) {
       setState(() =>
       error = "Please enter complete $_currentRequiredPhoneLength digit number");
+      return;
+    }
+
+    if (!_isValidPhoneNumber(phone, selectedDialCode, selectedIsoCode)) {
+      setState(() => error = "Invalid Phone Number");
       return;
     }
 
@@ -281,10 +361,13 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void resendOtp() {
+    if (!_canResend) return; // ignore taps while the timer is still running
+
     setState(() {
       otp = "";
       error = "";
     });
+    _startResendTimer();
     context.read<AuthBloc>().add(
       SendOtpEvent(
         lastUsedDialCode,
@@ -356,6 +439,7 @@ class _LoginPageState extends State<LoginPage> {
             isOtpSent = false;
             otp = "";
           });
+          _resendTimer?.cancel();
         }
       },
       child: Scaffold(
@@ -370,6 +454,7 @@ class _LoginPageState extends State<LoginPage> {
                     isOtpSent = true;
                     error = "";
                   });
+                  _startResendTimer();
                 }
               });
             }
@@ -436,7 +521,6 @@ class _LoginPageState extends State<LoginPage> {
                           child: SoloLogoWidget(size: 72.w),
                         ),
                       ),
-
                     ],
                   ),
                 ),
@@ -446,19 +530,47 @@ class _LoginPageState extends State<LoginPage> {
                 if (isOtpSent)
                   Column(
                     children: [
-                      Text(
-                        error.isNotEmpty
-                            ? error
-                            : (otp.isEmpty ? "Enter 6 Digit Code" : otp),
+                      // ---- OTP row with blinking-style cursor ----
+                      error.isNotEmpty
+                          ? Text(
+                        error,
                         style: TextStyle(
-                          color: error.isNotEmpty
-                              ? Colors.red
-                              : (otp.isEmpty
-                              ? const Color(0xFF859BAD)
-                              : const Color(0xFFF5F5F5)),
+                          color: Colors.red,
                           fontSize: 20.sp,
                           fontWeight: FontWeight.w400,
                         ),
+                      )
+                          : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (otp.isEmpty) ...[
+                            Container(
+                              width: 2.w,
+                              height: 20.sp,
+                              color: const Color(0xFFB5D43C),
+                            ),
+                            SizedBox(width: 6.w),
+                          ],
+                          Text(
+                            otp.isEmpty ? "Enter 6-Digit Code" : otp,
+                            style: TextStyle(
+                              color: otp.isEmpty
+                                  ? const Color(0xFF859BAD)
+                                  : const Color(0xFFF5F5F5),
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: otp.isEmpty ? 0 : 4,
+                            ),
+                          ),
+                          if (otp.isNotEmpty) ...[
+                            SizedBox(width: 6.w),
+                            Container(
+                              width: 2.w,
+                              height: 20.sp,
+                              color: const Color(0xFFB5D43C),
+                            ),
+                          ],
+                        ],
                       ),
                       SizedBox(height: 10.h),
                       Container(
@@ -481,16 +593,41 @@ class _LoginPageState extends State<LoginPage> {
                                 fontSize: 11.sp,
                               ),
                             ),
+                            // ---- Resend (left) + 60s countdown (right), same row ----
                             GestureDetector(
-                              onTap: resendOtp,
-                              child: Text(
-                                "Resend",
-                                style: TextStyle(
-                                  color: const Color(0xFF8A99A6),
-                                  fontSize: 11.sp,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: const Color(0xFF8A99A6),
-                                ),
+                              onTap: _canResend ? resendOtp : null,
+                              behavior: HitTestBehavior.opaque,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "Resend",
+                                    style: TextStyle(
+                                      color: _canResend
+                                          ? const Color(0xFFF5F5F5)
+                                          : const Color(0xFF8A99A6),
+                                      fontSize: 11.sp,
+                                      fontWeight: _canResend
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                      decoration: _canResend
+                                          ? TextDecoration.underline
+                                          : TextDecoration.none,
+                                      decorationColor: const Color(0xFFF5F5F5),
+                                    ),
+                                  ),
+                                  if (!_canResend) ...[
+                                    SizedBox(width: 4.w),
+                                    Text(
+                                      _formatResendTime(_resendSecondsLeft),
+                                      style: TextStyle(
+                                        color: const Color(0xFF8A99A6),
+                                        fontSize: 11.sp,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
@@ -501,87 +638,139 @@ class _LoginPageState extends State<LoginPage> {
                 else
                   Column(
                     children: [
-                      if (error.isNotEmpty)
-                        Text(
-                          error,
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 14.sp,
+                      // Centered container for error message matching divider width (322.w)
+                      Center(
+                        child: SizedBox(
+                          width: 322.w,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (error.isNotEmpty) ...[
+                                Text(
+                                  error,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 14.sp,
+                                  ),
+                                ),
+                                SizedBox(height: 14.h),
+                              ] else ...[
+                                SizedBox(height: 14.h),
+                              ],
+                            ],
                           ),
-                        )
-                      else
-                        SizedBox(height: 14.h),
-                      SizedBox(height: 14.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          CountryCodePicker(
-                            key: ValueKey(selectedIsoCode),
-                            countryFilter: _worldIsoToDialCode.keys.toList(),
-                            onChanged: (country) {
-                              setState(() {
-                                selectedIsoCode = country.code ?? "IN";
-                                selectedDialCode = country.dialCode ?? "+91";
-                                if (phone.length > _currentRequiredPhoneLength) {
-                                  phone = phone.substring(0, _currentRequiredPhoneLength);
-                                }
-                              });
-                            },
-                            initialSelection: selectedIsoCode,
-                            favorite: const ['SG', 'AU', 'KR', 'JP', 'IN', 'GB'],
-                            showCountryOnly: false,
-                            showOnlyCountryWhenClosed: false,
-                            alignLeft: false,
-                            showFlag: true,
-                            showFlagDialog: true,
-                            flagWidth: 24.w,
-                            dialogSize: Size(
-                              MediaQuery.of(context).size.width * 0.88,
-                              MediaQuery.of(context).size.height * 0.70,
-                            ),
-                            textStyle: TextStyle(
-                              color: const Color(0xFFF5F5F5),
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            dialogTextStyle: TextStyle(
-                              fontSize: 16.sp,
-                              color: Colors.black,
-                            ),
-                            searchDecoration: InputDecoration(
-                              hintText: "Search Country",
-                              prefixIcon: const Icon(Icons.search, color: Color(0xFF002C3E)),
-                              filled: true,
-                              fillColor: const Color(0xFFF0F4F8),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            padding: EdgeInsets.zero,
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            phone.isEmpty ? "Your Phone Number" : phone,
-                            style: TextStyle(
-                              color: phone.isNotEmpty
-                                  ? const Color(0xFFF5F5F5)
-                                  : const Color(0xFF859BAD),
-                              fontSize: 20.5.sp,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      SizedBox(height: 8.h),
-                      Container(
-                        width: 322.w,
-                        height: 1,
-                        color: phone.isNotEmpty
-                            ? const Color(0xFFF5F5F5)
-                            : const Color(0xFF294256),
+                      SizedBox(height: 14.h),
+                      // Wrap entire input row within a constrained width container matching divider width (322.w)
+                      Center(
+                        child: SizedBox(
+                          width: 322.w,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  CountryCodePicker(
+                                    key: ValueKey(selectedIsoCode),
+                                    countryFilter: _worldIsoToDialCode.keys.toList(),
+                                    onChanged: (country) {
+                                      setState(() {
+                                        selectedIsoCode = country.code ?? "SG";
+                                        selectedDialCode = country.dialCode ?? "+65";
+                                        if (phone.length > _currentRequiredPhoneLength) {
+                                          phone = phone.substring(0, _currentRequiredPhoneLength);
+                                        }
+                                      });
+                                    },
+                                    initialSelection: selectedIsoCode,
+                                    favorite: const ['SG', 'AU', 'KR', 'JP', 'IN', 'GB'],
+                                    showCountryOnly: false,
+                                    showOnlyCountryWhenClosed: false,
+                                    alignLeft: false,
+                                    showFlag: true,
+                                    showFlagDialog: true,
+                                    flagWidth: 24.w,
+                                    dialogSize: Size(
+                                      MediaQuery.of(context).size.width * 0.88,
+                                      MediaQuery.of(context).size.height * 0.70,
+                                    ),
+                                    textStyle: TextStyle(
+                                      color: const Color(0xFFF5F5F5),
+                                      fontSize: 20.sp,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    dialogTextStyle: TextStyle(
+                                      fontSize: 16.sp,
+                                      color: Colors.black,
+                                    ),
+                                    searchDecoration: InputDecoration(
+                                      hintText: "Search Country",
+                                      prefixIcon: const Icon(Icons.search, color: Color(0xFF002C3E)),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF0F4F8),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (phone.isEmpty) ...[
+                                            Container(
+                                              width: 2.w,
+                                              height: 20.sp,
+                                              color: const Color(0xFFB5D43C),
+                                            ),
+                                            SizedBox(width: 2.w),
+                                          ],
+                                          Text(
+                                            phone.isEmpty ? "Phone Number" : phone,
+                                            maxLines: 1,
+                                            style: TextStyle(
+                                              color: phone.isNotEmpty
+                                                  ? const Color(0xFFF5F5F5)
+                                                  : const Color(0xFF859BAD),
+                                              fontSize: 20.5.sp,
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                          ),
+                                          if (phone.isNotEmpty) ...[
+                                            SizedBox(width: 2.w),
+                                            Container(
+                                              width: 2.w,
+                                              height: 20.sp,
+                                              color: const Color(0xFFB5D43C),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              ),
+                              SizedBox(height: 8.h),
+                              Container(
+                                width: 322.w,
+                                height: 1,
+                                color: phone.isNotEmpty
+                                    ? const Color(0xFFF5F5F5)
+                                    : const Color(0xFF294256),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -652,7 +841,7 @@ class _LoginPageState extends State<LoginPage> {
                           );
                         },
                         child: Text(
-                          "Email Sign Up",
+                          "Email Sign In",
                           style: TextStyle(
                             color: const Color(0xFFD1D9E0),
                             fontSize: 18.sp,
@@ -734,6 +923,14 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+
     );
+  }
+}
+
+class Regz {
+  static bool isRepeatingDigits(String str) {
+    if (str.isEmpty) return false;
+    return str.split('').every((char) => char == str[0]);
   }
 }

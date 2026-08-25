@@ -49,8 +49,20 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     super.dispose();
   }
 
+  // Device time ke hisab se exact dynamic greeting return karne ka method
+  String _getDynamicGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 6 && hour < 12) {
+      return "Morning, welcome back to Solo";
+    } else if (hour >= 12 && hour < 17) {
+      return "Afternoon, welcome back to Solo";
+    } else {
+      return "Evening, welcome back to Solo";
+    }
+  }
+
   // Helper function to clear errors automatically after 4 seconds
-  void _triggerError( {String? email, String? terms}) {
+  void _triggerError({String? email, String? terms}) {
     _errorTimer?.cancel();
     setState(() {
       emailError = email ?? "";
@@ -147,248 +159,287 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF7),
       body: SafeArea(
-        child: Stack(
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: AppSize.h(40)),
-                  Text(
-                    "Let’s keep\nyou connected and cared for",
-                    style: TextStyle(
-                      fontSize: AppSize.sp(44),
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF002C3E),
-                      height: 1.2,
-                    ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              children: [
+                SingleChildScrollView(
+                  physics: keyboardOpen
+                      ? const AlwaysScrollableScrollPhysics()
+                      : const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.only(
+                    left: AppSize.w(24),
+                    right: AppSize.w(24),
+                    // Button aur neeche shift ho gaya hai
+                    bottom: keyboardOpen ? AppSize.h(40) : AppSize.h(16),
                   ),
-                  SizedBox(height: AppSize.h(30)),
-
-                  // Email Error displayed right above the text field if active
-                  if (emailError.isNotEmpty) ...[
-                    Padding(
-                      padding: EdgeInsets.only(bottom: AppSize.h(6), left: 10.0),
-                      child: Text(
-                        emailError,
-                        style: TextStyle(color: Colors.red, fontSize: AppSize.sp(12), fontWeight: FontWeight.w500),
-                      ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 30,
                     ),
-                  ],
-
-                  Container(
-                    width: double.infinity,
-                    height: AppSize.h(56),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(34),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 15,
-                          offset: const Offset(0, 4),
-                        ),
-                        BoxShadow(
-                          color: Colors.grey.withValues(alpha: 0.12),
-                          blurRadius: 0,
-                          offset: const Offset(5, 8),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: emailController,
-                      textAlign: TextAlign.start,
-                      keyboardType: TextInputType.emailAddress,
-                      onChanged: (_) => setState(() {}),
-                      style: TextStyle(
-                          color: const Color(0xFF5A6C7D),
-                          fontSize: AppSize.sp(16),
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400),
-                      decoration: InputDecoration(
-                        hintText: "Email",
-                        hintStyle: const TextStyle(
-                          color: Color(0xFF5A6C7D),
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                        prefixIcon: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Container(
-                            width: 35,
-                            height: 42,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF002C3E),
-                              shape: BoxShape.circle,
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: AppSize.h(70)),
+                          Text(
+                            _getDynamicGreeting(),
+                            style: TextStyle(
+                              fontSize: AppSize.sp(44),
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF002C3E),
+                              height: 1.2,
                             ),
-                            child: const Icon(Icons.email_outlined,
-                                color: Colors.white, size: 20),
                           ),
-                        ),
-                        border: InputBorder.none,
-                        suffixIcon: const SizedBox(width: 40),
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: AppSize.h(14)),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 10.0),
-                    child: Text(
-                      "For notifications, account recovery, updates",
-                      style: TextStyle(
-                        color: const Color(0xFF8A99A6),
-                        fontSize: AppSize.sp(12),
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: AppSize.h(10)),
-                  Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 10.0),
-                        child: GestureDetector(
-                          onTap: () => setState(() => agree = !agree),
-                          child: Container(
-                            width: AppSize.w(24),
-                            height: AppSize.w(24),
-                            padding: const EdgeInsets.all(3),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFFD9E2E8),
-                                width: 2,
-                              ),
-                              color: Colors.white,
-                            ),
-                            child: agree
-                                ? Container(
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFF78BCC4),
-                              ),
-                            )
-                                : null,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: AppSize.w(12)),
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            text: "I agree to our ",
-                            children: [
-                              TextSpan(
-                                text: "Privacy Policy",
-                                recognizer: _privacyRecognizer,
-                                style: const TextStyle(
-                                  color: Color(0xFF5A6C7D),
-                                  decoration: TextDecoration.underline,
-                                  fontWeight: FontWeight.w600,
+                          SizedBox(height: AppSize.h(30)),
+
+                          // Email Error displayed right above the text field if active
+                          if (emailError.isNotEmpty) ...[
+                            Padding(
+                              padding:
+                              EdgeInsets.only(bottom: AppSize.h(6), left: 10.0),
+                              child: Text(
+                                emailError,
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: AppSize.sp(12),
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              const TextSpan(text: " & "),
-                              TextSpan(
-                                text: "Terms of Service",
-                                recognizer: _termsRecognizer,
-                                style: const TextStyle(
+                            ),
+                          ],
+
+                          Container(
+                            width: double.infinity,
+                            height: AppSize.h(56),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(34),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 4),
+                                ),
+                                BoxShadow(
+                                  color: Colors.grey.withValues(alpha: 0.12),
+                                  blurRadius: 0,
+                                  offset: const Offset(5, 8),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              controller: emailController,
+                              textAlign: TextAlign.start,
+                              keyboardType: TextInputType.emailAddress,
+                              onChanged: (_) => setState(() {}),
+                              textAlignVertical: TextAlignVertical.center,
+                              style: TextStyle(
+                                color: const Color(0xFF5A6C7D),
+                                fontSize: AppSize.sp(16),
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w400,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: "Email",
+                                hintStyle: const TextStyle(
                                   color: Color(0xFF5A6C7D),
-                                  decoration: TextDecoration.underline,
-                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                prefixIcon: SizedBox(
+                                  width: 55,
+                                  child: Center(
+                                    child: Container(
+                                      width: 35,
+                                      height: 35,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF002C3E),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.email_outlined,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: AppSize.h(14)),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 10.0),
+                            child: Text(
+                              "For notifications, account recovery, updates",
+                              style: TextStyle(
+                                color: const Color(0xFF8A99A6),
+                                fontSize: AppSize.sp(12),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: AppSize.h(10)),
+                          Row(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 10.0),
+                                child: GestureDetector(
+                                  onTap: () => setState(() => agree = !agree),
+                                  child: Container(
+                                    width: AppSize.w(24),
+                                    height: AppSize.w(24),
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFD9E2E8),
+                                        width: 2,
+                                      ),
+                                      color: Colors.white,
+                                    ),
+                                    child: agree
+                                        ? Container(
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Color(0xFF78BCC4),
+                                      ),
+                                    )
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: AppSize.w(12)),
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    text: "I agree to our ",
+                                    children: [
+                                      TextSpan(
+                                        text: "Privacy Policy",
+                                        recognizer: _privacyRecognizer,
+                                        style: const TextStyle(
+                                          color: Color(0xFF5A6C7D),
+                                          decoration: TextDecoration.underline,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const TextSpan(text: " & "),
+                                      TextSpan(
+                                        text: "Terms of Service",
+                                        recognizer: _termsRecognizer,
+                                        style: const TextStyle(
+                                          color: Color(0xFF5A6C7D),
+                                          decoration: TextDecoration.underline,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: AppSize.sp(12),
+                                    color: const Color(0xFF5A6C7D),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          style: TextStyle(
-                            fontSize: AppSize.sp(12),
-                            color: const Color(0xFF5A6C7D),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
 
-                  // Terms error displayed right below the terms checkbox row if active
-                  if (termsError.isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.only(top: AppSize.h(8), left: 10.0),
-                      child: Text(termsError, style: TextStyle(color: Colors.red, fontSize: AppSize.sp(12))),
-                    ),
-
-                  const Spacer(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
-                        ),
-                        child: Text(
-                          "Sign In",
-                          style: TextStyle(
-                            color: const Color(0xFF8A99A6).withValues(alpha: 0.2),
-                            fontSize: AppSize.sp(18),
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 200),
-                            style: TextStyle(
-                              color: emailFilled
-                                  ? const Color(0xFF8A99A6)
-                                  : const Color(0xFF8A99A6).withValues(alpha: 0.2),
-                              fontSize: AppSize.sp(20),
-                              fontWeight: FontWeight.w400,
-                            ),
-                            child: const Text("Sign Up"),
-                          ),
-                          SizedBox(width: AppSize.w(18)),
-                          GestureDetector(
-                            onTap: loading ? null : submitEmail,
-                            child: loading
-                                ? Container(
-                              width: AppSize.w(62),
-                              height: AppSize.w(62),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFB7D43A),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: Color(0xFF002C3E),
-                                  strokeWidth: 2,
+                          // Terms error displayed right below the terms checkbox row if active
+                          if (termsError.isNotEmpty)
+                            Padding(
+                              padding:
+                              EdgeInsets.only(top: AppSize.h(8), left: 10.0),
+                              child: Text(
+                                termsError,
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: AppSize.sp(12),
                                 ),
                               ),
-                            )
-                                : SvgPicture.asset(
-                              "assets/svg/nextbutton.svg",
-                              width: AppSize.w(62),
-                              height: AppSize.w(62),
+                            ),
+
+                          // Spacer ko chota karke image aur terms ke beech ka gap kam kiya hai
+                          SizedBox(height: AppSize.h(40)),
+                          const Spacer(),
+
+                          // Continue button aur neeche shift kar diya gaya hai
+                          Padding(
+                            padding: EdgeInsets.only(bottom: AppSize.h(10)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginPage(),
+                                    ),
+                                  ),
+                                  child: const SizedBox(width: 18),
+                                ),
+                                Row(
+                                  children: [
+                                    AnimatedDefaultTextStyle(
+                                      duration: const Duration(milliseconds: 200),
+                                      style: TextStyle(
+                                        color: emailFilled
+                                            ? const Color(0xFF8A99A6)
+                                            : const Color(0xFF8A99A6)
+                                            .withValues(alpha: 0.2),
+                                        fontSize: AppSize.sp(20),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      child: const Text("Continue"),
+                                    ),
+                                    SizedBox(width: AppSize.w(18)),
+                                    GestureDetector(
+                                      onTap: loading ? null : submitEmail,
+                                      child: loading
+                                          ? Container(
+                                        width: AppSize.w(62),
+                                        height: AppSize.w(62),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFFB7D43A),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: Color(0xFF002C3E),
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      )
+                                          : SvgPicture.asset(
+                                        "assets/svg/nextbutton.svg",
+                                        width: AppSize.w(62),
+                                        height: AppSize.w(62),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                  SizedBox(height: AppSize.h(20)),
-                ],
-              ),
-            ),
-            if (!keyboardOpen)
-              Positioned(
-                left: -AppSize.w(50),
-                bottom: AppSize.h(60),
-                child: const IgnorePointer(child: SoloMascot()),
-              ),
-          ],
+                ),
+
+                // Mascot ki position
+                if (!keyboardOpen)
+                  Positioned(
+                    left: -AppSize.w(32),
+                    bottom: AppSize.h(80),
+                    child: const IgnorePointer(child: SoloMascot()),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );

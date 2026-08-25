@@ -15,7 +15,6 @@ class SoloOnboardingPage extends StatefulWidget {
 }
 
 class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
-
   final PageController controller = PageController();
   final TextEditingController nameController = TextEditingController();
   int page = 0;
@@ -65,160 +64,141 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
   }
 
   void next() {
-
     if (page < 3) {
-
       controller.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.ease,
       );
-
     } else {
-
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => const RegistrationEmailPage(),
         ),
       );
-
     }
-
   }
 
   @override
   Widget build(BuildContext context) {
-
     AppSize.init(context);
 
     return Scaffold(
-
       backgroundColor: const Color(0xFF88C7CF),
+      resizeToAvoidBottomInset: true, // Fixes keyboard overflow tracking
+      body: SafeArea(
+        child: Column(
+          children: [
+            // PageView ko Expanded diya taaki bachi hui jagah le sake aur scroll ho sake
+            Expanded(
+              child: PageView(
+                controller: controller,
+                onPageChanged: (p) {
+                  setState(() {
+                    page = p;
+                  });
+                },
+                children: [
+                  pageOne(),
+                  pageTwo(),
+                  pageThree(),
+                  pageFour(),
+                ],
+              ),
+            ),
 
-      body: Stack(
-        children: [
-          PageView(
-            controller: controller,
-
-            onPageChanged: (p) {
-              setState(() {
-                page = p;
-              });
-            },
-
-            children: [
-
-              pageOne(),
-              pageTwo(),
-              pageThree(),
-              pageFour(),
-
-            ],
-          ),
-
-          // Bottom navigation and Footer
-          Positioned(
-            bottom: AppSize.h(40),
-            left: AppSize.w(24),
-            right: AppSize.w(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      "Next",
-                      style: TextStyle(
-                        fontSize: AppSize.sp(22),
-                        color: const Color(0xFF0B3948).withValues(alpha: 0.5),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(width: AppSize.w(15)),
-                    GestureDetector(
-                      onTap: next,
-                      child: SvgPicture.asset(
-                        "assets/svg/nextbutton.svg",
-                        height: AppSize.h(64),
-                        width: AppSize.h(64),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: AppSize.h(30)),
-                Text.rich(
-                  TextSpan(
-                    text: "By continuing, you agree to our ",
+            // Bottom Navigation and Footer (Ab ye Stack ki jagah normal flow mein hai, keyboard aane par upar shift hoga ya scrollable ban jayega)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSize.w(24), vertical: AppSize.h(20)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextSpan(
-                        text: "Privacy Policy",
-                        style: const TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.w600),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
-                            );
-                          },
+                      Text(
+                        "Next",
+                        style: TextStyle(
+                          fontSize: AppSize.sp(22),
+                          color: const Color(0xFF0B3948).withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      const TextSpan(text: " & "),
-                      TextSpan(
-                        text: "Terms of Service",
-                        style: const TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.w600),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const TermsOfUsePage()),
-                            );
-                          },
+                      SizedBox(width: AppSize.w(15)),
+                      GestureDetector(
+                        onTap: next,
+                        child: SvgPicture.asset(
+                          "assets/svg/nextbutton.svg",
+                          height: AppSize.h(64),
+                          width: AppSize.h(64),
+                        ),
                       ),
                     ],
                   ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: AppSize.sp(12),
-                    color: const Color(0xFF0B3948).withValues(alpha: 0.6),
+                  SizedBox(height: AppSize.h(20)),
+                  Text.rich(
+                    TextSpan(
+                      text: "By continuing, you agree to our ",
+                      children: [
+                        TextSpan(
+                          text: "Privacy Policy",
+                          style: const TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.w600),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+                              );
+                            },
+                        ),
+                        const TextSpan(text: " & "),
+                        TextSpan(
+                          text: "Terms of Service",
+                          style: const TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.w600),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const TermsOfUsePage()),
+                              );
+                            },
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: AppSize.sp(12),
+                      color: const Color(0xFF0B3948).withValues(alpha: 0.6),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Home Indicator Placeholder (Optional, just for aesthetics in design)
-                Container(
-                  width: AppSize.w(150),
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(2),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: AppSize.w(150),
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget pageOne() {
-
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: AppSize.w(20)),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          //SizedBox(height: AppSize.h(60)),
-
-          // Avatar on the right
           Align(
             alignment: Alignment.centerRight,
             child: _buildMascot(),
           ),
-
-       //   SizedBox(height: AppSize.h(10)),
-
           const Text(
             "Hello",
             style: TextStyle(
@@ -227,10 +207,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
               color: Color(0xFF0B3948),
             ),
           ),
-
           SizedBox(height: AppSize.h(20)),
-
-          // Input field
           Container(
             padding: EdgeInsets.symmetric(horizontal: AppSize.w(15)),
             height: AppSize.h(64),
@@ -265,7 +242,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
                       hintStyle: TextStyle(
                         color: Colors.grey.withValues(alpha: 0.8),
                         fontSize: AppSize.sp(16),
-                        fontWeight: FontWeight.w400
+                        fontWeight: FontWeight.w400,
                       ),
                       border: InputBorder.none,
                     ),
@@ -274,30 +251,23 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
               ],
             ),
           ),
-
         ],
       ),
     );
   }
 
   Widget pageTwo() {
-
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.all(AppSize.w(24)),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           SizedBox(height: AppSize.h(60)),
-
           Align(
             alignment: Alignment.centerRight,
             child: _buildMascot(),
           ),
-
           SizedBox(height: AppSize.h(10)),
-
           Text(
             "Hello Ehtesham...",
             style: TextStyle(
@@ -306,30 +276,23 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
               color: const Color(0xFF0B3948),
             ),
           ),
-
         ],
       ),
     );
   }
 
   Widget pageThree() {
-
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.all(AppSize.w(24)),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           SizedBox(height: AppSize.h(60)),
-
           Align(
             alignment: Alignment.centerRight,
             child: _buildMascot(),
           ),
-
           SizedBox(height: AppSize.h(10)),
-
           Text(
             "I’m SOLO your daily\nCheck-in Buddy",
             style: TextStyle(
@@ -338,9 +301,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
               color: const Color(0xFF0B3948),
             ),
           ),
-
           SizedBox(height: AppSize.h(10)),
-
           Text(
             "I’ll be here for you",
             style: TextStyle(
@@ -349,68 +310,51 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
               color: const Color(0xFF0B3948).withValues(alpha: 0.8),
             ),
           ),
-
         ],
       ),
     );
   }
 
   Widget pageFour() {
-
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.all(AppSize.w(24)),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           SizedBox(height: AppSize.h(60)),
-
           Align(
             alignment: Alignment.centerRight,
             child: _buildMascot(),
           ),
-
-         // SizedBox(height: AppSize.h(5)),
-
           Text(
             "How SOLO works",
             style: TextStyle(
-              fontSize: AppSize.sp(46), 
+              fontSize: AppSize.sp(46),
               fontWeight: FontWeight.w600,
               color: const Color(0xFF0B3948),
             ),
           ),
-
           SizedBox(height: AppSize.h(20)),
-
           buildStep("1", "Choose when I check in on you each day"),
           buildStep("2", "Choose when I alert your contacts"),
           buildStep("3", "I alert your contacts by SMS"),
           buildStep("4", "SOS button for emergency"),
-
         ],
       ),
     );
   }
 
-  Widget buildStep(String number,String text){
-
+  Widget buildStep(String number, String text) {
     return Padding(
       padding: EdgeInsets.only(bottom: AppSize.h(16)),
-
       child: Row(
         children: [
-
           CircleAvatar(
             backgroundColor: Colors.black87,
-            child: Text(number),
+            child: Text(number, style: const TextStyle(color: Colors.white)),
           ),
-
           SizedBox(width: AppSize.w(10)),
-
-          Expanded(child: Text(text))
-
+          Expanded(child: Text(text, style: TextStyle(fontSize: AppSize.sp(16), color: const Color(0xFF0B3948))))
         ],
       ),
     );

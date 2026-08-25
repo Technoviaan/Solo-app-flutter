@@ -175,95 +175,115 @@ class _EmailPageState extends State<EmailPage> {
                           ),
                         ),
                       ),
-                    SizedBox(height: error.isNotEmpty ? AppSize.h(25) : AppSize.h(45)),
+                    SizedBox(height: error.isNotEmpty ? AppSize.h(8) : AppSize.h(45)),
                     if (!isOtpSent)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            width: double.infinity,
-                            height: AppSize.h(56),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(34),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.03),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 4),
-                                ),
-                                const BoxShadow(
-                                  color: Color(0xFFB8C2C8),
-                                  blurRadius: 0,
-                                  offset: Offset(5, 8),
-                                ),
-                              ],
-                            ),
-                            child: TextField(
-                              controller: emailController,
-                              textAlign: TextAlign.start,
-                              keyboardType: TextInputType.emailAddress,
-                              style: TextStyle(
+                              width: double.infinity,
+                              height: AppSize.h(56),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(34),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                  const BoxShadow(
+                                    color: Color(0xFFB8C2C8),
+                                    blurRadius: 0,
+                                    offset: Offset(5, 8),
+                                  ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: emailController,
+                                textAlign: TextAlign.start,
+                                keyboardType: TextInputType.emailAddress,
+                                style: TextStyle(
                                   color: const Color(0xFF5A6C7D),
                                   fontSize: AppSize.sp(16),
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400),
-                              decoration: InputDecoration(
-                                hintText: "Your Email",
-                                hintStyle: const TextStyle(
-                                  color: Color(0xFF8A99A6),
-                                  fontFamily: 'Inter',
                                   fontWeight: FontWeight.w400,
                                 ),
-                                prefixIcon: Padding(
-                                  padding: const EdgeInsets.all(10.0),
-                                  child: Container(
-                                    width: 35,
-                                    height: 42,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF002C3E),
-                                      shape: BoxShape.circle,
+                                decoration: InputDecoration(
+                                  hint: const SizedBox(
+                                    height: 24,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        "Your Email",
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          color: Color(0xFF8A99A6),
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
                                     ),
-                                    child: const Icon(Icons.email_outlined,
-                                        color: Colors.white, size: 20),
+                                  ),
+
+                                  prefixIcon: Padding(
+                                    padding: const EdgeInsets.all(10.0),
+                                    child: Container(
+                                      width: 35,
+                                      height: 42,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF002C3E),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.email_outlined,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+
+                                  border: InputBorder.none,
+
+                                  suffixIcon: const SizedBox(width: 40),
+
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 16,
                                   ),
                                 ),
-                                border: InputBorder.none,
-                                suffixIcon: const SizedBox(width: 40),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
+                              )
                           ),
                           SizedBox(height: AppSize.h(14)),
                           Align(
                             alignment: Alignment.centerRight,
                             child: GestureDetector(
                               onTap: _navigateToPhoneSignIn,
-                              child: Text.rich(
-                                const TextSpan(
-                                  text: "Sign in with ",
-                                  children: [
-                                    TextSpan(
-                                      text: "Phone Number",
-                                      style: TextStyle(
-                                        decoration: TextDecoration.underline,
-                                        fontWeight: FontWeight.w700,
-                                        decorationColor: Color(0xFF8A99A6),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Text.rich(
+                                  const TextSpan(
+                                    text: "Sign in with ",
+                                    children: [
+                                      TextSpan(
+                                        text: "Phone Number",
+                                        style: TextStyle(
+                                          decoration: TextDecoration.underline,
+                                          decorationColor: Color(0xFF8A99A6),
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                style: TextStyle(
-                                  fontSize: AppSize.sp(12),
-                                  color: const Color(0xFF8A99A6),
-                                  fontWeight: FontWeight.w500,
+                                    ],
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: AppSize.sp(11),
+                                    color: const Color(0xFF8A99A6),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          )                        ],
                       )
                     else
                       Column(
@@ -394,35 +414,43 @@ class _EmailPageState extends State<EmailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          "New User?",
-                          style: TextStyle(
-                            color: const Color(0xFF8A99A6),
-                            fontSize: AppSize.sp(13),
-                            fontWeight: FontWeight.w400,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "New User?",
+                                style: TextStyle(
+                                  color: const Color(0xFF8A99A6),
+                                  fontSize: AppSize.sp(11),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                "Sign In With\nPhone Number",
+                                style: TextStyle(
+                                  color: const Color(0xFF8A99A6),
+                                  fontSize: AppSize.sp(11),
+                                  fontWeight: FontWeight.w700,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: const Color(0xFF8A99A6),
+                                  height: 1.2,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        Text(
-                          "Sign Up With\nPhone Number",
-                          style: TextStyle(
-                            color: const Color(0xFF8A99A6),
-                            fontSize: AppSize.sp(13),
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                            decorationColor: const Color(0xFF8A99A6),
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
+                        )                      ],
                     ),
                   ),
                   Row(
                     children: [
                       Text(
-                        "Sign In",
+                        "Continue",
                         style: TextStyle(
                           color: const Color(0xFF002C3E).withValues(alpha: 0.7),
-                          fontSize: AppSize.sp(20),
+                          fontSize: AppSize.sp(16),
                           fontWeight: FontWeight.w600,
                         ),
                       ),

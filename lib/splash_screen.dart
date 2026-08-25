@@ -27,8 +27,6 @@ class SoloLogoWidget extends StatelessWidget {
       height: 130.h * scale,
       child: FittedBox(
         fit: BoxFit.contain,
-        // Animated GIF version of the logo (eyes looking around + ticking clock hand).
-        // Flutter's Image widget plays animated GIFs natively, no extra package needed.
         child: Image.asset(
           'assets/eye_clock_animation.gif',
           width: 281,
@@ -71,7 +69,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void startApp() async {
     if (!mounted) return;
-
 
     try {
       await DeepLinkService.coldStartCheckDone.future
@@ -237,21 +234,21 @@ class _SplashScreenState extends State<SplashScreen> {
           child: const SoloLogoWidget(size: 80),
         ),
         SizedBox(height: 12.h),
-        // Tagline with Smooth Animation
-        // _smoothElement(
-        //   visible: _phase >= 2,
-        //   child: Text(
-        //     "Your Daily Check-In Buddy",
-        //     textAlign: TextAlign.center,
-        //     style: TextStyle(
-        //       fontFamily: 'Poppins',
-        //       color: Colors.white,
-        //       fontSize: 20.6.sp,
-        //       fontWeight: FontWeight.w500,
-        //       letterSpacing: 0.5.w,
-        //     ),
-        //   ),
-        // ),
+        // Tagline with Smooth Animation (Enabled with 20.5 size and 500 weight)
+        _smoothElement(
+          visible: _phase >= 2,
+          child: Text(
+            "Your Daily Check-In Buddy",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              color: Colors.white,
+              fontSize: 20.5.sp,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5.w,
+            ),
+          ),
+        ),
       ],
     );
   }

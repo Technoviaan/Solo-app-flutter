@@ -17,7 +17,6 @@ class NameOnboardingPage extends StatefulWidget {
 
 class _NameOnboardingPageState extends State<NameOnboardingPage> {
   final PageController controller = PageController();
-
   final TextEditingController nameController = TextEditingController();
 
   int page = 0;
@@ -63,7 +62,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
       error = "";
     });
 
-    FocusScope.of(context).unfocus(); // Close keyboard
+    FocusScope.of(context).unfocus();
 
     final res = await NameApi.saveName(enteredName);
 
@@ -75,12 +74,10 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
       await TokenStorage.saveNameCompleted(true);
       await TokenStorage.saveUserName(enteredName);
 
-      /// name state update
       setState(() {
         name = enteredName;
       });
 
-      /// go to next onboarding page
       controller.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.ease,
@@ -142,10 +139,12 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   @override
   Widget build(BuildContext context) {
     AppSize.init(context);
-    bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    bool isKeyboardVisible = keyboardHeight > 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF88C7CF),
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           PageView(
@@ -158,45 +157,73 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
             },
             children: [
               /// PAGE 1
-              buildNamePage(),
+              SafeArea(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    bottom: isKeyboardVisible ? keyboardHeight + 20 : AppSize.h(140),
+                  ),
+                  child: buildNamePage(),
+                ),
+              ),
+
 
               /// PAGE 2
-              buildHelloPage(),
+              SafeArea(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: AppSize.h(160)),
+                  child: buildHelloPage(),
+                ),
+              ),
 
               /// PAGE 3
-              buildHowSoloWorks(),
+              SafeArea(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: AppSize.h(160)),
+                  child: buildHowSoloWorks(),
+                ),
+              ),
             ],
           ),
 
-          // Bottom navigation and Footer
+          // Bottom navigation and Footer (Figma Aligned)
           Positioned(
-            bottom: isKeyboardVisible ? 10 : AppSize.h(40),
+            bottom: isKeyboardVisible ? keyboardHeight + 12 : AppSize.h(24),
             left: AppSize.w(24),
             right: AppSize.w(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      page == 0 ? "Next" : "Get Started",
-                      style: TextStyle(
-                        fontSize: AppSize.sp(20),
-                        color: const Color(0xFF5A6C7D)
-                            .withValues(alpha: isNameEntered || page > 0 ? 0.8 : 0.2),                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(width: AppSize.w(15)),
-                    GestureDetector(
-                      onTap:
-                          (isNameEntered || page > 0) && !loading ? next : null,
-                      child: Opacity(
-                        opacity: isNameEntered || page > 0 ? 1.0 : 0.3,
-                        child: loading
-                            ? Container(
-                                height: AppSize.h(60),
-                                width: AppSize.h(60),
+            child: Container(
+              color: const Color(0xFF88C7CF).withValues(alpha: 0.95),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const SizedBox.shrink(),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            page == 0 ? "Next" : "Get Started",
+                            style: TextStyle(
+                              fontSize: AppSize.sp(18),
+                              color: const Color(0xFF5A6C7D).withValues(
+                                  alpha: isNameEntered || page > 0 ? 0.8 : 0.2),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(width: AppSize.w(12)),
+                          GestureDetector(
+                            onTap: (isNameEntered || page > 0) && !loading
+                                ? next
+                                : null,
+                            child: Opacity(
+                              opacity: isNameEntered || page > 0 ? 1.0 : 0.3,
+                              child: loading
+                                  ? Container(
+                                height: AppSize.h(50),
+                                width: AppSize.h(50),
                                 decoration: const BoxDecoration(
                                   color: Color(0xFFB7D43A),
                                   shape: BoxShape.circle,
@@ -206,60 +233,66 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                                       color: Color(0xFF002C3E)),
                                 ),
                               )
-                            : SvgPicture.asset(
+                                  : SvgPicture.asset(
                                 "assets/svg/nextbutton.svg",
-                                height: AppSize.h(60),
-                                width: AppSize.h(60),
+                                height: AppSize.h(52),
+                                width: AppSize.h(52),
                               ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: AppSize.h(15)),
-                Text.rich(
-                  TextSpan(
-                    text: "By continuing, you agree to our ",
-                    children: [
-                      TextSpan(
-                        text: "Privacy Policy",
-                        style: const TextStyle(
-                            color:  Color(0xFF5A6C7D),
-                            decoration: TextDecoration.underline,
-                            fontWeight: FontWeight.w600
                             ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
-                            );
-                          },
-                      ),
-                      const TextSpan(text: " & "),
-                      TextSpan(
-                        text: "Terms of Service",
-                        style: const TextStyle(
-                            color:  Color(0xFF5A6C7D),
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const TermsOfUsePage()),
-                            );
-                          },
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: AppSize.sp(10),
-                    color: const Color(0xFF5A6C7D),
-                  ),
-                ),
-                // const SizedBox(height: 20),
-              ],
+                  SizedBox(height: AppSize.h(12)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Text.rich(
+                      TextSpan(
+                        text: "By continuing, you agree to our ",
+                        children: [
+                          TextSpan(
+                            text: "Privacy Policy",
+                            style: const TextStyle(
+                                color: Color(0xFF5A6C7D),
+                                decoration: TextDecoration.underline,
+                                fontWeight: FontWeight.w600),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const PrivacyPolicyPage()),
+                                );
+                              },
+                          ),
+                          const TextSpan(text: " & "),
+                          TextSpan(
+                            text: "Terms of Service",
+                            style: const TextStyle(
+                                color: Color(0xFF5A6C7D),
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const TermsOfUsePage()),
+                                );
+                              },
+                          ),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: AppSize.sp(9.5),
+                        color: const Color(0xFF5A6C7D),
+                      ),
+                    ),
+                  ),                ],
+              ),
             ),
           ),
         ],
@@ -274,8 +307,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: AppSize.h(60)),
-
+          SizedBox(height: AppSize.h(20)),
           SizedBox(
             height: AppSize.h(200.13),
             child: Stack(
@@ -285,11 +317,8 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                   alignment: Alignment.centerRight,
                   child: _buildMascot(),
                 ),
-                // SizedBox(height: AppSize.h(60)),
                 Positioned(
                   bottom: -AppSize.h(53),
-
-                  // Moves Hello up into the mascot area
                   left: 0,
                   child: Text(
                     "Hello",
@@ -303,11 +332,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               ],
             ),
           ),
-
-          SizedBox(height: AppSize.h(50)),
-
-          //  SizedBox(height: AppSize.h(5)),
-
+          SizedBox(height: AppSize.h(40)),
           Container(
             padding: EdgeInsets.symmetric(horizontal: AppSize.w(16)),
             height: AppSize.h(56),
@@ -316,9 +341,8 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
+                  color: const Color(0xFFB8C2C8).withValues(alpha: 0.5),
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
@@ -352,7 +376,6 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               ],
             ),
           ),
-
           if (error.isNotEmpty)
             Padding(
               padding: EdgeInsets.only(top: AppSize.h(8), left: AppSize.w(15)),
@@ -373,7 +396,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: AppSize.h(60)),
+          SizedBox(height: AppSize.h(20)),
           SizedBox(
             height: AppSize.h(200),
             child: Stack(
@@ -409,7 +432,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               ],
             ),
           ),
-          SizedBox(height: AppSize.h(100)),
+          SizedBox(height: AppSize.h(95)),
           Text.rich(
             TextSpan(
               text: "I’m ",
@@ -431,7 +454,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const TextSpan(text: "\nI’ll be here for you\n"),
+                const TextSpan(text: "\nI’ll be here for you"),
               ],
             ),
             style: TextStyle(
@@ -441,7 +464,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               height: 1.2,
             ),
           ),
-          SizedBox(height: AppSize.h(8)),
+          SizedBox(height: AppSize.h(16)),
           GestureDetector(
             onTap: () {
               controller.nextPage(
@@ -449,13 +472,13 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 curve: Curves.ease,
               );
             },
-            child: const Text(
+            child: Text(
               "Learn how >",
               style: TextStyle(
-                fontSize: 16,
+                fontSize: AppSize.sp(16),
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.underline,
-                color: Color(0xFF002C3E),
+                color: const Color(0xFF002C3E),
               ),
             ),
           ),
@@ -463,19 +486,27 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
       ),
     );
   }
+
+  /// PAGE 3
   /// PAGE 3
   Widget buildHowSoloWorks() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
+    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    bool isKeyboardVisible = keyboardHeight > 0;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        left: AppSize.w(24),
+        right: AppSize.w(24),
+        bottom: isKeyboardVisible ? keyboardHeight + 100 : AppSize.h(140), // Footer ke liye extra padding
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: AppSize.h(60)),
+          SizedBox(height: AppSize.h(20)),
           Align(
             alignment: Alignment.centerRight,
             child: _buildMascot(),
           ),
-         // SizedBox(height: AppSize.h(10)),
           Text.rich(
             TextSpan(
               text: "How\n",
@@ -494,7 +525,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               height: 1.1,
             ),
           ),
-          SizedBox(height: AppSize.h(30)),
+          SizedBox(height: AppSize.h(20)),
           buildStep(
             "1",
             "Choose when I check in on you each day",
@@ -517,12 +548,12 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
           ),
         ],
       ),
+      
     );
   }
-
   Widget buildStep(String number, String title, String subtitle) {
     return Padding(
-      padding: EdgeInsets.only(bottom: AppSize.h(20)),
+      padding: EdgeInsets.only(bottom: AppSize.h(16)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -562,7 +593,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                   style: TextStyle(
                     fontSize: AppSize.sp(11),
                     color: const Color(0xFF002C3E),
-                      fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
