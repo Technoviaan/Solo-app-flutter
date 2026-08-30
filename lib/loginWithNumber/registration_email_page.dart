@@ -22,7 +22,6 @@ class RegistrationEmailPage extends StatefulWidget {
 class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
   final TextEditingController emailController = TextEditingController();
 
-  // Separate error variables for targeted placement
   String emailError = "";
   String termsError = "";
 
@@ -49,7 +48,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     super.dispose();
   }
 
-  // Device time ke hisab se exact dynamic greeting return karne ka method
   String _getDynamicGreeting() {
     final hour = DateTime.now().hour;
     if (hour >= 6 && hour < 12) {
@@ -61,7 +59,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     }
   }
 
-  // Helper function to clear errors automatically after 4 seconds
   void _triggerError({String? email, String? terms}) {
     _errorTimer?.cancel();
     setState(() {
@@ -170,7 +167,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                   padding: EdgeInsets.only(
                     left: AppSize.w(24),
                     right: AppSize.w(24),
-                    // Button aur neeche shift ho gaya hai
                     bottom: keyboardOpen ? AppSize.h(40) : AppSize.h(16),
                   ),
                   child: ConstrainedBox(
@@ -193,21 +189,25 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                           ),
                           SizedBox(height: AppSize.h(30)),
 
-                          // Email Error displayed right above the text field if active
-                          if (emailError.isNotEmpty) ...[
-                            Padding(
-                              padding:
-                              EdgeInsets.only(bottom: AppSize.h(6), left: 10.0),
-                              child: Text(
-                                emailError,
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: AppSize.sp(12),
-                                  fontWeight: FontWeight.w500,
+                          // FIX 1: Email Error ke liye fixed height container taaki UI jump na kare
+                          SizedBox(
+                            height: AppSize.h(20),
+                            child: Align(
+                              alignment: Alignment.bottomLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 10.0),
+                                child: Text(
+                                  emailError,
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: AppSize.sp(12),
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
-                          ],
+                          ),
+                          SizedBox(height: AppSize.h(4)),
 
                           Container(
                             width: double.infinity,
@@ -348,25 +348,28 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                             ],
                           ),
 
-                          // Terms error displayed right below the terms checkbox row if active
-                          if (termsError.isNotEmpty)
-                            Padding(
-                              padding:
-                              EdgeInsets.only(top: AppSize.h(8), left: 10.0),
-                              child: Text(
-                                termsError,
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: AppSize.sp(12),
+                          // FIX 2: Terms Error ke liye fixed height container
+                          SizedBox(
+                            height: AppSize.h(20),
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: Padding(
+                                padding:
+                                EdgeInsets.only(top: AppSize.h(4), left: 10.0),
+                                child: Text(
+                                  termsError,
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: AppSize.sp(12),
+                                  ),
                                 ),
                               ),
                             ),
+                          ),
 
-                          // Spacer ko chota karke image aur terms ke beech ka gap kam kiya hai
-                          SizedBox(height: AppSize.h(40)),
+                          SizedBox(height: AppSize.h(20)),
                           const Spacer(),
 
-                          // Continue button aur neeche shift kar diya gaya hai
                           Padding(
                             padding: EdgeInsets.only(bottom: AppSize.h(10)),
                             child: Row(
@@ -430,7 +433,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                   ),
                 ),
 
-                // Mascot ki position
                 if (!keyboardOpen)
                   Positioned(
                     left: -AppSize.w(32),

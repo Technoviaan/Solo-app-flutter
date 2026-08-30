@@ -11,19 +11,33 @@ class SoloLogoWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = size / 74.0;
 
-    return SizedBox(
-      width: 278.w * scale,
-      height: 130.h * scale,
-      child: FittedBox(
-        fit: BoxFit.contain,
-
-        child: Image.asset(
-          'assets/eye_clock_animation.gif',
-          width: 281,
-          height: 131,
-          gaplessPlayback: true,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 278.w * scale,
+          height: 130.h * scale,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Image.asset(
+              'assets/eye_clock_animation.gif',
+              width: 281,
+              height: 131,
+              gaplessPlayback: true,
+            ),
+          ),
         ),
-      ),
+        Text(
+          "Your Daily Check-In Buddy",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: AppSize.sp(20),
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
     );
   }
 }

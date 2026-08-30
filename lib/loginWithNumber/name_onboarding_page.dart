@@ -332,7 +332,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               ],
             ),
           ),
-          SizedBox(height: AppSize.h(40)),
+          SizedBox(height: AppSize.h(52)),
           Container(
             padding: EdgeInsets.symmetric(horizontal: AppSize.w(16)),
             height: AppSize.h(56),
@@ -487,7 +487,6 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     );
   }
 
-  /// PAGE 3
   /// PAGE 3
   Widget buildHowSoloWorks() {
     final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;

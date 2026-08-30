@@ -28,7 +28,8 @@
     <application
         android:label="solo_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        android:enableOnBackInvokedCallback="true">
         <service android:name="com.gdelataillade.alarm.services.NotificationOnKillService" />
         <activity
             android:name=".MainActivity"

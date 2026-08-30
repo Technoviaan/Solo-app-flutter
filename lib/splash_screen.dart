@@ -233,22 +233,7 @@ class _SplashScreenState extends State<SplashScreen> {
           visible: _phase >= 1,
           child: const SoloLogoWidget(size: 80),
         ),
-        SizedBox(height: 12.h),
-        // Tagline with Smooth Animation (Enabled with 20.5 size and 500 weight)
-        _smoothElement(
-          visible: _phase >= 2,
-          child: Text(
-            "Your Daily Check-In Buddy",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              color: Colors.white,
-              fontSize: 20.5.sp,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5.w,
-            ),
-          ),
-        ),
+
       ],
     );
   }

@@ -25,6 +25,20 @@ class _EmailPageState extends State<EmailPage> {
   String email = "";
   String otp = "";
 
+  // Dynamic Greeting Logic split with a newline
+  String get _dynamicGreeting {
+    final hour = DateTime.now().hour;
+    String timeGreeting;
+    if (hour >= 6 && hour < 12) {
+      timeGreeting = "Morning";
+    } else if (hour >= 12 && hour < 17) {
+      timeGreeting = "Afternoon";
+    } else {
+      timeGreeting = "Evening";
+    }
+    return "$timeGreeting,\nwelcome back to Solo";
+  }
+
   bool isValidEmail(String email) {
     final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
     return emailRegex.hasMatch(email);
@@ -146,17 +160,19 @@ class _EmailPageState extends State<EmailPage> {
       body: SafeArea(
         child: Column(
           children: [
+            SizedBox(height: 19.h),
             Expanded(
               child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.symmetric(horizontal: AppSize.w(28)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: AppSize.h(40)),
+                    SizedBox(height: AppSize.h(24)),
                     Text(
-                      "Hi Ehtesham,\ngood to see\nyou again",
+                      _dynamicGreeting,
                       style: TextStyle(
-                        fontSize: AppSize.sp(44),
+                        fontSize: AppSize.sp(36),
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF002C3E),
                         height: 1.1,
@@ -165,7 +181,7 @@ class _EmailPageState extends State<EmailPage> {
                     ),
                     if (error.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 14.0),
+                        padding: const EdgeInsets.only(top: 10.0),
                         child: Text(
                           error,
                           style: TextStyle(
@@ -175,7 +191,7 @@ class _EmailPageState extends State<EmailPage> {
                           ),
                         ),
                       ),
-                    SizedBox(height: error.isNotEmpty ? AppSize.h(8) : AppSize.h(45)),
+                    SizedBox(height: error.isNotEmpty ? AppSize.h(8) : AppSize.h(30)),
                     if (!isOtpSent)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,23 +226,12 @@ class _EmailPageState extends State<EmailPage> {
                                   fontWeight: FontWeight.w400,
                                 ),
                                 decoration: InputDecoration(
-                                  hint: const SizedBox(
-                                    height: 24,
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        "Your Email",
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                          color: Color(0xFF8A99A6),
-                                          fontFamily: 'Inter',
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ),
+                                  hintText: "Your Email",
+                                  hintStyle: const TextStyle(
+                                    color: Color(0xFF8A99A6),
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w400,
                                   ),
-
                                   prefixIcon: Padding(
                                     padding: const EdgeInsets.all(10.0),
                                     child: Container(
@@ -243,18 +248,15 @@ class _EmailPageState extends State<EmailPage> {
                                       ),
                                     ),
                                   ),
-
                                   border: InputBorder.none,
-
-                                  suffixIcon: const SizedBox(width: 40),
-
                                   contentPadding: const EdgeInsets.symmetric(
                                     vertical: 16,
+                                    horizontal: 16,
                                   ),
                                 ),
                               )
                           ),
-                          SizedBox(height: AppSize.h(14)),
+                          SizedBox(height: AppSize.h(12)),
                           Align(
                             alignment: Alignment.centerRight,
                             child: GestureDetector(
@@ -283,7 +285,8 @@ class _EmailPageState extends State<EmailPage> {
                                 ),
                               ),
                             ),
-                          )                        ],
+                          )
+                        ],
                       )
                     else
                       Column(
@@ -351,7 +354,7 @@ class _EmailPageState extends State<EmailPage> {
                               ],
                             ),
                           ),
-                          SizedBox(height: AppSize.h(12)),
+                          SizedBox(height: AppSize.h(8)),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Row(
@@ -380,14 +383,14 @@ class _EmailPageState extends State<EmailPage> {
                               ],
                             ),
                           ),
-                          SizedBox(height: AppSize.h(60)),
+                          SizedBox(height: AppSize.h(20)),
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Transform.translate(
                               offset: Offset(-AppSize.w(30), 0),
                               child: SvgPicture.asset(
                                 'assets/svg/email.svg',
-                                width: AppSize.w(210),
+                                width: AppSize.w(160),
                               ),
                             ),
                           ),
@@ -398,12 +401,10 @@ class _EmailPageState extends State<EmailPage> {
               ),
             ),
 
-            if (isOtpSent) SizedBox(height: AppSize.h(20)),
-
-            // Footer Section with updated "New User? Sign Up With Phone Number"
+            // Footer Section with minimized bottom padding
             Padding(
               padding: EdgeInsets.fromLTRB(
-                  AppSize.w(28), 10, AppSize.w(28), AppSize.bottom(24)),
+                  AppSize.w(28), 4, AppSize.w(28), AppSize.bottom(6)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -441,7 +442,8 @@ class _EmailPageState extends State<EmailPage> {
                               ),
                             ],
                           ),
-                        )                      ],
+                        )
+                      ],
                     ),
                   ),
                   Row(
@@ -485,7 +487,6 @@ class _EmailPageState extends State<EmailPage> {
                 ],
               ),
             ),
-
           ],
         ),
       ),

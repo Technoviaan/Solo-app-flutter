@@ -60,7 +60,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       "progress": 0.9,
       "priceId": "price_1TZ993H682jITs1wc1kGxKlC",
     },
-
     {
       "id": "credit_5",
       "big": "5",
@@ -127,6 +126,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       _usedPromoCodes = usedCodes;
       _subscriptionStatus = status;
       _credits = (creditsVal != null && creditsVal > 0) ? creditsVal : 1;
+
+      if (activePlan != null) {
+        _promoSuccess = true;
+        _promoSuccessMessage = activePlan;
+        _hideDisclaimer = true;
+      }
     });
 
     try {
@@ -292,6 +297,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final code = _promoInput.trim();
     if (code.isEmpty) return;
 
+    if (_usedPromoCodes.contains(code.toUpperCase())) {
+      setState(() {
+        _promoError = "Promo Code Already Used";
+      });
+      _clearErrorAfterDelay();
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _promoError = null;
@@ -306,7 +319,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         (res['success'] == true);
 
     if (isSuccess) {
-      final message = res["message"] ?? "Promo applied successfully";
       final plan = res["plan"]?.toString().toUpperCase() ?? "MONTHLY";
 
       String promoType = "1 Month Free Access";
@@ -337,21 +349,20 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         _promoActivationTime = now;
         _hideDisclaimer = true;
         _promoSuccess = true;
-        _promoSuccessMessage = "1 Month Free Access Activated";
+        _promoSuccessMessage = promoType == "1 Year Free Access"
+            ? "1 Year Free Access Activated"
+            : (promoType == "Unlimited Free Access" ? "Unlimited Free Access Activated" : "1 Month Free Access Activated");
         _promoError = null;
         _promoInput = "";
         _promoController.clear();
       });
     } else {
-      final errorText = res?["error"] ?? res?["message"] ?? "Invalid Promo Code";
-
       setState(() {
-        _promoError = errorText;
+        _promoError = "Invalid Promo Code";
       });
       _clearErrorAfterDelay();
     }
   }
-
   void _clearErrorAfterDelay() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
@@ -367,12 +378,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   Widget _buildPromoCodeField() {
     if (_promoSuccess) {
       return Container(
-        height: 44,
+        height: AppSize.h(44),
         decoration: BoxDecoration(
           color: const Color(0xFFD1D9E0),
           borderRadius: BorderRadius.circular(10),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: EdgeInsets.symmetric(horizontal: AppSize.w(14)),
         child: Row(
           children: [
             Container(
@@ -395,9 +406,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   _promoSuccessMessage ?? "1 Month Free Access Activated",
-                  style: const TextStyle(
-                    color: Color(0xFF5A6C7D),
-                    fontSize: 14,
+                  style: TextStyle(
+                    color: const Color(0xFF5A6C7D),
+                    fontSize: AppSize.sp(14),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -408,76 +419,75 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       );
     }
 
-    bool hasText = _promoInput.isNotEmpty;
+    // Agar error hai toh controller me error text daal do taaki box ke andar dikhe
+    if (_promoError != null && _promoController.text != _promoError) {
+      _promoController.text = _promoError!;
+      _promoController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _promoController.text.length),
+      );
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFFD1D9E0),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _promoController,
-                  style: const TextStyle(
-                    color: Color(0xFF5A6C7D),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: "Promo Code",
-                    hintStyle: TextStyle(
-                      color: Color(0xFF8A99A6),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (val) {
-                    setState(() {
-                      _promoInput = val.trim();
-                    });
-                  },
-                ),
+    bool hasText = _promoInput.isNotEmpty && _promoError == null;
+
+    return Container(
+      height: AppSize.h(44),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD1D9E0),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: AppSize.w(14)),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _promoController,
+              // Agar error hai toh text red color me dikhega
+              style: TextStyle(
+                color: _promoError != null ? const Color(0xFFEE6A59) : const Color(0xFF5A6C7D),
+                fontSize: AppSize.sp(14),
+                fontWeight: _promoError != null ? FontWeight.w600 : FontWeight.w500,
               ),
-              GestureDetector(
-                onTap: hasText ? _applyPromoCode : null,
-                child: Text(
-                  "Apply",
-                  style: TextStyle(
-                    color: hasText ? const Color(0xFF5A6C7D) : const Color(0xFF8A99A6),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+              decoration: InputDecoration(
+                hintText: "Promo Code",
+                hintStyle: TextStyle(
+                  color: const Color(0xFF8A99A6),
+                  fontSize: AppSize.sp(14),
+                  fontWeight: FontWeight.w400,
                 ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
-            ],
+              onChanged: (val) {
+                if (_promoError != null) {
+                  setState(() {
+                    _promoError = null;
+                    _promoController.clear();
+                    _promoInput = "";
+                  });
+                } else {
+                  setState(() {
+                    _promoInput = val.trim();
+                  });
+                }
+              },
+            ),
           ),
-        ),
-        if (_promoError != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            _promoError!,
-            style: const TextStyle(
-              color: Color(0xFFEE6A59),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+          GestureDetector(
+            onTap: hasText ? _applyPromoCode : null,
+            child: Text(
+              "Apply",
+              style: TextStyle(
+                color: hasText ? const Color(0xFF5A6C7D) : const Color(0xFF8A99A6),
+                fontSize: AppSize.sp(14),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
-      ],
+      ),
     );
-  }
-
-  @override
+  }  @override
   void dispose() {
     _pageController.dispose();
     _promoController.dispose();
@@ -506,9 +516,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: 235.h,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          padding: EdgeInsets.fromLTRB(10, isMonthly ? 14 : 12, 10, 12),
+          height: AppSize.h(235),
+          margin: EdgeInsets.symmetric(horizontal: AppSize.w(2)),
+          padding: EdgeInsets.fromLTRB(AppSize.w(10), isMonthly ? AppSize.h(14) : AppSize.h(12), AppSize.w(10), AppSize.h(12)),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(20),
@@ -532,15 +542,15 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       fit: BoxFit.scaleDown,
                       child: Text(
                         bigNumber,
-                        style: const TextStyle(
-                          fontSize: 60,
+                        style: TextStyle(
+                          fontSize: AppSize.sp(60),
                           height: 0.9,
                           fontWeight: FontWeight.w700,
                           color: Colors.black87,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: AppSize.h(2)),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
@@ -548,14 +558,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         style: TextStyle(
-                          fontSize: isCredit ? 20.0 : 24.0,
+                          fontSize: isCredit ? AppSize.sp(20.0) : AppSize.sp(24.0),
                           height: 1.1,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: AppSize.h(2)),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
@@ -563,7 +573,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         style: TextStyle(
-                          fontSize: isTrial ? 15.0 : 18.0,
+                          fontSize: isTrial ? AppSize.sp(15.0) : AppSize.sp(18.0),
                           fontWeight: isTrial ? FontWeight.w400 : FontWeight.bold,
                           color: Colors.black,
                           letterSpacing: 0.5,
@@ -571,14 +581,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       ),
                     ),
                     if (saveText != null) ...[
-                      const SizedBox(height: 1),
+                      SizedBox(height: AppSize.h(1)),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           saveText,
                           maxLines: 1,
-                          style: const TextStyle(
-                            fontSize: 11,
+                          style: TextStyle(
+                            fontSize: AppSize.sp(11),
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
                           ),
@@ -588,18 +598,18 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ],
                 ),
               ),
-              SizedBox(height: isMonthly ? 22 : (isYearly || isCredit ? 8 : (isTrial ? 6 : 16))),
+              SizedBox(height: isMonthly ? AppSize.h(22) : (isYearly || isCredit ? AppSize.h(8) : (isTrial ? AppSize.h(6) : AppSize.h(16)))),
               Row(
                 children: [
-                  const Text(
+                  Text(
                     "Benefits",
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: AppSize.sp(13),
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: AppSize.w(8)),
                   Expanded(
                     child: Container(
                       height: 5,
@@ -611,29 +621,29 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: AppSize.h(6)),
               Flexible(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: benefits
                       .map((benefit) => Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
+                    padding: EdgeInsets.only(bottom: AppSize.h(2)),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           "• ",
-                          style: TextStyle(fontSize: 10, color: Colors.black87),
+                          style: TextStyle(fontSize: AppSize.sp(10), color: Colors.black87),
                         ),
-                        const SizedBox(width: 2),
+                        SizedBox(width: AppSize.w(2)),
                         Expanded(
                           child: Text(
                             benefit,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 10,
+                            style: TextStyle(
+                              fontSize: AppSize.sp(10),
                               letterSpacing: -0.5,
                               color: Colors.black87,
                               height: 1.0,
@@ -663,10 +673,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final bool isTopupFocused = activePlanId.startsWith("credit_");
 
     const String dynamicHeadingTitle = "Your credits at a glance";
-
     const String displayHeaderTitle = "Available\nCredits";
     const String displaySubtitle = "This Month";
-
 
     String planLabel = "1 free credit to start";
     String? renewalText;
@@ -721,49 +729,49 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                           children: [
                             IconButton(
                               onPressed: () => Navigator.pop(context),
-                              icon: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4),
-                                child: Icon(Icons.arrow_back, color: Color(0xFFA8B6C2)),
+                              icon: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: const Icon(Icons.arrow_back, color: Color(0xFFA8B6C2)),
                               ),
                               padding: EdgeInsets.zero,
                               alignment: Alignment.centerLeft,
                             ),
-                            const SizedBox(height: 4),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
+                            SizedBox(height: AppSize.h(4)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: Text(
                                 "Keep Your\nCheck-ins\nActive",
                                 style: TextStyle(
-                                  color: Color(0xFF78BCC4),
-                                  fontSize: 36,
+                                  color: const Color(0xFF78BCC4),
+                                  fontSize: AppSize.sp(36),
                                   height: 1.1,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
+                            SizedBox(height: AppSize.h(10)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: Text(
                                 "Subscribe so I can look out for you every day",
                                 style: TextStyle(
-                                  color: Color(0xFFD1D9E0),
-                                  fontSize: 16,
+                                  color: const Color(0xFFD1D9E0),
+                                  fontSize: AppSize.sp(16),
                                   fontWeight: FontWeight.w400,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: AppSize.h(14)),
                             Center(
                               child: SizedBox(
-                                width: 84,
-                                height: 7,
+                                width: AppSize.w(84),
+                                height: AppSize.h(7),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     for (int i = 0; i < _plans.length; i++)
                                       Container(
-                                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                                        margin: EdgeInsets.symmetric(horizontal: AppSize.w(3)),
                                         width: 6,
                                         height: 6,
                                         decoration: BoxDecoration(
@@ -777,13 +785,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Divider(color: Colors.white24),
+                            SizedBox(height: AppSize.h(14)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                              child: const Divider(color: Colors.white24),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                              padding: EdgeInsets.symmetric(vertical: AppSize.h(4), horizontal: AppSize.w(4)),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -791,7 +799,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                     "Plans",
                                     style: TextStyle(
                                       color: !isTopupFocused ? Colors.white : Colors.white54,
-                                      fontSize: 16,
+                                      fontSize: AppSize.sp(16),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -799,20 +807,20 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                     "Add Credits",
                                     style: TextStyle(
                                       color: isTopupFocused ? Colors.white : Colors.white54,
-                                      fontSize: 16,
+                                      fontSize: AppSize.sp(16),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Divider(color: Colors.white24),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                              child: const Divider(color: Colors.white24),
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: AppSize.h(14)),
                             SizedBox(
-                              height: 235,
+                              height: AppSize.h(232),
                               child: PageView.builder(
                                 controller: _pageController,
                                 itemCount: 10000,
@@ -849,49 +857,49 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 },
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: AppSize.h(14)),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: _buildPromoCodeField(),
                             ),
                             if (!_hideDisclaimer) ...[
-                              const SizedBox(height: 12),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4),
+                              SizedBox(height: AppSize.h(12)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                                 child: Text(
                                   "Start your 7‑day free trial. Auto‑renews after trial until cancelled. Cancel anytime in your App Store settings.",
                                   style: TextStyle(
                                     color: Colors.white54,
-                                    fontSize: 10,
+                                    fontSize: AppSize.sp(10),
                                   ),
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 14),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Divider(color: Colors.white24),
+                            SizedBox(height: AppSize.h(14)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                              child: const Divider(color: Colors.white24),
                             ),
-                            const SizedBox(height: 10),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
+                            SizedBox(height: AppSize.h(10)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: Text(
                                 dynamicHeadingTitle,
                                 style: TextStyle(
-                                  color: Color(0xFF78BCC4),
-                                  fontSize: 22,
+                                  color: const Color(0xFF78BCC4),
+                                  fontSize: AppSize.sp(22),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            SizedBox(height: AppSize.h(10)),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: Center(
                                 child: Container(
-                                  width: 342,
-                                  height: 155,
-                                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                                  width: AppSize.w(342),
+                                  height: AppSize.h(155),
+                                  padding: EdgeInsets.fromLTRB(AppSize.w(16), AppSize.h(14), AppSize.w(16), AppSize.h(12)),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF114B5F),
                                     borderRadius: BorderRadius.circular(18),
@@ -904,7 +912,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                           top: -12,
                                           left: 0,
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            padding: EdgeInsets.symmetric(horizontal: AppSize.w(8), vertical: AppSize.h(2)),
                                             decoration: BoxDecoration(
                                               border: Border.all(color: const Color(0xFFEE6A59)),
                                               borderRadius: BorderRadius.circular(4),
@@ -912,9 +920,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                             ),
                                             child: Text(
                                               _activePromoPlan!,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 11,
+                                                fontSize: AppSize.sp(11),
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
@@ -930,41 +938,41 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                if (_activePromoPlan != null) const SizedBox(height: 4),
-                                                const Text(
+                                                if (_activePromoPlan != null) SizedBox(height: AppSize.h(4)),
+                                                Text(
                                                   displayHeaderTitle,
                                                   style: TextStyle(
-                                                    color: Color(0xFFA8B6C2),
-                                                    fontSize: 32, // Text size badha diya gaya hai
+                                                    color: const Color(0xFFA8B6C2),
+                                                    fontSize: AppSize.sp(32),
                                                     fontWeight: FontWeight.w700,
                                                     height: 1.05,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 4),
-                                                const Text(
+                                                SizedBox(height: AppSize.h(4)),
+                                                Text(
                                                   displaySubtitle,
                                                   style: TextStyle(
-                                                    color: Color(0xff89BCC8),
-                                                    fontSize: 16, // Size adjust kiya gaya hai
+                                                    color: const Color(0xff89BCC8),
+                                                    fontSize: AppSize.sp(16),
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 8),
+                                                SizedBox(height: AppSize.h(8)),
                                                 Text(
                                                   planLabel,
-                                                  style: const TextStyle(
-                                                    color: Color(0xFFA8B6C2),
-                                                    fontSize: 11.5, // Thora behtar readability ke liye
+                                                  style: TextStyle(
+                                                    color: const Color(0xFFA8B6C2),
+                                                    fontSize: AppSize.sp(11.5),
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
                                                 if (renewalText != null) ...[
-                                                  const SizedBox(height: 2),
+                                                  SizedBox(height: AppSize.h(2)),
                                                   Text(
                                                     renewalText,
-                                                    style: const TextStyle(
-                                                      color: Color(0xff89BCC8),
-                                                      fontSize: 11,
+                                                    style: TextStyle(
+                                                      color: const Color(0xff89BCC8),
+                                                      fontSize: AppSize.sp(11),
                                                       fontWeight: FontWeight.w600,
                                                     ),
                                                   ),
@@ -974,9 +982,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                           ),
                                           Container(
                                             width: 1,
-                                            height: 115,
+                                            height: AppSize.h(115),
                                             color: const Color(0xff8A99A6),
-                                            margin: const EdgeInsets.symmetric(horizontal: 12),
+                                            margin: EdgeInsets.symmetric(horizontal: AppSize.w(12)),
                                           ),
                                           Expanded(
                                             flex: 4,
@@ -1003,7 +1011,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 24),
+                            SizedBox(height: AppSize.h(24)),
                           ],
                         ),
                       ),
@@ -1048,7 +1056,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     bool shouldDisableClick = (isCtaDisabled || isTrialDisabled) && !isUpgradeText;
 
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                      padding: EdgeInsets.symmetric(horizontal: AppSize.w(22), vertical: AppSize.h(12)),
                       color: const Color(0xFF002C3E),
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -1060,11 +1068,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               buttonText,
                               style: TextStyle(
                                 color: shouldDisableClick ? const Color(0xFF8A99A6) : Colors.white,
-                                fontSize: 15,
+                                fontSize: AppSize.sp(15),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            SizedBox(width: AppSize.w(14)),
                             shouldDisableClick
                                 ? Container(
                               width: 54,

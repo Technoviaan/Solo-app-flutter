@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
   int _resendSecondsLeft = _resendDuration;
   bool _canResend = false;
 
-  // Document ke anusar Excluded / Sanctioned Countries list
+  // Document ke anusار Excluded / Sanctioned Countries list
   static const Set<String> _excludedIsoCodes = {
     // APAC Excluded: North Korea, Iran, Myanmar, USA
     'KP', 'IR', 'MM', 'US',
@@ -141,7 +141,6 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // Starts / restarts the 60 second resend countdown.
   void _startResendTimer() {
     _resendTimer?.cancel();
     setState(() {
@@ -177,7 +176,6 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final locale = WidgetsBinding.instance.platformDispatcher.locale;
       final countryCode = locale.countryCode?.toUpperCase();
-      debugPrint("🔍 [AutoFetch] Device Locale Country Code: $countryCode");
 
       if (countryCode != null &&
           !_excludedIsoCodes.contains(countryCode) &&
@@ -187,22 +185,16 @@ class _LoginPageState extends State<LoginPage> {
             selectedIsoCode = countryCode;
             selectedDialCode = _worldIsoToDialCode[countryCode]!;
           });
-          debugPrint("✅ [AutoFetch] Set from Device Locale -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
         }
       }
-    } catch (e) {
-      debugPrint("❌ [AutoFetch] Device Locale Error: $e");
-    }
+    } catch (_) {}
 
     try {
-      debugPrint("🌐 [AutoFetch] Requesting ipapi.co...");
       final response = await http
           .get(Uri.parse('https://ipapi.co/json/'))
           .timeout(const Duration(seconds: 3));
 
-      debugPrint("📥 [AutoFetch] ipapi.co status: ${response.statusCode}");
       if (response.statusCode == 200) {
-        debugPrint("📥 [AutoFetch] ipapi.co response: ${response.body}");
         final data = jsonDecode(response.body);
         final ipCountry = data['country_code']?.toString().toUpperCase();
         final ipCallingCode = data['country_calling_code']?.toString();
@@ -219,20 +211,16 @@ class _LoginPageState extends State<LoginPage> {
               selectedDialCode = _worldIsoToDialCode[ipCountry]!;
             }
           });
-          debugPrint("✅ [AutoFetch] Set from ipapi.co -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
           return;
         }
       }
-    } catch (e) {
-      debugPrint("⚠️ [AutoFetch] ipapi.co failed: $e. Trying fallback (ip-api.com)...");
+    } catch (_) {
       try {
         final fallbackRes = await http
             .get(Uri.parse('http://ip-api.com/json'))
             .timeout(const Duration(seconds: 3));
 
-        debugPrint("📥 [AutoFetch] ip-api.com status: ${fallbackRes.statusCode}");
         if (fallbackRes.statusCode == 200) {
-          debugPrint("📥 [AutoFetch] ip-api.com response: ${fallbackRes.body}");
           final data = jsonDecode(fallbackRes.body);
           final ipCountry = data['countryCode']?.toString().toUpperCase();
           if (ipCountry != null &&
@@ -243,12 +231,9 @@ class _LoginPageState extends State<LoginPage> {
               selectedIsoCode = ipCountry;
               selectedDialCode = _worldIsoToDialCode[ipCountry]!;
             });
-            debugPrint("✅ [AutoFetch] Set from ip-api.com -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
           }
         }
-      } catch (fallbackError) {
-        debugPrint("❌ [AutoFetch] All IP lookups failed. Keeping fallback/default -> ISO: $selectedIsoCode, Dial: $selectedDialCode");
-      }
+      } catch (_) {}
     }
   }
 
@@ -303,6 +288,7 @@ class _LoginPageState extends State<LoginPage> {
     } else if (dialCode == "+65") {
       if (!RegExp(r'^[389]').hasMatch(number)) return false;
     }
+    if (!RegExp(r'^\d+$').hasMatch(number)) return false;
     return true;
   }
 
@@ -361,7 +347,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void resendOtp() {
-    if (!_canResend) return; // ignore taps while the timer is still running
+    if (!_canResend) return;
 
     setState(() {
       otp = "";
@@ -506,248 +492,78 @@ class _LoginPageState extends State<LoginPage> {
             }
           },
           child: SafeArea(
-            child: Column(
-              children: [
-                SizedBox(height: 36.h),
-
-                // Logo & Tagline Section
-                Center(
-                  child: Column(
-                    children: [
-                      Hero(
-                        tag: 'logo_hero',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: SoloLogoWidget(size: 72.w),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: 80.h),
-
-                if (isOtpSent)
-                  Column(
-                    children: [
-                      // ---- OTP row with blinking-style cursor ----
-                      error.isNotEmpty
-                          ? Text(
-                        error,
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 20.sp,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      )
-                          : Row(
-                        mainAxisSize: MainAxisSize.min,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
                         children: [
-                          if (otp.isEmpty) ...[
-                            Container(
-                              width: 2.w,
-                              height: 20.sp,
-                              color: const Color(0xFFB5D43C),
-                            ),
-                            SizedBox(width: 6.w),
-                          ],
-                          Text(
-                            otp.isEmpty ? "Enter 6-Digit Code" : otp,
-                            style: TextStyle(
-                              color: otp.isEmpty
-                                  ? const Color(0xFF859BAD)
-                                  : const Color(0xFFF5F5F5),
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: otp.isEmpty ? 0 : 4,
-                            ),
-                          ),
-                          if (otp.isNotEmpty) ...[
-                            SizedBox(width: 6.w),
-                            Container(
-                              width: 2.w,
-                              height: 20.sp,
-                              color: const Color(0xFFB5D43C),
-                            ),
-                          ],
-                        ],
-                      ),
-                      SizedBox(height: 10.h),
-                      Container(
-                        width: 322.w,
-                        height: 1,
-                        color: otp.isNotEmpty
-                            ? const Color(0xFFF5F5F5)
-                            : const Color(0xFF294256),
-                      ),
-                      SizedBox(height: 8.h),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 30.w),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Code sent to $lastUsedDialCode ${lastUsedPhone.length > 4 ? "${lastUsedPhone.substring(0, 4)} ${lastUsedPhone.substring(4)}" : lastUsedPhone}",
-                              style: TextStyle(
-                                color: const Color(0xFF8A99A6),
-                                fontSize: 11.sp,
-                              ),
-                            ),
-                            // ---- Resend (left) + 60s countdown (right), same row ----
-                            GestureDetector(
-                              onTap: _canResend ? resendOtp : null,
-                              behavior: HitTestBehavior.opaque,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    "Resend",
-                                    style: TextStyle(
-                                      color: _canResend
-                                          ? const Color(0xFFF5F5F5)
-                                          : const Color(0xFF8A99A6),
-                                      fontSize: 11.sp,
-                                      fontWeight: _canResend
-                                          ? FontWeight.w700
-                                          : FontWeight.w400,
-                                      decoration: _canResend
-                                          ? TextDecoration.underline
-                                          : TextDecoration.none,
-                                      decorationColor: const Color(0xFFF5F5F5),
-                                    ),
-                                  ),
-                                  if (!_canResend) ...[
-                                    SizedBox(width: 4.w),
-                                    Text(
-                                      _formatResendTime(_resendSecondsLeft),
-                                      style: TextStyle(
-                                        color: const Color(0xFF8A99A6),
-                                        fontSize: 11.sp,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Column(
-                    children: [
-                      // Centered container for error message matching divider width (322.w)
-                      Center(
-                        child: SizedBox(
-                          width: 322.w,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              if (error.isNotEmpty) ...[
-                                Text(
-                                  error,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 14.sp,
+                          SizedBox(height: 40.h),
+
+                          // Logo & Tagline Section
+                          Center(
+                            child: Column(
+                              children: [
+                                Hero(
+                                  tag: 'logo_hero',
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: SoloLogoWidget(size: 64.w),
                                   ),
                                 ),
-                                SizedBox(height: 14.h),
-                              ] else ...[
-                                SizedBox(height: 14.h),
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                      SizedBox(height: 14.h),
-                      // Wrap entire input row within a constrained width container matching divider width (322.w)
-                      Center(
-                        child: SizedBox(
-                          width: 322.w,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  CountryCodePicker(
-                                    key: ValueKey(selectedIsoCode),
-                                    countryFilter: _worldIsoToDialCode.keys.toList(),
-                                    onChanged: (country) {
-                                      setState(() {
-                                        selectedIsoCode = country.code ?? "SG";
-                                        selectedDialCode = country.dialCode ?? "+65";
-                                        if (phone.length > _currentRequiredPhoneLength) {
-                                          phone = phone.substring(0, _currentRequiredPhoneLength);
-                                        }
-                                      });
-                                    },
-                                    initialSelection: selectedIsoCode,
-                                    favorite: const ['SG', 'AU', 'KR', 'JP', 'IN', 'GB'],
-                                    showCountryOnly: false,
-                                    showOnlyCountryWhenClosed: false,
-                                    alignLeft: false,
-                                    showFlag: true,
-                                    showFlagDialog: true,
-                                    flagWidth: 24.w,
-                                    dialogSize: Size(
-                                      MediaQuery.of(context).size.width * 0.88,
-                                      MediaQuery.of(context).size.height * 0.70,
-                                    ),
-                                    textStyle: TextStyle(
-                                      color: const Color(0xFFF5F5F5),
-                                      fontSize: 20.sp,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    dialogTextStyle: TextStyle(
-                                      fontSize: 16.sp,
-                                      color: Colors.black,
-                                    ),
-                                    searchDecoration: InputDecoration(
-                                      hintText: "Search Country",
-                                      prefixIcon: const Icon(Icons.search, color: Color(0xFF002C3E)),
-                                      filled: true,
-                                      fillColor: const Color(0xFFF0F4F8),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Expanded(
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerLeft,
-                                      child: Row(
+
+                          SizedBox(height: 32.h),
+
+                          if (isOtpSent)
+                            Column(
+                              children: [
+                                SizedBox(
+                                  height: 35.h,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 322.w,
+                                      child: error.isNotEmpty
+                                          ? Text(
+                                        error,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 14.sp,
+                                        ),
+                                      )
+                                          : Row(
                                         mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          if (phone.isEmpty) ...[
+                                          if (otp.isEmpty) ...[
                                             Container(
                                               width: 2.w,
                                               height: 20.sp,
                                               color: const Color(0xFFB5D43C),
                                             ),
-                                            SizedBox(width: 2.w),
+                                            SizedBox(width: 6.w),
                                           ],
                                           Text(
-                                            phone.isEmpty ? "Phone Number" : phone,
-                                            maxLines: 1,
+                                            otp.isEmpty ? "Enter 6-Digit Code" : otp,
                                             style: TextStyle(
-                                              color: phone.isNotEmpty
-                                                  ? const Color(0xFFF5F5F5)
-                                                  : const Color(0xFF859BAD),
-                                              fontSize: 20.5.sp,
+                                              color: otp.isEmpty
+                                                  ? const Color(0xFF859BAD)
+                                                  : const Color(0xFFF5F5F5),
+                                              fontSize: 20.sp,
                                               fontWeight: FontWeight.w400,
+                                              letterSpacing: otp.isEmpty ? 0 : 4,
                                             ),
                                           ),
-                                          if (phone.isNotEmpty) ...[
-                                            SizedBox(width: 2.w),
+                                          if (otp.isNotEmpty) ...[
+                                            SizedBox(width: 6.w),
                                             Container(
                                               width: 2.w,
                                               height: 20.sp,
@@ -757,173 +573,357 @@ class _LoginPageState extends State<LoginPage> {
                                         ],
                                       ),
                                     ),
-                                  )
-                                ],
-                              ),
-                              SizedBox(height: 8.h),
-                              Container(
-                                width: 322.w,
-                                height: 1,
-                                color: phone.isNotEmpty
-                                    ? const Color(0xFFF5F5F5)
-                                    : const Color(0xFF294256),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                SizedBox(height: 15.h),
-
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 10.h),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          numberButton("1"),
-                          numberButton("2"),
-                          numberButton("3"),
-                          numberButton("4"),
-                        ],
-                      ),
-                      SizedBox(height: 25.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          numberButton("5"),
-                          numberButton("6"),
-                          numberButton("7"),
-                          numberButton("8"),
-                        ],
-                      ),
-                      SizedBox(height: 25.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          numberButton("+",
-                              onTap: (isOtpSent || phone.isNotEmpty)
-                                  ? null
-                                  : () => addDigit("+")),
-                          numberButton("9"),
-                          numberButton("0"),
-                          iconKeyButton(
-                            icon: Icons.backspace_outlined,
-                            onTap: deleteDigit,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Spacer(),
-
-                Padding(
-                  padding: EdgeInsets.only(
-                    bottom: AppSize.bottom(24),
-                    right: 24.w,
-                    left: 24.w,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const EmailPage(),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          "Email Sign In",
-                          style: TextStyle(
-                            color: const Color(0xFFD1D9E0),
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.w400,
-                            height: 1.0,
-                          ),
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            "Next",
-                            style: TextStyle(
-                              color: _isNextButtonEnabled
-                                  ? const Color(0xFFD1D9E0)
-                                  : const Color(0xFFD1D9E0).withOpacity(0.4),
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w400,
-                              height: 1.0,
-                            ),
-                          ),
-                          SizedBox(width: 14.w),
-                          GestureDetector(
-                            onTap: () {
-                              if (!_isNextButtonEnabled ||
-                                  context.read<AuthBloc>().state is AuthLoading) {
-                                return;
-                              }
-                              if (!isOtpSent) {
-                                validateAndSend();
-                              } else {
-                                verifyOtp();
-                              }
-                            },
-                            child: BlocBuilder<AuthBloc, AuthState>(
-                              builder: (context, state) {
-                                if (state is AuthLoading) {
-                                  return Container(
-                                    width: 60.w,
-                                    height: 60.w,
-                                    decoration: BoxDecoration(
-                                      color: _isNextButtonEnabled
-                                          ? const Color(0xFFB5D43C)
-                                          : const Color(0xFFB5D43C).withOpacity(0.4),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 24.w,
-                                        height: 24.w,
-                                        child: const CircularProgressIndicator(
-                                          color: Color(0xFF0A3D56),
-                                          strokeWidth: 2,
+                                  ),
+                                ),
+                                SizedBox(height: 10.h),
+                                Container(
+                                  width: 322.w,
+                                  height: 1,
+                                  color: otp.isNotEmpty
+                                      ? const Color(0xFFF5F5F5)
+                                      : const Color(0xFF294256),
+                                ),
+                                SizedBox(height: 8.h),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 30.w),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Code sent to $lastUsedDialCode ${lastUsedPhone.length > 4 ? "${lastUsedPhone.substring(0, 4)} ${lastUsedPhone.substring(4)}" : lastUsedPhone}",
+                                        style: TextStyle(
+                                          color: const Color(0xFF8A99A6),
+                                          fontSize: 11.sp,
                                         ),
                                       ),
-                                    ),
-                                  );
-                                }
-
-                                return Opacity(
-                                  opacity: _isNextButtonEnabled ? 1.0 : 0.4,
-                                  child: SvgPicture.asset(
-                                    "assets/svg/nextbutton.svg",
-                                    width: 60.w,
-                                    height: 60.w,
+                                      GestureDetector(
+                                        onTap: _canResend ? resendOtp : null,
+                                        behavior: HitTestBehavior.opaque,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              "Resend",
+                                              style: TextStyle(
+                                                color: _canResend
+                                                    ? const Color(0xFFF5F5F5)
+                                                    : const Color(0xFF8A99A6),
+                                                fontSize: 11.sp,
+                                                fontWeight: _canResend
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w400,
+                                                decoration: _canResend
+                                                    ? TextDecoration.underline
+                                                    : TextDecoration.none,
+                                                decorationColor: const Color(0xFFF5F5F5),
+                                              ),
+                                            ),
+                                            if (!_canResend) ...[
+                                              SizedBox(width: 4.w),
+                                              Text(
+                                                _formatResendTime(_resendSecondsLeft),
+                                                style: TextStyle(
+                                                  color: const Color(0xFF8A99A6),
+                                                  fontSize: 11.sp,
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                );
-                              },
+                                ),
+                              ],
+                            )
+                          else
+                            Column(
+                              children: [
+                                SizedBox(
+                                  height: 35.h,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 322.w,
+                                      child: error.isNotEmpty
+                                          ? Text(
+                                        error,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 14.sp,
+                                        ),
+                                      )
+                                          : const SizedBox.shrink(),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 14.h),
+                                Center(
+                                  child: SizedBox(
+                                    width: 322.w,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            CountryCodePicker(
+                                              key: ValueKey(selectedIsoCode),
+                                              countryFilter: _worldIsoToDialCode.keys.toList(),
+                                              onChanged: (country) {
+                                                setState(() {
+                                                  selectedIsoCode = country.code ?? "SG";
+                                                  selectedDialCode = country.dialCode ?? "+65";
+                                                  if (phone.length > _currentRequiredPhoneLength) {
+                                                    phone = phone.substring(0, _currentRequiredPhoneLength);
+                                                  }
+                                                });
+                                              },
+                                              initialSelection: selectedIsoCode,
+                                              favorite: const ['SG', 'AU', 'KR', 'JP', 'IN', 'GB'],
+                                              showCountryOnly: false,
+                                              showOnlyCountryWhenClosed: false,
+                                              alignLeft: false,
+                                              showFlag: true,
+                                              showFlagDialog: true,
+                                              flagWidth: 24.w,
+                                              dialogSize: Size(
+                                                MediaQuery.of(context).size.width * 0.88,
+                                                MediaQuery.of(context).size.height * 0.70,
+                                              ),
+                                              textStyle: TextStyle(
+                                                color: const Color(0xFFF5F5F5),
+                                                fontSize: 20.sp,
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                              dialogTextStyle: TextStyle(
+                                                fontSize: 16.sp,
+                                                color: Colors.black,
+                                              ),
+                                              searchDecoration: InputDecoration(
+                                                hintText: "Search Country",
+                                                prefixIcon: const Icon(Icons.search, color: Color(0xFF002C3E)),
+                                                filled: true,
+                                                fillColor: const Color(0xFFF0F4F8),
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  borderSide: BorderSide.none,
+                                                ),
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                            ),
+                                            SizedBox(width: 4.w),
+                                            Expanded(
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    if (phone.isEmpty) ...[
+                                                      Container(
+                                                        width: 2.w,
+                                                        height: 20.sp,
+                                                        color: const Color(0xFFB5D43C),
+                                                      ),
+                                                      SizedBox(width: 2.w),
+                                                    ],
+                                                    Text(
+                                                      phone.isEmpty ? "Phone Number" : phone,
+                                                      maxLines: 1,
+                                                      style: TextStyle(
+                                                        color: phone.isNotEmpty
+                                                            ? const Color(0xFFF5F5F5)
+                                                            : const Color(0xFF859BAD),
+                                                        fontSize: 20.5.sp,
+                                                        fontWeight: FontWeight.w400,
+                                                      ),
+                                                    ),
+                                                    if (phone.isNotEmpty) ...[
+                                                      SizedBox(width: 2.w),
+                                                      Container(
+                                                        width: 2.w,
+                                                        height: 20.sp,
+                                                        color: const Color(0xFFB5D43C),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            )
+                                          ],
+                                        ),
+                                        SizedBox(height: 8.h),
+                                        Container(
+                                          width: 322.w,
+                                          height: 1,
+                                          color: phone.isNotEmpty
+                                              ? const Color(0xFFF5F5F5)
+                                              : const Color(0xFF294256),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                          SizedBox(height: 30.h),
+
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 10.h),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    numberButton("1"),
+                                    numberButton("2"),
+                                    numberButton("3"),
+                                    numberButton("4"),
+                                  ],
+                                ),
+                                SizedBox(height: 20.h),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    numberButton("5"),
+                                    numberButton("6"),
+                                    numberButton("7"),
+                                    numberButton("8"),
+                                  ],
+                                ),
+                                SizedBox(height: 20.h),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    numberButton("+",
+                                        onTap: (isOtpSent || phone.isNotEmpty)
+                                            ? null
+                                            : () => addDigit("+")),
+                                    numberButton("9"),
+                                    numberButton("0"),
+                                    iconKeyButton(
+                                      icon: Icons.backspace_outlined,
+                                      onTap: deleteDigit,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: 10.h,
+                              bottom: AppSize.bottom(20),
+                              right: 24.w,
+                              left: 24.w,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const EmailPage(),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    "Email Sign In",
+                                    style: TextStyle(
+                                      color: const Color(0xFFD1D9E0),
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      "Next",
+                                      style: TextStyle(
+                                        color: _isNextButtonEnabled
+                                            ? const Color(0xFFD1D9E0)
+                                            : const Color(0xFFD1D9E0).withOpacity(0.4),
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                    SizedBox(width: 14.w),
+                                    GestureDetector(
+                                      onTap: () {
+                                        if (!_isNextButtonEnabled ||
+                                            context.read<AuthBloc>().state is AuthLoading) {
+                                          return;
+                                        }
+                                        if (!isOtpSent) {
+                                          validateAndSend();
+                                        } else {
+                                          verifyOtp();
+                                        }
+                                      },
+                                      child: BlocBuilder<AuthBloc, AuthState>(
+                                        builder: (context, state) {
+                                          if (state is AuthLoading) {
+                                            return Container(
+                                              width: 60.w,
+                                              height: 60.w,
+                                              decoration: BoxDecoration(
+                                                color: _isNextButtonEnabled
+                                                    ? const Color(0xFFB5D43C)
+                                                    : const Color(0xFFB5D43C).withOpacity(0.4),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Center(
+                                                child: SizedBox(
+                                                  width: 24.w,
+                                                  height: 24.w,
+                                                  child: const CircularProgressIndicator(
+                                                    color: Color(0xFF0A3D56),
+                                                    strokeWidth: 2,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }
+
+                                          return Opacity(
+                                            opacity: _isNextButtonEnabled ? 1.0 : 0.4,
+                                            child: SvgPicture.asset(
+                                              "assets/svg/nextbutton.svg",
+                                              width: 60.w,
+                                              height: 60.w,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
       ),
-
     );
   }
 }
