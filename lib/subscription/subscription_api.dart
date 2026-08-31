@@ -59,22 +59,6 @@ class SubscriptionApi {
       savedAnything = true;
     }
 
-    // 2. Credits Extraction (100% Backend response value, no hardcoding)
-    //
-    // 🛠️ FIX: The old chain fell back to the raw `nested["credits"]` /
-    // `data["credits"]` objects themselves when no `remaining` sub-key
-    // existed. If the backend ever sends `credits` as an object without
-    // a `remaining` field (e.g. `{"credits": {"total": 5}}`), that raw
-    // Map would flow into `int.tryParse(rawCredits.toString())`, which
-    // can never parse a Map's toString() and silently returns 0 — wiping
-    // out the user's real credit count with 0 even though nothing was
-    // actually wrong on the backend.
-    //
-    // Now: the raw `credits` key is only used as a last-resort fallback,
-    // and only if it is itself a primitive (int/num/String) — never a
-    // Map. And we only persist a value if it actually parses to a valid
-    // int; if parsing fails for any reason, we keep whatever was already
-    // saved instead of silently overwriting it with 0.
     dynamic rawCredits = nested["credits"]?["remaining"] ??
         nested["remainingCredits"] ??
         nested["creditBalance"] ??

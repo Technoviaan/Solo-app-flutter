@@ -1,3 +1,4 @@
+import 'dart:async'; // Required for Timer
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -363,6 +364,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       _clearErrorAfterDelay();
     }
   }
+
   void _clearErrorAfterDelay() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
@@ -419,7 +421,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       );
     }
 
-    // Agar error hai toh controller me error text daal do taaki box ke andar dikhe
     if (_promoError != null && _promoController.text != _promoError) {
       _promoController.text = _promoError!;
       _promoController.selection = TextSelection.fromPosition(
@@ -441,7 +442,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           Expanded(
             child: TextField(
               controller: _promoController,
-              // Agar error hai toh text red color me dikhega
               style: TextStyle(
                 color: _promoError != null ? const Color(0xFFEE6A59) : const Color(0xFF5A6C7D),
                 fontSize: AppSize.sp(14),
@@ -487,7 +487,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         ],
       ),
     );
-  }  @override
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     _promoController.dispose();
@@ -676,10 +678,22 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     const String displayHeaderTitle = "Available\nCredits";
     const String displaySubtitle = "This Month";
 
+    // Dynamic Badge Label logic following developer guidelines:
+    String badgeLabel = "Trial plan";
+    if (activePlanId == "monthly") {
+      badgeLabel = "Monthly plan";
+    } else if (activePlanId == "yearly") {
+      badgeLabel = "Yearly plan";
+    } else if (isTopupFocused) {
+      badgeLabel = "Top-Up Credits";
+    }
+
+    // Overrides for Subscribed or Promo Code Users
     String planLabel = "1 free credit to start";
     String? renewalText;
 
     if (_activePromoPlan != null) {
+      badgeLabel = _activePromoPlan!;
       planLabel = _activePromoPlan!;
       if (_promoActivationTime != null) {
         if (_activePromoPlan == "1 Month Free Access") {
@@ -693,10 +707,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         }
       }
     } else if (_subscriptionStatus == 1) {
+      badgeLabel = "Trial plan";
       planLabel = "Free Trial Plan";
     } else if (_subscriptionStatus == 2) {
+      badgeLabel = "Monthly Subscription";
       planLabel = "Monthly Subscription";
     } else if (_subscriptionStatus == 3) {
+      badgeLabel = "Yearly Subscription";
       planLabel = "Yearly Subscription";
     }
 
@@ -880,7 +897,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: const Divider(color: Colors.white24),
                             ),
-                            SizedBox(height: AppSize.h(10)),
+                            SizedBox(height: AppSize.h(14)),
+
+                            // Heading First
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: Text(
@@ -892,7 +911,24 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 ),
                               ),
                             ),
+                            SizedBox(height: AppSize.h(8)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  badgeLabel,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: AppSize.sp(11),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
                             SizedBox(height: AppSize.h(10)),
+
+                            // Available Credits Container Box
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                               child: Center(
@@ -904,107 +940,80 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                     color: const Color(0xFF114B5F),
                                     borderRadius: BorderRadius.circular(18),
                                   ),
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      if (_activePromoPlan != null)
-                                        Positioned(
-                                          top: -12,
-                                          left: 0,
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(horizontal: AppSize.w(8), vertical: AppSize.h(2)),
-                                            decoration: BoxDecoration(
-                                              border: Border.all(color: const Color(0xFFEE6A59)),
-                                              borderRadius: BorderRadius.circular(4),
-                                              color: const Color(0xFF114B5F),
-                                            ),
-                                            child: Text(
-                                              _activePromoPlan!,
+                                      Expanded(
+                                        flex: 5,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              displayHeaderTitle,
                                               style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: AppSize.sp(11),
+                                                color: const Color(0xFFA8B6C2),
+                                                fontSize: AppSize.sp(32),
+                                                fontWeight: FontWeight.w700,
+                                                height: 1.05,
+                                              ),
+                                            ),
+                                            SizedBox(height: AppSize.h(4)),
+                                            Text(
+                                              displaySubtitle,
+                                              style: TextStyle(
+                                                color: const Color(0xff89BCC8),
+                                                fontSize: AppSize.sp(16),
                                                 fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            SizedBox(height: AppSize.h(8)),
+                                            Text(
+                                              planLabel,
+                                              style: TextStyle(
+                                                color: const Color(0xFFA8B6C2),
+                                                fontSize: AppSize.sp(11.5),
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            if (renewalText != null) ...[
+                                              SizedBox(height: AppSize.h(2)),
+                                              Text(
+                                                renewalText,
+                                                style: TextStyle(
+                                                  color: const Color(0xff89BCC8),
+                                                  fontSize: AppSize.sp(11),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        height: AppSize.h(115),
+                                        color: const Color(0xff8A99A6),
+                                        margin: EdgeInsets.symmetric(horizontal: AppSize.w(12)),
+                                      ),
+                                      Expanded(
+                                        flex: 4,
+                                        child: Center(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              mainDisplayValue,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: const Color(0xFFA8B6C2),
+                                                fontSize: dynamicFontSize,
+                                                fontWeight: FontWeight.w500,
+                                                height: 1.0,
                                               ),
                                             ),
                                           ),
                                         ),
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Expanded(
-                                            flex: 5,
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (_activePromoPlan != null) SizedBox(height: AppSize.h(4)),
-                                                Text(
-                                                  displayHeaderTitle,
-                                                  style: TextStyle(
-                                                    color: const Color(0xFFA8B6C2),
-                                                    fontSize: AppSize.sp(32),
-                                                    fontWeight: FontWeight.w700,
-                                                    height: 1.05,
-                                                  ),
-                                                ),
-                                                SizedBox(height: AppSize.h(4)),
-                                                Text(
-                                                  displaySubtitle,
-                                                  style: TextStyle(
-                                                    color: const Color(0xff89BCC8),
-                                                    fontSize: AppSize.sp(16),
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                SizedBox(height: AppSize.h(8)),
-                                                Text(
-                                                  planLabel,
-                                                  style: TextStyle(
-                                                    color: const Color(0xFFA8B6C2),
-                                                    fontSize: AppSize.sp(11.5),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                                if (renewalText != null) ...[
-                                                  SizedBox(height: AppSize.h(2)),
-                                                  Text(
-                                                    renewalText,
-                                                    style: TextStyle(
-                                                      color: const Color(0xff89BCC8),
-                                                      fontSize: AppSize.sp(11),
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                          Container(
-                                            width: 1,
-                                            height: AppSize.h(115),
-                                            color: const Color(0xff8A99A6),
-                                            margin: EdgeInsets.symmetric(horizontal: AppSize.w(12)),
-                                          ),
-                                          Expanded(
-                                            flex: 4,
-                                            child: Center(
-                                              child: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Text(
-                                                  mainDisplayValue,
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(
-                                                    color: const Color(0xFFA8B6C2),
-                                                    fontSize: dynamicFontSize,
-                                                    fontWeight: FontWeight.w500,
-                                                    height: 1.0,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
                                       ),
                                     ],
                                   ),

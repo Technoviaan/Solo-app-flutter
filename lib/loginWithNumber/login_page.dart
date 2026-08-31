@@ -520,7 +520,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
 
-                          SizedBox(height: 32.h),
+                          SizedBox(height: 63.h),
 
                           if (isOtpSent)
                             Column(
@@ -580,6 +580,7 @@ class _LoginPageState extends State<LoginPage> {
                                   width: 322.w,
                                   height: 1,
                                   color: otp.isNotEmpty
+
                                       ? const Color(0xFFF5F5F5)
                                       : const Color(0xFF294256),
                                 ),
@@ -815,7 +816,6 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
 
-                          const Spacer(),
 
                           Padding(
                             padding: EdgeInsets.only(
