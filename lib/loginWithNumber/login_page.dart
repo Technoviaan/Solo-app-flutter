@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -855,7 +854,7 @@ class _LoginPageState extends State<LoginPage> {
                                       style: TextStyle(
                                         color: _isNextButtonEnabled
                                             ? const Color(0xFFD1D9E0)
-                                            : const Color(0xFFD1D9E0).withOpacity(0.4),
+                                            : const Color(0xFFD1D9E0).withValues(alpha: 0.4),
                                         fontSize: 18.sp,
                                         fontWeight: FontWeight.w400,
                                         height: 1.0,
@@ -883,7 +882,7 @@ class _LoginPageState extends State<LoginPage> {
                                               decoration: BoxDecoration(
                                                 color: _isNextButtonEnabled
                                                     ? const Color(0xFFB5D43C)
-                                                    : const Color(0xFFB5D43C).withOpacity(0.4),
+                                                    : const Color(0xFFB5D43C).withValues(alpha: 0.4),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: Center(
