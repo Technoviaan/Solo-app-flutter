@@ -16,25 +16,14 @@ class SoloLogoWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 278.w * scale,
+          width: 400.w * scale,
           height: 130.h * scale,
           child: FittedBox(
             fit: BoxFit.contain,
             child: Image.asset(
               'assets/eye_clock_animation.gif',
-              width: 281,
-              height: 131,
               gaplessPlayback: true,
             ),
-          ),
-        ),
-        Text(
-          "Your Daily Check-In Buddy",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: AppSize.sp(20),
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.2,
           ),
         ),
       ],

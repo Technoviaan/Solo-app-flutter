@@ -520,7 +520,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
 
-                          SizedBox(height: 63.h),
+                          SizedBox(height: 140.h),
 
                           if (isOtpSent)
                             Column(
@@ -551,6 +551,7 @@ class _LoginPageState extends State<LoginPage> {
                                             ),
                                             SizedBox(width: 6.w),
                                           ],
+
                                           Text(
                                             otp.isEmpty ? "Enter 6-Digit Code" : otp,
                                             style: TextStyle(

@@ -22,8 +22,9 @@ class SoloLogoWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = size / 74.0;
 
+    
     return SizedBox(
-      width: 278.w * scale,
+      width: 400.w * scale,
       height: 130.h * scale,
       child: FittedBox(
         fit: BoxFit.contain,
