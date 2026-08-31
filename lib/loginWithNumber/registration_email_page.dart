@@ -48,17 +48,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     super.dispose();
   }
 
-  String _getDynamicGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour >= 6 && hour < 12) {
-      return "Morning, welcome back to Solo";
-    } else if (hour >= 12 && hour < 17) {
-      return "Afternoon, welcome back to Solo";
-    } else {
-      return "Evening, welcome back to Solo";
-    }
-  }
-
   void _triggerError({String? email, String? terms}) {
     _errorTimer?.cancel();
     setState(() {
@@ -179,7 +168,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                         children: [
                           SizedBox(height: AppSize.h(70)),
                           Text(
-                            _getDynamicGreeting(),
+                            "Let's keep \nyou connected \nand cared for",
                             style: TextStyle(
                               fontSize: AppSize.sp(44),
                               fontWeight: FontWeight.w600,
@@ -187,9 +176,9 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                               height: 1.2,
                             ),
                           ),
-                          SizedBox(height: AppSize.h(30)),
+                          SizedBox(height: AppSize.h(35)),
 
-                          // FIX 1: Email Error ke liye fixed height container taaki UI jump na kare
+                          // Email Error container
                           SizedBox(
                             height: AppSize.h(20),
                             child: Align(
@@ -348,14 +337,14 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                             ],
                           ),
 
-                          // FIX 2: Terms Error ke liye fixed height container
+                          // Terms Error container
                           SizedBox(
                             height: AppSize.h(20),
                             child: Align(
                               alignment: Alignment.topLeft,
                               child: Padding(
-                                padding:
-                                EdgeInsets.only(top: AppSize.h(4), left: 10.0),
+                                padding: EdgeInsets.only(
+                                    top: AppSize.h(4), left: 10.0),
                                 child: Text(
                                   termsError,
                                   style: TextStyle(
@@ -387,7 +376,8 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                 Row(
                                   children: [
                                     AnimatedDefaultTextStyle(
-                                      duration: const Duration(milliseconds: 200),
+                                      duration:
+                                      const Duration(milliseconds: 200),
                                       style: TextStyle(
                                         color: emailFilled
                                             ? const Color(0xFF8A99A6)
@@ -410,7 +400,8 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Center(
-                                          child: CircularProgressIndicator(
+                                          child:
+                                          CircularProgressIndicator(
                                             color: Color(0xFF002C3E),
                                             strokeWidth: 2,
                                           ),
@@ -435,8 +426,9 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
 
                 if (!keyboardOpen)
                   Positioned(
-                    left: -AppSize.w(32),
-                    bottom: AppSize.h(80),
+                    left: -AppSize.w(36),
+                    bottom: AppSize.h(50),
+
                     child: const IgnorePointer(child: SoloMascot()),
                   ),
               ],
