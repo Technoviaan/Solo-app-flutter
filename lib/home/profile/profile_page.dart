@@ -69,7 +69,7 @@ class _ProfilePageState extends State<ProfilePage> {
       gender = userMap['gender'];
       if (userMap['profileImage'] != null && userMap['profileImage'] != '') {
         profileImageUrl =
-            'https://mvp-backend-3rq1.onrender.com${userMap["profileImage"]}?t=${DateTime.now().millisecondsSinceEpoch}';
+            'https://api.hello-solo.com${userMap["profileImage"]}?t=${DateTime.now().millisecondsSinceEpoch}';
       }
     } else {
       // Fallback to local storage if API fails or name is empty

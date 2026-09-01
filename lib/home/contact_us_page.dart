@@ -45,7 +45,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
   static const int maxDescriptionLength = 500;
 
   // 📍 Direct VPS Base URL Setup
-  final String vpsBaseUrl = "https://187.127.122.25/api";
+  final String vpsBaseUrl = "https://api.hello-solo.com/api";
 
   @override
   void initState() {

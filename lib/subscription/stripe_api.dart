@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/network/api_config.dart';
@@ -15,14 +9,16 @@ class StripeApi {
 
   /// ================= CREATE TRIAL SESSION =================
   /// POST /stripe/create-trial
-  /// Sends Monthly Price ID, returns Stripe Checkout URL for 7-day trial + monthly sub.
   static Future<String?> createTrialSession(String priceId) async {
     lastErrorMessage = null;
     try {
       final token = await TokenStorage.getToken();
       final url = Uri.parse("${ApiConfig.baseUrl}/stripe/create-trial");
 
-      print("StripeApi: Creating trial checkout session with Price ID: $priceId");
+      print("\n==================================================");
+      print("🚀 [StripeApi] POST Request: $url");
+      print("📦 [StripeApi] Payload: ${jsonEncode({"priceId": priceId})}");
+      print("==================================================\n");
 
       final response = await http.post(
         url,
@@ -35,8 +31,10 @@ class StripeApi {
         }),
       );
 
-      print("StripeApi: Create trial response status = ${response.statusCode}");
-      print("StripeApi: Create trial response body = ${response.body}");
+      print("\n==================================================");
+      print("📥 [StripeApi] Trial Response Status: ${response.statusCode}");
+      print("📥 [StripeApi] Trial Response Body: ${response.body}");
+      print("==================================================\n");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -46,24 +44,26 @@ class StripeApi {
           final data = jsonDecode(response.body);
           lastErrorMessage = data["message"] as String?;
         } catch (_) {}
-        print("StripeApi: createTrialSession failed -> $lastErrorMessage");
+        print("❌ [StripeApi] createTrialSession failed -> $lastErrorMessage");
       }
     } catch (e) {
-      print("StripeApi Error (createTrialSession): $e");
+      print("❌ [StripeApi Error (createTrialSession)]: $e");
     }
     return null;
   }
 
   /// ================= CREATE SUBSCRIPTION SESSION =================
   /// POST /stripe/create-subscription
-  /// Returns the Stripe checkout URL.
   static Future<String?> createSubscriptionSession(String priceId) async {
     lastErrorMessage = null;
     try {
       final token = await TokenStorage.getToken();
       final url = Uri.parse("${ApiConfig.baseUrl}/stripe/create-subscription");
 
-      print("StripeApi: Creating subscription checkout session for Price ID: $priceId");
+      print("\n==================================================");
+      print("🚀 [StripeApi] POST Request: $url");
+      print("📦 [StripeApi] Payload: ${jsonEncode({"priceId": priceId})}");
+      print("==================================================\n");
 
       final response = await http.post(
         url,
@@ -76,8 +76,10 @@ class StripeApi {
         }),
       );
 
-      print("StripeApi: Create subscription response status = ${response.statusCode}");
-      print("StripeApi: Create subscription response body = ${response.body}");
+      print("\n==================================================");
+      print("📥 [StripeApi] Subscription Response Status: ${response.statusCode}");
+      print("📥 [StripeApi] Subscription Response Body: ${response.body}");
+      print("==================================================\n");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -87,24 +89,26 @@ class StripeApi {
           final data = jsonDecode(response.body);
           lastErrorMessage = data["message"] as String?;
         } catch (_) {}
-        print("StripeApi: createSubscriptionSession failed -> $lastErrorMessage");
+        print("❌ [StripeApi] createSubscriptionSession failed -> $lastErrorMessage");
       }
     } catch (e) {
-      print("StripeApi Error (createSubscriptionSession): $e");
+      print("❌ [StripeApi Error (createSubscriptionSession)]: $e");
     }
     return null;
   }
 
   /// ================= CREATE TOP-UP SESSION =================
   /// POST /stripe/create-topup
-  /// Returns the Stripe checkout URL.
   static Future<String?> createTopupSession(String priceId) async {
     lastErrorMessage = null;
     try {
       final token = await TokenStorage.getToken();
       final url = Uri.parse("${ApiConfig.baseUrl}/stripe/create-topup");
 
-      print("StripeApi: Creating topup checkout session for Price ID: $priceId");
+      print("\n==================================================");
+      print("🚀 [StripeApi] POST Request: $url");
+      print("📦 [StripeApi] Payload: ${jsonEncode({"priceId": priceId})}");
+      print("==================================================\n");
 
       final response = await http.post(
         url,
@@ -117,8 +121,10 @@ class StripeApi {
         }),
       );
 
-      print("StripeApi: Create topup response status = ${response.statusCode}");
-      print("StripeApi: Create topup response body = ${response.body}");
+      print("\n==================================================");
+      print("📥 [StripeApi] Topup Response Status: ${response.statusCode}");
+      print("📥 [StripeApi] Topup Response Body: ${response.body}");
+      print("==================================================\n");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -128,23 +134,24 @@ class StripeApi {
           final data = jsonDecode(response.body);
           lastErrorMessage = data["message"] as String?;
         } catch (_) {}
-        print("StripeApi: createTopupSession failed -> $lastErrorMessage");
+        print("❌ [StripeApi] createTopupSession failed -> $lastErrorMessage");
       }
     } catch (e) {
-      print("StripeApi Error (createTopupSession): $e");
+      print("❌ [StripeApi Error (createTopupSession)]: $e");
     }
     return null;
   }
 
   /// ================= OPEN CUSTOMER PORTAL =================
   /// POST /stripe/open-portal
-  /// Returns the Customer Portal URL.
   static Future<String?> openPortal() async {
     try {
       final token = await TokenStorage.getToken();
       final url = Uri.parse("${ApiConfig.baseUrl}/stripe/open-portal");
 
-      print("StripeApi: Opening customer portal");
+      print("\n==================================================");
+      print("🚀 [StripeApi] POST Request (Open Portal): $url");
+      print("==================================================\n");
 
       final response = await http.post(
         url,
@@ -154,15 +161,17 @@ class StripeApi {
         },
       );
 
-      print("StripeApi: Open portal response status = ${response.statusCode}");
-      print("StripeApi: Open portal response body = ${response.body}");
+      print("\n==================================================");
+      print("📥 [StripeApi] Open Portal Response Status: ${response.statusCode}");
+      print("📥 [StripeApi] Open Portal Response Body: ${response.body}");
+      print("==================================================\n");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return data["url"] as String?;
       }
     } catch (e) {
-      print("StripeApi Error (openPortal): $e");
+      print("❌ [StripeApi Error (openPortal)]: $e");
     }
     return null;
   }

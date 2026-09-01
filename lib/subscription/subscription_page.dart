@@ -934,88 +934,93 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               child: Center(
                                 child: Container(
                                   width: AppSize.w(342),
-                                  height: AppSize.h(155),
+                                  constraints: BoxConstraints(minHeight: AppSize.h(155)),
                                   padding: EdgeInsets.fromLTRB(AppSize.w(16), AppSize.h(14), AppSize.w(16), AppSize.h(12)),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF114B5F),
                                     borderRadius: BorderRadius.circular(18),
                                   ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(
-                                        flex: 5,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              displayHeaderTitle,
-                                              style: TextStyle(
-                                                color: const Color(0xFFA8B6C2),
-                                                fontSize: AppSize.sp(32),
-                                                fontWeight: FontWeight.w700,
-                                                height: 1.05,
-                                              ),
-                                            ),
-                                            SizedBox(height: AppSize.h(4)),
-                                            Text(
-                                              displaySubtitle,
-                                              style: TextStyle(
-                                                color: const Color(0xff89BCC8),
-                                                fontSize: AppSize.sp(16),
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            SizedBox(height: AppSize.h(8)),
-                                            Text(
-                                              planLabel,
-                                              style: TextStyle(
-                                                color: const Color(0xFFA8B6C2),
-                                                fontSize: AppSize.sp(11.5),
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            if (renewalText != null) ...[
-                                              SizedBox(height: AppSize.h(2)),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          flex: 5,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
                                               Text(
-                                                renewalText,
+                                                displayHeaderTitle,
+                                                style: TextStyle(
+                                                  color: const Color(0xFFA8B6C2),
+                                                  fontSize: AppSize.sp(32),
+                                                  fontWeight: FontWeight.w700,
+                                                  height: 1.05,
+                                                ),
+                                              ),
+                                              SizedBox(height: AppSize.h(4)),
+                                              Text(
+                                                displaySubtitle,
                                                 style: TextStyle(
                                                   color: const Color(0xff89BCC8),
-                                                  fontSize: AppSize.sp(11),
+                                                  fontSize: AppSize.sp(16),
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
+                                              SizedBox(height: AppSize.h(8)),
+                                              Text(
+                                                planLabel,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: const Color(0xFFA8B6C2),
+                                                  fontSize: AppSize.sp(11.5),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              if (renewalText != null) ...[
+                                                SizedBox(height: AppSize.h(2)),
+                                                Text(
+                                                  renewalText,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: const Color(0xff89BCC8),
+                                                    fontSize: AppSize.sp(11),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
                                             ],
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                      Container(
-                                        width: 1,
-                                        height: AppSize.h(115),
-                                        color: const Color(0xff8A99A6),
-                                        margin: EdgeInsets.symmetric(horizontal: AppSize.w(12)),
-                                      ),
-                                      Expanded(
-                                        flex: 4,
-                                        child: Center(
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Text(
-                                              mainDisplayValue,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: const Color(0xFFA8B6C2),
-                                                fontSize: dynamicFontSize,
-                                                fontWeight: FontWeight.w500,
-                                                height: 1.0,
+                                        Container(
+                                          width: 1,
+                                          color: const Color(0xff8A99A6),
+                                          margin: EdgeInsets.symmetric(horizontal: AppSize.w(12)),
+                                        ),
+                                        Expanded(
+                                          flex: 4,
+                                          child: Center(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                mainDisplayValue,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: const Color(0xFFA8B6C2),
+                                                  fontSize: dynamicFontSize,
+                                                  fontWeight: FontWeight.w500,
+                                                  height: 1.0,
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
