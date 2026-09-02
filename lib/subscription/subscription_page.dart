@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
 import '../home/checkin/local_storage.dart';
+import '../home/home_page.dart';
 import 'stripe_api.dart';
 import 'subscription_api.dart';
 
@@ -287,6 +288,22 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
 
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  // Handles both the AppBar back icon and the Android hardware back button.
+  // This screen is sometimes opened with pushReplacement/pushAndRemoveUntil
+  // (e.g. from login/OTP/registration/splash flows) so there is nothing left
+  // to pop in that case — instead of letting the app close, send the user
+  // to HomePage so subscription is effectively skipped for now.
+  void _handleBackNavigation() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -725,419 +742,427 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         ? 70.0
         : 50.0;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF002C3E),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _loadPromoState,
-                    color: const Color(0xFF78BCC4),
-                    backgroundColor: const Color(0xFF114B5F),
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: AppSize.w(18)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                                child: const Icon(Icons.arrow_back, color: Color(0xFFA8B6C2)),
-                              ),
-                              padding: EdgeInsets.zero,
-                              alignment: Alignment.centerLeft,
-                            ),
-                            SizedBox(height: AppSize.h(4)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: Text(
-                                "Keep Your\nCheck-ins\nActive",
-                                style: TextStyle(
-                                  color: const Color(0xFF78BCC4),
-                                  fontSize: AppSize.sp(36),
-                                  height: 1.1,
-                                  fontWeight: FontWeight.w600,
+    return PopScope(
+      canPop: Navigator.canPop(context),
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _handleBackNavigation();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF002C3E),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _loadPromoState,
+                      color: const Color(0xFF78BCC4),
+                      backgroundColor: const Color(0xFF114B5F),
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: AppSize.w(18)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                onPressed: _handleBackNavigation,
+                                icon: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                  child: const Icon(Icons.arrow_back, color: Color(0xFFA8B6C2)),
                                 ),
+                                padding: EdgeInsets.zero,
+                                alignment: Alignment.centerLeft,
                               ),
-                            ),
-                            SizedBox(height: AppSize.h(10)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: Text(
-                                "Subscribe so I can look out for you every day",
-                                style: TextStyle(
-                                  color: const Color(0xFFD1D9E0),
-                                  fontSize: AppSize.sp(16),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: AppSize.h(14)),
-                            Center(
-                              child: SizedBox(
-                                width: AppSize.w(84),
-                                height: AppSize.h(7),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    for (int i = 0; i < _plans.length; i++)
-                                      Container(
-                                        margin: EdgeInsets.symmetric(horizontal: AppSize.w(3)),
-                                        width: 6,
-                                        height: 6,
-                                        decoration: BoxDecoration(
-                                          color: (i == (_currentPage.round() % _plans.length))
-                                              ? const Color(0xFFF28D7D)
-                                              : Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: AppSize.h(14)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: const Divider(color: Colors.white24),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(vertical: AppSize.h(4), horizontal: AppSize.w(4)),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Plans",
-                                    style: TextStyle(
-                                      color: !isTopupFocused ? Colors.white : Colors.white54,
-                                      fontSize: AppSize.sp(16),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    "Add Credits",
-                                    style: TextStyle(
-                                      color: isTopupFocused ? Colors.white : Colors.white54,
-                                      fontSize: AppSize.sp(16),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: const Divider(color: Colors.white24),
-                            ),
-                            SizedBox(height: AppSize.h(14)),
-                            SizedBox(
-                              height: AppSize.h(232),
-                              child: PageView.builder(
-                                controller: _pageController,
-                                itemCount: 10000,
-                                clipBehavior: Clip.none,
-                                physics: const BouncingScrollPhysics(),
-                                itemBuilder: (context, index) {
-                                  final plan = _plans[index % _plans.length];
-
-                                  double diff = (index - _currentPage).abs().clamp(0.0, 1.0);
-                                  double scale = 1.0 - (diff * 0.165);
-                                  double opacity = 1.0 - (diff * 0.5);
-
-                                  return Opacity(
-                                    opacity: opacity,
-                                    child: dynamicCard(
-                                      id: plan["id"] ?? "",
-                                      bigNumber: plan["big"],
-                                      title: plan["title"],
-                                      price: plan["price"],
-                                      saveText: plan["saveText"],
-                                      backgroundColor: plan["color"],
-                                      benefits: List<String>.from(plan["benefits"]),
-                                      progress: plan["progress"] ?? 0.6,
-                                      scale: scale,
-                                      onTap: () {
-                                        _pageController.animateToPage(
-                                          index,
-                                          duration: const Duration(milliseconds: 300),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      },
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            SizedBox(height: AppSize.h(14)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: _buildPromoCodeField(),
-                            ),
-                            if (!_hideDisclaimer) ...[
-                              SizedBox(height: AppSize.h(12)),
+                              SizedBox(height: AppSize.h(4)),
                               Padding(
                                 padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
                                 child: Text(
-                                  "Start your 7‑day free trial. Auto‑renews after trial until cancelled. Cancel anytime in your App Store settings.",
+                                  "Keep Your\nCheck-ins\nActive",
                                   style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: AppSize.sp(10),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            SizedBox(height: AppSize.h(14)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: const Divider(color: Colors.white24),
-                            ),
-                            SizedBox(height: AppSize.h(14)),
-
-                            // Heading First
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: Text(
-                                dynamicHeadingTitle,
-                                style: TextStyle(
-                                  color: const Color(0xFF78BCC4),
-                                  fontSize: AppSize.sp(22),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: AppSize.h(8)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  badgeLabel,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: AppSize.sp(11),
+                                    color: const Color(0xFF78BCC4),
+                                    fontSize: AppSize.sp(36),
+                                    height: 1.1,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                            ),
-                            SizedBox(height: AppSize.h(10)),
-
-                            // Available Credits Container Box
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
-                              child: Center(
-                                child: Container(
-                                  width: AppSize.w(342),
-                                  constraints: BoxConstraints(minHeight: AppSize.h(155)),
-                                  padding: EdgeInsets.fromLTRB(AppSize.w(16), AppSize.h(14), AppSize.w(16), AppSize.h(12)),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF114B5F),
-                                    borderRadius: BorderRadius.circular(18),
+                              SizedBox(height: AppSize.h(10)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: Text(
+                                  "Subscribe so I can look out for you every day",
+                                  style: TextStyle(
+                                    color: const Color(0xFFD1D9E0),
+                                    fontSize: AppSize.sp(16),
+                                    fontWeight: FontWeight.w400,
                                   ),
-                                  child: IntrinsicHeight(
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      children: [
-                                        Expanded(
-                                          flex: 5,
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                displayHeaderTitle,
-                                                style: TextStyle(
-                                                  color: const Color(0xFFA8B6C2),
-                                                  fontSize: AppSize.sp(32),
-                                                  fontWeight: FontWeight.w700,
-                                                  height: 1.05,
-                                                ),
-                                              ),
-                                              SizedBox(height: AppSize.h(4)),
-                                              Text(
-                                                displaySubtitle,
-                                                style: TextStyle(
-                                                  color: const Color(0xff89BCC8),
-                                                  fontSize: AppSize.sp(16),
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              SizedBox(height: AppSize.h(8)),
-                                              Text(
-                                                planLabel,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  color: const Color(0xFFA8B6C2),
-                                                  fontSize: AppSize.sp(11.5),
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              if (renewalText != null) ...[
-                                                SizedBox(height: AppSize.h(2)),
-                                                Text(
-                                                  renewalText,
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    color: const Color(0xff89BCC8),
-                                                    fontSize: AppSize.sp(11),
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
+                                ),
+                              ),
+                              SizedBox(height: AppSize.h(14)),
+                              Center(
+                                child: SizedBox(
+                                  width: AppSize.w(84),
+                                  height: AppSize.h(7),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      for (int i = 0; i < _plans.length; i++)
                                         Container(
-                                          width: 1,
-                                          color: const Color(0xff8A99A6),
-                                          margin: EdgeInsets.symmetric(horizontal: AppSize.w(12)),
-                                        ),
-                                        Expanded(
-                                          flex: 4,
-                                          child: Center(
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              child: Text(
-                                                mainDisplayValue,
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  color: const Color(0xFFA8B6C2),
-                                                  fontSize: dynamicFontSize,
-                                                  fontWeight: FontWeight.w500,
-                                                  height: 1.0,
-                                                ),
-                                              ),
-                                            ),
+                                          margin: EdgeInsets.symmetric(horizontal: AppSize.w(3)),
+                                          width: 6,
+                                          height: 6,
+                                          decoration: BoxDecoration(
+                                            color: (i == (_currentPage.round() % _plans.length))
+                                                ? const Color(0xFFF28D7D)
+                                                : Colors.white,
+                                            shape: BoxShape.circle,
                                           ),
                                         ),
-                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: AppSize.h(14)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: const Divider(color: Colors.white24),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(vertical: AppSize.h(4), horizontal: AppSize.w(4)),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "Plans",
+                                      style: TextStyle(
+                                        color: !isTopupFocused ? Colors.white : Colors.white54,
+                                        fontSize: AppSize.sp(16),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      "Add Credits",
+                                      style: TextStyle(
+                                        color: isTopupFocused ? Colors.white : Colors.white54,
+                                        fontSize: AppSize.sp(16),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: const Divider(color: Colors.white24),
+                              ),
+                              SizedBox(height: AppSize.h(14)),
+                              SizedBox(
+                                height: AppSize.h(232),
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  itemCount: 10000,
+                                  clipBehavior: Clip.none,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemBuilder: (context, index) {
+                                    final plan = _plans[index % _plans.length];
+
+                                    double diff = (index - _currentPage).abs().clamp(0.0, 1.0);
+                                    double scale = 1.0 - (diff * 0.165);
+                                    double opacity = 1.0 - (diff * 0.5);
+
+                                    return Opacity(
+                                      opacity: opacity,
+                                      child: dynamicCard(
+                                        id: plan["id"] ?? "",
+                                        bigNumber: plan["big"],
+                                        title: plan["title"],
+                                        price: plan["price"],
+                                        saveText: plan["saveText"],
+                                        backgroundColor: plan["color"],
+                                        benefits: List<String>.from(plan["benefits"]),
+                                        progress: plan["progress"] ?? 0.6,
+                                        scale: scale,
+                                        onTap: () {
+                                          _pageController.animateToPage(
+                                            index,
+                                            duration: const Duration(milliseconds: 300),
+                                            curve: Curves.easeInOut,
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              SizedBox(height: AppSize.h(14)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: _buildPromoCodeField(),
+                              ),
+                              if (!_hideDisclaimer) ...[
+                                SizedBox(height: AppSize.h(12)),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                  child: Text(
+                                    "Start your 7‑day free trial. Auto‑renews after trial until cancelled. Cancel anytime in your App Store settings.",
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: AppSize.sp(10),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              SizedBox(height: AppSize.h(14)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: const Divider(color: Colors.white24),
+                              ),
+                              SizedBox(height: AppSize.h(14)),
+
+                              // Heading First
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: Text(
+                                  dynamicHeadingTitle,
+                                  style: TextStyle(
+                                    color: const Color(0xFF78BCC4),
+                                    fontSize: AppSize.sp(22),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: AppSize.h(8)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    badgeLabel,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: AppSize.sp(11),
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                            SizedBox(height: AppSize.h(24)),
-                          ],
+                              SizedBox(height: AppSize.h(10)),
+
+                              // Available Credits Container Box
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: AppSize.w(4)),
+                                child: Center(
+                                  child: Container(
+                                    width: AppSize.w(342),
+                                    constraints: BoxConstraints(minHeight: AppSize.h(155)),
+                                    padding: EdgeInsets.fromLTRB(AppSize.w(16), AppSize.h(14), AppSize.w(16), AppSize.h(12)),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF114B5F),
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    child: IntrinsicHeight(
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          Expanded(
+                                            flex: 5,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  displayHeaderTitle,
+                                                  style: TextStyle(
+                                                    color: const Color(0xFFA8B6C2),
+                                                    fontSize: AppSize.sp(32),
+                                                    fontWeight: FontWeight.w700,
+                                                    height: 1.05,
+                                                  ),
+                                                ),
+                                                SizedBox(height: AppSize.h(4)),
+                                                Text(
+                                                  displaySubtitle,
+                                                  style: TextStyle(
+                                                    color: const Color(0xff89BCC8),
+                                                    fontSize: AppSize.sp(16),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                SizedBox(height: AppSize.h(8)),
+                                                Text(
+                                                  planLabel,
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: const Color(0xFFA8B6C2),
+                                                    fontSize: AppSize.sp(11.5),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                if (renewalText != null) ...[
+                                                  SizedBox(height: AppSize.h(2)),
+                                                  Text(
+                                                    renewalText,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: const Color(0xff89BCC8),
+                                                      fontSize: AppSize.sp(11),
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            width: 1,
+                                            color: const Color(0xff8A99A6),
+                                            margin: EdgeInsets.symmetric(horizontal: AppSize.w(12)),
+                                          ),
+                                          Expanded(
+                                            flex: 4,
+                                            child: Center(
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Text(
+                                                  mainDisplayValue,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    color: const Color(0xFFA8B6C2),
+                                                    fontSize: dynamicFontSize,
+                                                    fontWeight: FontWeight.w500,
+                                                    height: 1.0,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: AppSize.h(24)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Builder(
-                  builder: (context) {
-                    final planId = activePlan["id"].toString();
-                    final isTopup = planId.startsWith("credit_");
-                    final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
+                  Builder(
+                    builder: (context) {
+                      final planId = activePlan["id"].toString();
+                      final isTopup = planId.startsWith("credit_");
+                      final isCtaDisabled = (_activePromoPlan != null) && !isTopup;
 
-                    String buttonText = "Start 7-Day Free Trial";
-                    if (isTopup) {
-                      buttonText = "Purchase ${activePlan['big']} Credits";
-                    } else if (_subscriptionStatus == 1) {
-                      if (planId == "trial") {
-                        buttonText = "Free Trial (Current)";
+                      String buttonText = "Start 7-Day Free Trial";
+                      if (isTopup) {
+                        buttonText = "Purchase ${activePlan['big']} Credits";
+                      } else if (_subscriptionStatus == 1) {
+                        if (planId == "trial") {
+                          buttonText = "Free Trial (Current)";
+                        } else {
+                          buttonText = "Upgrade plan";
+                        }
+                      } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
+                        if (planId == "trial") {
+                          buttonText = "Free Trial (Used)";
+                        } else {
+                          buttonText = "Upgrade your plan";
+                        }
                       } else {
-                        buttonText = "Upgrade plan";
+                        if (planId == "trial") {
+                          buttonText = "Start 7-Day Free Trial";
+                        } else {
+                          buttonText = "Subscribe to ${planId == 'monthly' ? 'Monthly' : 'Yearly'}";
+                        }
                       }
-                    } else if (_subscriptionStatus == 2 || _subscriptionStatus == 3) {
-                      if (planId == "trial") {
-                        buttonText = "Free Trial (Used)";
-                      } else {
-                        buttonText = "Upgrade your plan";
+
+                      if (_activePromoPlan != null && !isTopup) {
+                        buttonText = _activePromoPlan!;
                       }
-                    } else {
-                      if (planId == "trial") {
-                        buttonText = "Start 7-Day Free Trial";
-                      } else {
-                        buttonText = "Subscribe to ${planId == 'monthly' ? 'Monthly' : 'Yearly'}";
-                      }
-                    }
 
-                    if (_activePromoPlan != null && !isTopup) {
-                      buttonText = _activePromoPlan!;
-                    }
+                      bool isTrialDisabled = (planId == "trial") && (_subscriptionStatus >= 1);
+                      bool isUpgradeText = buttonText.toLowerCase().contains("upgrade");
+                      bool shouldDisableClick = (isCtaDisabled || isTrialDisabled) && !isUpgradeText;
 
-                    bool isTrialDisabled = (planId == "trial") && (_subscriptionStatus >= 1);
-                    bool isUpgradeText = buttonText.toLowerCase().contains("upgrade");
-                    bool shouldDisableClick = (isCtaDisabled || isTrialDisabled) && !isUpgradeText;
-
-                    return Container(
-                      padding: EdgeInsets.symmetric(horizontal: AppSize.w(22), vertical: AppSize.h(12)),
-                      color: const Color(0xFF002C3E),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: shouldDisableClick ? null : () => _handleBottomActionTap(activePlan),
-                        child: Row(
-                          children: [
-                            const Spacer(),
-                            Text(
-                              buttonText,
-                              style: TextStyle(
-                                color: shouldDisableClick ? const Color(0xFF8A99A6) : Colors.white,
-                                fontSize: AppSize.sp(15),
-                                fontWeight: FontWeight.w500,
+                      return Container(
+                        padding: EdgeInsets.symmetric(horizontal: AppSize.w(22), vertical: AppSize.h(12)),
+                        color: const Color(0xFF002C3E),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: shouldDisableClick ? null : () => _handleBottomActionTap(activePlan),
+                          child: Row(
+                            children: [
+                              const Spacer(),
+                              Text(
+                                buttonText,
+                                style: TextStyle(
+                                  color: shouldDisableClick ? const Color(0xFF8A99A6) : Colors.white,
+                                  fontSize: AppSize.sp(15),
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            SizedBox(width: AppSize.w(14)),
-                            shouldDisableClick
-                                ? Container(
-                              width: 54,
-                              height: 54,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF4A5A6A),
-                                shape: BoxShape.circle,
+                              SizedBox(width: AppSize.w(14)),
+                              shouldDisableClick
+                                  ? Container(
+                                width: 54,
+                                height: 54,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF4A5A6A),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward,
+                                  color: Color(0xFF8A99A6),
+                                  size: 28,
+                                ),
+                              )
+                                  : SvgPicture.asset(
+                                "assets/svg/nextbutton.svg",
+                                width: 54,
+                                height: 54,
                               ),
-                              child: const Icon(
-                                Icons.arrow_forward,
-                                color: Color(0xFF8A99A6),
-                                size: 28,
-                              ),
-                            )
-                                : SvgPicture.asset(
-                              "assets/svg/nextbutton.svg",
-                              width: 54,
-                              height: 54,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            if (_isLoading)
-              Container(
-                color: Colors.black.withValues(alpha: 0.6),
-                child: const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        color: Color(0xFF78BCC4),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        "Connecting with Stripe...",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                      );
+                    },
+                  ),
+                ],
+              ),
+              if (_isLoading)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          color: Color(0xFF78BCC4),
                         ),
-                      ),
-                    ],
+                        SizedBox(height: 16),
+                        Text(
+                          "Connecting with Stripe...",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

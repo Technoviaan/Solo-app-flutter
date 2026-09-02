@@ -30,7 +30,7 @@ class SoloLogoWidget extends StatelessWidget {
         fit: BoxFit.contain,
         child: Image.asset(
           'assets/eye_clock_animation.gif',
-          width: 281,
+          width: 400,
           height: 131,
           gaplessPlayback: true, // avoids a blank flash if the widget rebuilds
         ),
