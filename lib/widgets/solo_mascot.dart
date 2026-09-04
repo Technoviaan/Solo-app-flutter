@@ -3,44 +3,53 @@ import 'package:flutter/material.dart';
 import '../core/utils/app_size.dart';
 
 class SoloMascot extends StatefulWidget {
-  const SoloMascot({super.key});
+  final bool isFormValid;
+
+  const SoloMascot({
+    super.key,
+    required this.isFormValid,
+  });
 
   @override
   State<SoloMascot> createState() => _SoloMascotState();
 }
 
 class _SoloMascotState extends State<SoloMascot> {
+  static const String eyeCenter = "assets/images/eye_center.png";
+  static const String eyeRight = "assets/images/eye_right.png";
+  static const String eyeLeft = "assets/images/eye_left.png";
 
-  int frame = 0;
-  Timer? _timer;
-
-  final List<String> frames = [
-    "assets/images/eye_center.png",
-    "assets/images/eye_right.png",
-    "assets/images/eye_left.png",
-  ];
+  bool _initialDelayDone = false;
+  Timer? _initialTimer;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 3000), (timer) {
+    _initialTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() {
-          frame = (frame + 1) % frames.length;
+          _initialDelayDone = true;
         });
       }
     });
+
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _initialTimer?.cancel();
     super.dispose();
+  }
+
+  String get _currentFrame {
+    if (!_initialDelayDone) {
+      return eyeCenter;
+    }
+    return widget.isFormValid ? eyeRight : eyeLeft;
   }
 
   @override
   Widget build(BuildContext context) {
-
     final size = AppSize.w(280);
 
     return SizedBox(
@@ -49,8 +58,8 @@ class _SoloMascotState extends State<SoloMascot> {
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: Image.asset(
-          frames[frame],
-          key: ValueKey(frames[frame]),
+          _currentFrame,
+          key: ValueKey(_currentFrame),
           fit: BoxFit.contain,
         ),
       ),

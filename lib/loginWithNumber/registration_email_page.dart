@@ -142,6 +142,12 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     final emailFilled = emailController.text.trim().isNotEmpty;
 
+    // Mascot ke liye form validity — email valid + terms accepted
+
+    final isEmailValid = isValidEmail(emailController.text.trim());
+    final isFormValid =
+        isEmailValid && agree && emailError.isEmpty && termsError.isEmpty;
+
     final screenHeight = MediaQuery.of(context).size.height;
     final isSmallScreen = screenHeight < 700; // tweak threshold as needed
 
@@ -375,11 +381,11 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                       SizedBox(height: AppSize.h(12)),
 
                       if (!keyboardOpen)
-                        const Expanded(
+                        Expanded(
                           child: Align(
                             alignment: Alignment.bottomLeft,
                             child: FractionalTranslation(
-                              translation: Offset(-0.15, 0),
+                              translation: const Offset(-0.15, 0),
                               child: FittedBox(
                                 fit: BoxFit.contain,
                                 alignment: Alignment.bottomLeft,
@@ -387,7 +393,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                   width: 260,
                                   height: 260,
                                   child: IgnorePointer(
-                                    child: SoloMascot(),
+                                    child: SoloMascot(isFormValid: isFormValid),
                                   ),
                                 ),
                               ),
