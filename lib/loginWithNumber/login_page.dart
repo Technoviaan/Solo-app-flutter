@@ -519,7 +519,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
 
-                          SizedBox(height: 140.h),
+                          SizedBox(height: 143.h),
 
                           if (isOtpSent)
                             Column(
@@ -642,7 +642,7 @@ class _LoginPageState extends State<LoginPage> {
                             Column(
                               children: [
                                 SizedBox(
-                                  height: 35.h,
+                                  height: 14.h,
                                   child: Center(
                                     child: SizedBox(
                                       width: 322.w,
@@ -659,10 +659,9 @@ class _LoginPageState extends State<LoginPage> {
                                     ),
                                   ),
                                 ),
-                                SizedBox(height: 14.h),
                                 Center(
                                   child: SizedBox(
-                                    width: 322.w,
+                                    width: 300.w,
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [

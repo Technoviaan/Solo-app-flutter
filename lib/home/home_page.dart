@@ -168,7 +168,7 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SoloLogoWidget(size: 70),
+                  const SoloLogoWidget(size: 80),
                   const Spacer(),
                   Text(
                     userName.isNotEmpty ? "$_greeting,\n$userName" : "$_greeting,",

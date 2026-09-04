@@ -1,3 +1,4 @@
+import 'dart:async'; // Add this import at the top of your file
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
@@ -25,6 +26,62 @@ class _EmailPageState extends State<EmailPage> {
   String email = "";
   String otp = "";
 
+  // Timer Variables
+  Timer? _timer;
+  Timer? _errorTimer; // Error auto-dismiss timer
+  int _start = 60;
+  bool _isResendButtonEnabled = true;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _errorTimer?.cancel(); // Cancel error timer on dispose
+    emailController.dispose();
+    otpController.dispose();
+    super.dispose();
+  }
+
+  // Helper method to set error and auto-dismiss after 5 seconds
+  void _setError(String errorMessage) {
+    setState(() {
+      error = errorMessage;
+      loading = false;
+    });
+
+    _errorTimer?.cancel();
+    if (errorMessage.isNotEmpty) {
+      _errorTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            error = "";
+          });
+        }
+      });
+    }
+  }
+
+  // Start Resend Timer
+  void _startResendTimer() {
+    setState(() {
+      _start = 60;
+      _isResendButtonEnabled = false;
+    });
+
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_start == 0) {
+        setState(() {
+          _timer?.cancel();
+          _isResendButtonEnabled = true;
+        });
+      } else {
+        setState(() {
+          _start--;
+        });
+      }
+    });
+  }
+
   // Dynamic Greeting Logic split with a newline
   String get _dynamicGreeting {
     final hour = DateTime.now().hour;
@@ -48,12 +105,12 @@ class _EmailPageState extends State<EmailPage> {
     final enteredEmail = emailController.text.trim();
 
     if (enteredEmail.isEmpty) {
-      setState(() => error = "Email required");
+      _setError("Email required");
       return;
     }
 
     if (!isValidEmail(enteredEmail)) {
-      setState(() => error = "Invalid email");
+      _setError("Invalid email");
       return;
     }
 
@@ -72,6 +129,7 @@ class _EmailPageState extends State<EmailPage> {
           isOtpSent = true;
           email = enteredEmail;
         });
+        _startResendTimer(); // Start timer once OTP is sent successfully
       } else {
         String msg = res['message'] ?? "Account not signed up yet";
         if (msg.toLowerCase().contains("not found") ||
@@ -79,22 +137,38 @@ class _EmailPageState extends State<EmailPage> {
             msg.toLowerCase().contains("unregistered")) {
           msg = "Account not signed up yet";
         }
-        setState(() {
-          loading = false;
-          error = msg;
-        });
+        _setError(msg);
       }
     } catch (e) {
-      setState(() {
-        loading = false;
-        error = "Account not signed up yet";
-      });
+      _setError("Account not signed up yet");
+    }
+  }
+
+  // Explicit method for Resending OTP
+  void resendOtp() async {
+    if (!_isResendButtonEnabled) return;
+
+    setState(() {
+      loading = true;
+      error = "";
+    });
+
+    try {
+      final res = await AuthApi.sendEmailOtp(email);
+      if (res['message'] != null && res['message'] == "OTP sent successfully") {
+        setState(() => loading = false);
+        _startResendTimer(); // Restart cooldown timer
+      } else {
+        _setError(res['message'] ?? "Failed to resend code");
+      }
+    } catch (e) {
+      _setError("An error occurred. Please try again.");
     }
   }
 
   void verifyOtp() async {
     if (otp.length < 6) {
-      setState(() => error = "Enter valid OTP");
+      _setError("Enter valid OTP");
       return;
     }
 
@@ -126,16 +200,10 @@ class _EmailPageState extends State<EmailPage> {
           );
         }
       } else {
-        setState(() {
-          loading = false;
-          error = res['message'] ?? "Incorrect code, please try again";
-        });
+        _setError(res['message'] ?? "Incorrect code, please try again");
       }
     } catch (e) {
-      setState(() {
-        loading = false;
-        error = "An error occurred. Please try again.";
-      });
+      _setError("An error occurred. Please try again.");
     }
   }
 
@@ -179,19 +247,33 @@ class _EmailPageState extends State<EmailPage> {
                         letterSpacing: -0.5,
                       ),
                     ),
-                    if (error.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10.0),
-                        child: Text(
-                          error,
-                          style: TextStyle(
-                            color: const Color(0xFFE86B56),
-                            fontSize: AppSize.sp(14),
-                            fontWeight: FontWeight.w500,
+                    // Fixed height container with FittedBox to prevent UI jumping
+                    SizedBox(height: AppSize.h(25)),
+                    SizedBox(
+                      height: AppSize.h(28),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: error.isNotEmpty
+                            ? FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              error,
+                              style: TextStyle(
+                                color: const Color(0xFFE86B56),
+                                fontSize: AppSize.sp(14),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
-                        ),
+                        )
+                            : const SizedBox.shrink(),
                       ),
-                    SizedBox(height: error.isNotEmpty ? AppSize.h(8) : AppSize.h(30)),
+                    ),
+                    SizedBox(height: AppSize.h(2)),
+
                     if (!isOtpSent)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,14 +451,18 @@ class _EmailPageState extends State<EmailPage> {
                                   ),
                                 ),
                                 GestureDetector(
-                                  onTap: submitEmail,
+                                  onTap: _isResendButtonEnabled ? resendOtp : null,
                                   child: Text(
-                                    "Resend",
+                                    _isResendButtonEnabled ? "Resend" : "${_start}s",
                                     style: TextStyle(
                                       fontSize: AppSize.sp(11.5),
-                                      color: const Color(0xFF8A99A6),
+                                      color: _isResendButtonEnabled
+                                          ? const Color(0xFF8A99A6)
+                                          : const Color(0xFF8A99A6).withValues(alpha: 0.5),
                                       fontWeight: FontWeight.w600,
-                                      decoration: TextDecoration.underline,
+                                      decoration: _isResendButtonEnabled
+                                          ? TextDecoration.underline
+                                          : TextDecoration.none,
                                     ),
                                   ),
                                 ),
