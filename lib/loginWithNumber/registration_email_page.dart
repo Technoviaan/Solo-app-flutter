@@ -80,20 +80,21 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
   }
 
   bool isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
+    final emailRegex = RegExp(r'^[\w\.-]+@gmail\.com$', caseSensitive: false);
     return emailRegex.hasMatch(email);
   }
 
   void submitEmail() async {
     final email = emailController.text.trim();
 
+    // Strict validation check before proceeding
     if (email.isEmpty) {
       _triggerError(email: "Email required");
       return;
     }
 
     if (!isValidEmail(email)) {
-      _triggerError(email: "Invalid email");
+      _triggerError(email: "Invalid Email");
       return;
     }
 
@@ -143,7 +144,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     final emailFilled = emailController.text.trim().isNotEmpty;
 
     // Mascot ke liye form validity — email valid + terms accepted
-
     final isEmailValid = isValidEmail(emailController.text.trim());
     final isFormValid =
         isEmailValid && agree && emailError.isEmpty && termsError.isEmpty;
@@ -193,7 +193,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                       ),
                       SizedBox(height: AppSize.h(35)),
 
-                      // Email Error container
+                      // Email Error container with Figma color #EE6A59
                       SizedBox(
                         height: AppSize.h(20),
                         child: Align(
@@ -203,7 +203,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                             child: Text(
                               emailError,
                               style: TextStyle(
-                                color: Colors.red,
+                                color: const Color(0xFFEE6A59),
                                 fontSize: AppSize.sp(12),
                                 fontWeight: FontWeight.w500,
                               ),
@@ -240,7 +240,15 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                             controller: emailController,
                             textAlign: TextAlign.start,
                             keyboardType: TextInputType.emailAddress,
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val.trim().isNotEmpty && !isValidEmail(val.trim())) {
+                                  emailError = "Invalid Email";
+                                } else {
+                                  emailError = "";
+                                }
+                              });
+                            },
                             textAlignVertical: TextAlignVertical.center,
                             style: TextStyle(
                               color: const Color(0xFF5A6C7D),
@@ -281,7 +289,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                       ),
                       SizedBox(height: AppSize.h(14)),
                       Padding(
-                        padding: EdgeInsets.only(left: AppSize.w(24)),
+                        padding: EdgeInsets.only(left: AppSize.w(35)),
                         child: Text(
                           "For notifications, account recovery, updates",
                           style: TextStyle(
@@ -294,7 +302,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                       SizedBox(height: AppSize.h(10)),
                       Padding(
                         padding: EdgeInsets.only(
-                          left: AppSize.w(24),
+                          left: AppSize.w(35),
                         ),
                         child: Row(
                           children: [
@@ -366,11 +374,11 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                           alignment: Alignment.topLeft,
                           child: Padding(
                             padding:
-                            EdgeInsets.only(top: AppSize.h(4), left: AppSize.w(24)),
+                            EdgeInsets.only(top: AppSize.h(4), left: AppSize.w(35)),
                             child: Text(
                               termsError,
                               style: TextStyle(
-                                color: Colors.red,
+                                color: const Color(0xFFEE6A59),
                                 fontSize: AppSize.sp(12),
                               ),
                             ),
@@ -407,15 +415,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            GestureDetector(
-                              onTap: () => Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const LoginPage(),
-                                ),
-                              ),
-                              child: const SizedBox(width: 18),
-                            ),
+                            const SizedBox.shrink(),
                             Row(
                               children: [
                                 AnimatedDefaultTextStyle(

@@ -225,7 +225,7 @@ class _EmailPageState extends State<EmailPage> {
 
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
-    // Mascot ke liye form validity — step ke hisaab se + koi active error na ho
+    // Mascot ke liye form validity
     final isEmailValid = isValidEmail(emailController.text.trim());
     final isOtpValid = otp.length == 6;
     final isFormValid =
@@ -258,7 +258,6 @@ class _EmailPageState extends State<EmailPage> {
                         ),
                       ),
                     ),
-                    SizedBox(height: AppSize.h(25)),
                     Padding(
                       padding:  EdgeInsets.symmetric(horizontal: AppSize.h(24)),
                       child: SizedBox(
@@ -308,7 +307,7 @@ class _EmailPageState extends State<EmailPage> {
                                     const BoxShadow(
                                       color: Color(0xFFB8C2C8),
                                       blurRadius: 0,
-                                      offset: Offset(5, 8),
+                                      offset: Offset(5, 5),
                                     ),
                                   ],
                                 ),
@@ -458,7 +457,6 @@ class _EmailPageState extends State<EmailPage> {
                           ),
                           SizedBox(height: AppSize.h(8)),
                           Padding(
-
                             padding:  EdgeInsets.symmetric(horizontal: AppSize.h(28)),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -490,40 +488,32 @@ class _EmailPageState extends State<EmailPage> {
                               ],
                             ),
                           ),
-                          SizedBox(height: AppSize.h(79)),
-                          // Align(
-                          //   alignment: Alignment.centerLeft,
-                          //   child: Transform.translate(
-                          //     offset: Offset(-AppSize.w(30), 0),
-                          //     child: SvgPicture.asset(
-                          //       'assets/svg/email.svg',
-                          //       width: AppSize.w(160),
-                          //     ),
-                          //   ),
-                          // ),
-
-                          if (!keyboardOpen)
-                            Align(
-                              alignment: Alignment.bottomLeft,
-                              child: FractionalTranslation(
-                                translation: const Offset(-0.15, 0),
-                                child: SizedBox(
-                                  width: 220,
-                                  height: 220,
-                                  child: IgnorePointer(
-                                    child: SoloMascot(isFormValid: isFormValid),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          SizedBox(height: AppSize.h(20)),
                         ],
+
                       ),
+
+                    // Mascot yahan common place par shift kar diya hai taaki dono screens par dikhe jab keyboard open na ho
+                    if (!keyboardOpen) ...[
+                      SizedBox(height: AppSize.h(20)),
+                      Align(
+                        alignment: Alignment.bottomLeft,
+                        child: FractionalTranslation(
+                          translation: const Offset(-0.15, 0),
+                          child: SizedBox(
+                            width: 300,
+                            height: 300,
+                            child: IgnorePointer(
+                              child: SoloMascot(isFormValid: isFormValid),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
-
-
 
             // Footer Section with minimized bottom padding
             Padding(

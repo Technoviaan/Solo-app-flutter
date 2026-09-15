@@ -341,7 +341,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFB8C2C8).withValues(alpha: 0.5),
+                  color: Colors.transparent.withValues(alpha: 0.1), // or Colors.black.withValues(alpha: 0.5)
                   offset: const Offset(0, 6),
                 ),
               ],
@@ -538,7 +538,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
           buildStep(
             "3",
             "I alert your contacts by SMS with your location",
-            "Works without Wi-Fi or mobile data",
+            "Send straight to their phones",
           ),
           buildStep(
             "4",

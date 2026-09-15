@@ -839,20 +839,24 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   void _playVoice() async {
+    // If "None" is selected, do not play any audio or trigger player state
+    if (selectedVoice == "None") {
+      if (_isPlaying) {
+        await _audioPlayer.stop();
+      }
+      return;
+    }
+
     if (_isPlaying) {
       await _audioPlayer.pause();
       return;
     }
 
-    // 🔊 "Hello, I'm SOLO, your daily Check-in Buddy." sample in the
-    // selected voice; "None" just previews the plain alarm tone.
     String assetPath;
     if (selectedVoice == "Male") {
       assetPath = SoloSounds.voiceSample("Male").replaceFirst('assets/', '');
-    } else if (selectedVoice == "Female") {
-      assetPath = SoloSounds.voiceSample("Female").replaceFirst('assets/', '');
     } else {
-      assetPath = SoloSounds.silentAlarmFallback.replaceFirst('assets/', '');
+      assetPath = SoloSounds.voiceSample("Female").replaceFirst('assets/', '');
     }
 
     await _audioPlayer.stop();

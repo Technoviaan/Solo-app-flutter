@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async'; // Required for Timer
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
   int _resendSecondsLeft = _resendDuration;
   bool _canResend = false;
 
-  // Document ke anusار Excluded / Sanctioned Countries list
+  // Document के अनुसार Excluded / Sanctioned Countries list
   static const Set<String> _excludedIsoCodes = {
     // APAC Excluded: North Korea, Iran, Myanmar, USA
     'KP', 'IR', 'MM', 'US',
@@ -519,6 +519,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
 
+                          // 👉 Restored original proper spacing before input fields
                           SizedBox(height: 143.h),
 
                           if (isOtpSent)
@@ -580,7 +581,6 @@ class _LoginPageState extends State<LoginPage> {
                                   width: 322.w,
                                   height: 1,
                                   color: otp.isNotEmpty
-
                                       ? const Color(0xFFF5F5F5)
                                       : const Color(0xFF294256),
                                 ),
@@ -642,7 +642,7 @@ class _LoginPageState extends State<LoginPage> {
                             Column(
                               children: [
                                 SizedBox(
-                                  height: 14.h,
+                                  height: 24.h,
                                   child: Center(
                                     child: SizedBox(
                                       width: 322.w,
@@ -652,13 +652,15 @@ class _LoginPageState extends State<LoginPage> {
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           color: Colors.red,
-                                          fontSize: 14.sp,
+                                          fontSize: 13.sp,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       )
                                           : const SizedBox.shrink(),
                                     ),
                                   ),
                                 ),
+                                SizedBox(height: 4.h),
                                 Center(
                                   child: SizedBox(
                                     width: 300.w,
@@ -814,7 +816,6 @@ class _LoginPageState extends State<LoginPage> {
                               ],
                             ),
                           ),
-
 
                           Padding(
                             padding: EdgeInsets.only(

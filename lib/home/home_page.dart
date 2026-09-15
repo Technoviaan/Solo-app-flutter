@@ -31,13 +31,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _checkAllPermissions() async {
-    // 1. Check Location Permission
     final locationStatus = await Permission.location.status;
     if (!locationStatus.isGranted && mounted) {
       _showLocationBottomSheetToast();
     }
 
-    // 2. Battery Optimization
     final isIgnored = await Permission.ignoreBatteryOptimizations.isGranted;
     if (!isIgnored && mounted) {
       _showPermissionSnackBar(
@@ -46,7 +44,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // 3. Exact Alarm
     final isExactAlarmGranted = await Permission.scheduleExactAlarm.isGranted;
     if (!isExactAlarmGranted && mounted) {
       _showPermissionSnackBar(
@@ -55,7 +52,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // 4. System Alert Window Overlay
     final isOverlayGranted = await Permission.systemAlertWindow.isGranted;
     if (!isOverlayGranted && mounted) {
       _showPermissionSnackBar(
@@ -158,7 +154,7 @@ class _HomePageState extends State<HomePage> {
             flex: 6,
             child: Container(
               width: double.infinity,
-              padding: EdgeInsets.fromLTRB(28.w, 56.h, 28.w, 24.h),
+              padding: EdgeInsets.fromLTRB(0, 56.h, 28.w, 24.h),
               decoration: const BoxDecoration(
                 color: Color(0xFF002C3E),
                 borderRadius: BorderRadius.only(
@@ -168,28 +164,43 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SoloLogoWidget(size: 80),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Transform.translate(
+                      offset: Offset(-140.w * (80 / 700.0), 0),
+                      child: const SoloLogoWidget(size: 80),
+                    ),
+
+                  ),
                   const Spacer(),
-                  Text(
-                    userName.isNotEmpty ? "$_greeting,\n$userName" : "$_greeting,",
-                    style: TextStyle(
-                      color: const Color(0xFF78BCC4),
-                      fontSize: 36.sp,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
+                  Padding(
+                    padding: EdgeInsets.only(left: 28.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userName.isNotEmpty ? "$_greeting,\n$userName" : "$_greeting,",
+                          style: TextStyle(
+                            color: const Color(0xFF78BCC4),
+                            fontSize: 36.sp,
+                            fontWeight: FontWeight.w600,
+                            height: 1.1,
+                          ),
+                        ),
+                        SizedBox(height: 6.h),
+                        Text(
+                          "How can we\nsupport you\ntoday?",
+                          style: TextStyle(
+                            color: const Color(0xFF78BCC4),
+                            fontSize: 36.sp,
+                            fontWeight: FontWeight.w600,
+                            height: 1.1,
+                          ),
+                        ),
+                        SizedBox(height: 8.h),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 6.h),
-                  Text(
-                    "How can we\nsupport you\ntoday?",
-                    style: TextStyle(
-                      color: const Color(0xFF78BCC4),
-                      fontSize: 36.sp,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
-                    ),
-                  ),
-                  SizedBox(height: 8.h),
                 ],
               ),
             ),

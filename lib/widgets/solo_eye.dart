@@ -19,6 +19,7 @@ class SoloLogoWidget extends StatelessWidget {
           width: 400.w * scale,
           height: 130.h * scale,
           child: FittedBox(
+
             fit: BoxFit.contain,
             child: Image.asset(
               'assets/eye_clock_animation.gif',
