@@ -7,7 +7,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:solo_app/core/storage/token_storage.dart';
-import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/contact/resume_checkin_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
@@ -34,10 +33,6 @@ class _ContactsPageState extends State<ContactsPage> {
   static const Color _headingColor = Color(0xFF1B3A4B);
   static const Color _subtitleColor = Color(0xFF5A6C7D);
   static const Color _numCircle = Color(0xFF78BCC4);
-  static const Color _plusBtn = Color(0xFF002C3E);
-  static const Color _contactLabel = Color(0xFF5A6C7D);
-  static const Color _contactText = Color(0xFF5A6C7D);
-  static const Color _contactSubtext = Color(0xFF8A99A6);
   static const Color _divider = Color(0xFFDDD9D0);
   static const Color _nextGreen = Color(0xFFB5D43C);
 
@@ -151,7 +146,7 @@ class _ContactsPageState extends State<ContactsPage> {
       }
 
       final contactData = {
-        "name": full.displayName ?? "Unknown",
+        "name": full.displayName.isEmpty ? "Unknown" : full.displayName,
         "countryCode": countryCode,
         "phone": phone,
       };
@@ -426,72 +421,72 @@ class _ContactsPageState extends State<ContactsPage> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       "Let Loved\nOnes Know\nYou're Okay",
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         color: Color(0xFF002C3E),
                         fontSize: 44,
                         fontWeight: FontWeight.w600,
-                        height: 1.1,
-                        letterSpacing: -0.8,
+                        height: 50 / 44,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      "You can add the people who care about you. If you miss a scheduled check-in, I'll alert them after 2 hours with your last known location. You can update your contacts anytime.",
+                      "You can add the people who care about you. If you\n miss a scheduled check-in, I'll alert them after 2\n hours with your last known location. You can\n update your contacts anytime.",
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         color: Color(0xFF5A6C7D),
                         fontSize: 14,
-                        height: 1.55,
+                        height: 20 / 14,
+                        letterSpacing: 0,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
-                    SizedBox(height: 16.h),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Column(
-                        children: [
-                          const Divider(height: 1, color: Colors.black12),
-                          _contactRow(index: 1),
-                          const Divider(height: 1, color: Colors.black12),
-                          _contactRow(index: 2),
-                          const Divider(height: 1, color: Colors.black12),
-                        ],
-                      ),
-                    ),
+                    const SizedBox(height: 20),
+                    const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                    _contactRow(index: 1),
+                    const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                    _contactRow(index: 2),
+                    const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
                     const SizedBox(height: 24),
                     SvgPicture.asset(
                       'assets/svg/usefultip.svg',
-                      width: 111.w,
-                      height: 37.w,
+                      width: 111,
+                      height: 37,
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       "Let your contacts know they're added as emergency contacts so they'll recognize alerts from your SOLO app.",
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         color: _subtitleColor,
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
-                        height: 1.55,
+                        height: 20 / 14,
+                        letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
             Container(
-              padding: EdgeInsets.only(left: 24.w, right: 24.w, bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: _subtitleColor, size: 24),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: Color(0xFF5A6C7D), size: 26),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                   Builder(builder: (context) {
                     final canProceed = manualContact1 != null || manualContact2 != null;
@@ -507,15 +502,16 @@ class _ContactsPageState extends State<ContactsPage> {
                           Text(
                             "Next",
                             style: TextStyle(
+                              fontFamily: 'Inter',
                               color: canProceed ? _headingColor : _headingColor.withValues(alpha: 0.3),
                               fontSize: 20,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 14),
                           Opacity(
                             opacity: canProceed ? 1.0 : 0.3,
-                            child: SvgPicture.asset('assets/svg/nextbutton.svg', width: 60.w, height: 60.w),
+                            child: SvgPicture.asset('assets/svg/nextbutton.svg', width: 60, height: 60),
                           ),
                         ],
                       ),
@@ -537,91 +533,69 @@ class _ContactsPageState extends State<ContactsPage> {
     final isLocked = (index == 2 && isContact2Locked);
 
     return Opacity(
-      opacity: isLocked ? 0.6 : 1.0,
+      opacity: isLocked ? 0.45 : 1.0,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: isLocked ? Colors.grey.shade400 : _numCircle,
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: Color(0xFF76BDCB),
                 shape: BoxShape.circle,
               ),
               child: Center(
-                child: isLocked
-                    ? const Icon(Icons.lock, color: Colors.white, size: 16)
-                    : Text(
+                child: Text(
                   "$index",
                   style: const TextStyle(
+                    fontFamily: 'Inter',
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: GestureDetector(
-                onTap: isLocked ? _showUpgradePrompt : null,
+                onTap: isLocked
+                    ? _showUpgradePrompt
+                    : (hasContact ? () => editContact(index) : () => pickContact(index)),
                 behavior: HitTestBehavior.opaque,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          "Contact",
-                          style: TextStyle(color: _contactLabel, fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
-                        if (isLocked) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD4AF64),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              "PRO",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    const Text(
+                      "Contact",
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: Color(0xFF5A6C7D),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    const SizedBox(height: 3),
-                    hasContact && !isLocked
-                        ? Text(
-                      data["name"] ?? "",
-                      style: const TextStyle(
+                    const SizedBox(height: 2),
+                    Text(
+                      hasContact ? (data["name"] ?? "") : "No contact added yet",
+                      style: TextStyle(
                         fontFamily: 'Inter',
-                        color: _contactText,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w400,
+                        color: hasContact ? const Color(0xFF002C3E) : const Color(0xFF8A99A6),
+                        fontSize: 14,
+                        fontWeight: hasContact ? FontWeight.w500 : FontWeight.w400,
+                        height: 20 / 14,
+                        letterSpacing: 0,
                       ),
-                    )
-                        : Text(
-                      isLocked ? "Upgrade to unlock 2nd contact" : "No contact added yet",
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        color: _contactSubtext,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(width: 12),
             GestureDetector(
               onTap: () async {
                 if (isLocked) {
@@ -645,30 +619,20 @@ class _ContactsPageState extends State<ContactsPage> {
                 }
               },
               child: isLocked
-                  ? Container(
-                width: 28,
-                height: 28,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.lock_outline, color: Colors.grey, size: 16),
-              )
+                  ? SvgPicture.asset('assets/svg/plus.svg', width: 28, height: 28)
                   : hasContact
-                  ? Container(
-                width: 28,
-                height: 28,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: const BoxDecoration(color: Color(0xFF002C3E), shape: BoxShape.circle),
-                child: const Icon(Icons.remove, color: Colors.white, size: 16),
-              )
-                  : Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: SvgPicture.asset('assets/svg/plus.svg', width: 28.w, height: 28.w),
-              ),
+                      ? Container(
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF002C3E),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.remove, color: Colors.white, size: 16),
+                        )
+                      : SvgPicture.asset('assets/svg/plus.svg', width: 28, height: 28),
             ),
-            const SizedBox(width: 3),
+            const SizedBox(width: 14),
             customSwitch(
               value: enabled && !isLocked,
               onChanged: (value) async {
@@ -705,19 +669,19 @@ class _ContactsPageState extends State<ContactsPage> {
       onTap: () => onChanged(!value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 50.w,
-        height: 28.w,
+        width: 50,
+        height: 28,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14.w),
+          borderRadius: BorderRadius.circular(14),
           color: value ? _nextGreen : const Color(0xFFD1DBE0),
         ),
-        padding: EdgeInsets.all(2.w),
+        padding: const EdgeInsets.all(2),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 200),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            width: 24.w,
-            height: 24.w,
+            width: 24,
+            height: 24,
             decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
           ),
         ),

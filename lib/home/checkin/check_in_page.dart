@@ -213,6 +213,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
     unawaited(_playCue(
       voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
     ));
+    unawaited(NotificationService.showPausedNotification());
   }
 
   void onSOS() {
@@ -268,6 +269,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
     unawaited(_playCue(
       voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
     ));
+    unawaited(NotificationService.showPausedNotification());
 
     if (!mounted) return;
     setState(() {

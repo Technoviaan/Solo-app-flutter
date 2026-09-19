@@ -7,6 +7,7 @@ import 'package:solo_app/subscription/subscription_page.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import '../core/utils/app_size.dart';
 import '../widgets/solo_mascot.dart';
+import '../widgets/solo_turquoise_animation.dart';
 import 'auth_api.dart';
 import 'login_page.dart';
 
@@ -42,15 +43,28 @@ class _EmailPageState extends State<EmailPage> {
     super.dispose();
   }
 
-  // Helper method to set error and auto-dismiss after 5 seconds
-  void _setError(String errorMessage) {
+  // Har word ka pehla letter capital: "email not found" -> "Email Not Found".
+  // Baaki letters ko chhedta nahi, isliye "OTP" jaisa word "Otp" nahi banta.
+  String _toTitleCase(String text) {
+    return text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1))
+        .join(' ');
+  }
+
+  // Helper method to set error and (optionally) auto-dismiss after 5 seconds.
+  // autoDismiss: false => error tab tak rahega jab tak user usse fix na kare
+  // (live validation errors ke liye).
+  void _setError(String errorMessage, {bool autoDismiss = true}) {
     setState(() {
       error = errorMessage;
       loading = false;
     });
 
     _errorTimer?.cancel();
-    if (errorMessage.isNotEmpty) {
+    if (autoDismiss && errorMessage.isNotEmpty) {
       _errorTimer = Timer(const Duration(seconds: 5), () {
         if (mounted) {
           setState(() {
@@ -94,24 +108,42 @@ class _EmailPageState extends State<EmailPage> {
     } else {
       timeGreeting = "Evening";
     }
-    return "$timeGreeting,\nwelcome back to Solo";
+    return "$timeGreeting,\nwelcome back \nto Solo";
   }
 
+  // Domain ka TLD proper hona chahiye. "abc@gmail.c" / "abc@gmail.co" (jab tak
+  // ".com" poora na ho) invalid rahega. Koi aur TLD chahiye to yahan add karo.
+  static const Set<String> _validTlds = {
+    // generic
+    'com', 'net', 'org', 'edu', 'gov', 'info', 'biz', 'io', 'ai', 'app', 'dev',
+    'me', 'xyz', 'online', 'tech', 'site', 'store', 'cloud',
+    // country
+    'in', 'uk', 'us', 'ca', 'au', 'nz', 'de', 'fr', 'it', 'es', 'nl', 'jp',
+    'cn', 'ru', 'br', 'sg', 'ae', 'pk', 'bd', 'lk', 'np', 'za',
+  };
+
   bool isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[\w.-]+@[\w\.-]+\.\w+$');
-    return emailRegex.hasMatch(email);
+    final value = email.trim().toLowerCase();
+
+    // Basic structure: local@domain.tld
+    final emailRegex = RegExp(r'^[\w.+-]+@([a-z0-9-]+\.)+[a-z]{2,}$');
+    if (!emailRegex.hasMatch(value)) return false;
+
+    // Domain ka end kisi allowed TLD se hona chahiye (gmail.com, x.co.in, ...)
+    final domain = value.substring(value.indexOf('@') + 1);
+    return _validTlds.any((tld) => domain.endsWith('.$tld'));
   }
 
   void submitEmail() async {
     final enteredEmail = emailController.text.trim();
 
     if (enteredEmail.isEmpty) {
-      _setError("Email required");
+      _setError("Email Required");
       return;
     }
 
     if (!isValidEmail(enteredEmail)) {
-      _setError("Invalid email");
+      _setError("Invalid Email", autoDismiss: false);
       return;
     }
 
@@ -132,16 +164,16 @@ class _EmailPageState extends State<EmailPage> {
         });
         _startResendTimer(); // Start timer once OTP is sent successfully
       } else {
-        String msg = res['message'] ?? "Account not signed up yet";
+        String msg = res['message'] ?? "Account Not Signed Up Yet";
         if (msg.toLowerCase().contains("not found") ||
             msg.toLowerCase().contains("does not exist") ||
             msg.toLowerCase().contains("unregistered")) {
-          msg = "Account not signed up yet";
+          msg = "Account Not Signed Up Yet";
         }
-        _setError(msg);
+        _setError(_toTitleCase(msg));
       }
     } catch (e) {
-      _setError("Account not signed up yet");
+      _setError("Account Not Signed Up Yet");
     }
   }
 
@@ -160,16 +192,16 @@ class _EmailPageState extends State<EmailPage> {
         setState(() => loading = false);
         _startResendTimer(); // Restart cooldown timer
       } else {
-        _setError(res['message'] ?? "Failed to resend code");
+        _setError(_toTitleCase(res['message'] ?? "Failed To Resend Code"));
       }
     } catch (e) {
-      _setError("An error occurred. Please try again.");
+      _setError("An Error Occurred. Please Try Again");
     }
   }
 
   void verifyOtp() async {
     if (otp.length < 6) {
-      _setError("Enter valid OTP");
+      _setError("Enter Valid OTP");
       return;
     }
 
@@ -201,10 +233,10 @@ class _EmailPageState extends State<EmailPage> {
           );
         }
       } else {
-        _setError(res['message'] ?? "Incorrect code, please try again");
+        _setError(_toTitleCase(res['message'] ?? "Incorrect Code, Please Try Again"));
       }
     } catch (e) {
-      _setError("An error occurred. Please try again.");
+      _setError("An Error Occurred. Please Try Again");
     }
   }
 
@@ -250,7 +282,7 @@ class _EmailPageState extends State<EmailPage> {
                       child: Text(
                         _dynamicGreeting,
                         style: TextStyle(
-                          fontSize: AppSize.sp(36),
+                          fontSize: AppSize.sp(44),
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF002C3E),
                           height: 1.1,
@@ -259,7 +291,7 @@ class _EmailPageState extends State<EmailPage> {
                       ),
                     ),
                     Padding(
-                      padding:  EdgeInsets.symmetric(horizontal: AppSize.h(24)),
+                      padding: EdgeInsets.symmetric(horizontal: AppSize.h(24)),
                       child: SizedBox(
                         height: AppSize.h(28),
                         child: Align(
@@ -269,7 +301,7 @@ class _EmailPageState extends State<EmailPage> {
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
+                              padding: const EdgeInsets.only(top: 4.0, left: 7),
                               child: Text(
                                 error,
                                 style: TextStyle(
@@ -288,70 +320,84 @@ class _EmailPageState extends State<EmailPage> {
 
                     if (!isOtpSent)
                       Padding(
-                        padding:  EdgeInsets.symmetric(horizontal:AppSize.h(24)),
+                        padding: EdgeInsets.symmetric(horizontal: AppSize.h(24)),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
-                                width: double.infinity,
-                                height: AppSize.h(56),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(34),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.03),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                    const BoxShadow(
-                                      color: Color(0xFFB8C2C8),
-                                      blurRadius: 0,
-                                      offset: Offset(5, 5),
-                                    ),
-                                  ],
+                              width: double.infinity,
+                              height: AppSize.h(56),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(34),
+                                boxShadow: [
+
+
+                                  BoxShadow(
+                                    color: const Color(0xFFB8C2C8).withValues(alpha: 0.5),
+                                    blurRadius: 0,
+                                    offset: const Offset(5, 5),
+                                  ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: emailController,
+                                textAlign: TextAlign.start,
+                                textAlignVertical: TextAlignVertical.center,
+                                maxLines: 1,
+                                keyboardType: TextInputType.emailAddress,
+                                onChanged: (val) {
+                                  // Live validation: jab tak email valid nahi,
+                                  // "Invalid Email" dikhta rahe. Purana auto-dismiss
+                                  // timer cancel karna zaroori hai, warna 5s baad
+                                  // error gayab ho jata (server error ke timer se).
+                                  _errorTimer?.cancel();
+                                  setState(() {
+                                    if (val.trim().isNotEmpty &&
+                                        !isValidEmail(val.trim())) {
+                                      error = "Invalid Email";
+                                    } else {
+                                      error = "";
+                                    }
+                                  });
+                                },
+                                style: TextStyle(
+                                  color: const Color(0xFF5A6C7D),
+                                  fontSize: AppSize.sp(16),
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w400,
                                 ),
-                                child: TextField(
-                                  controller: emailController,
-                                  textAlign: TextAlign.start,
-                                  keyboardType: TextInputType.emailAddress,
-                                  onChanged: (_) => setState(() {}),
-                                  style: TextStyle(
-                                    color: const Color(0xFF5A6C7D),
-                                    fontSize: AppSize.sp(16),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  hintText: "Your Email",
+                                  hintStyle: const TextStyle(
+                                    color: Color(0xFF8A99A6),
                                     fontFamily: 'Inter',
                                     fontWeight: FontWeight.w400,
                                   ),
-                                  decoration: InputDecoration(
-                                    hintText: "Your Email",
-                                    hintStyle: const TextStyle(
-                                      color: Color(0xFF8A99A6),
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    prefixIcon: Padding(
-                                      padding: const EdgeInsets.all(10.0),
-                                      child: Container(
-                                        width: 35,
-                                        height: 42,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF002C3E),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.email_outlined,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
+                                  prefixIcon: Padding(
+                                    padding: const EdgeInsets.all(10.0),
+                                    child: Container(
+                                      width: 35,
+                                      height: 42,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF002C3E),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.email_outlined,
+                                        color: Colors.white,
+                                        size: 20,
                                       ),
                                     ),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                      horizontal: 16,
-                                    ),
                                   ),
-                                )
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 0,
+                                    horizontal: 16,
+                                  ),
+                                ),
+                              ),
                             ),
                             SizedBox(height: AppSize.h(12)),
                             Align(
@@ -391,7 +437,7 @@ class _EmailPageState extends State<EmailPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding:  EdgeInsets.symmetric(horizontal: AppSize.h(24)),
+                            padding: EdgeInsets.symmetric(horizontal: AppSize.h(24)),
                             child: Container(
                               width: double.infinity,
                               height: AppSize.h(56),
@@ -415,14 +461,15 @@ class _EmailPageState extends State<EmailPage> {
                                 children: [
                                   const SizedBox(width: 10),
                                   Container(
-                                      width: 42,
-                                      height: 42,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF002C3E),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.smartphone,
-                                          color: Colors.white, size: 20)),
+                                    width: 42,
+                                    height: 42,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF002C3E),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.smartphone,
+                                        color: Colors.white, size: 20),
+                                  ),
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: TextField(
@@ -457,7 +504,7 @@ class _EmailPageState extends State<EmailPage> {
                           ),
                           SizedBox(height: AppSize.h(8)),
                           Padding(
-                            padding:  EdgeInsets.symmetric(horizontal: AppSize.h(28)),
+                            padding: EdgeInsets.symmetric(horizontal: AppSize.h(28)),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -469,20 +516,41 @@ class _EmailPageState extends State<EmailPage> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
+                                // Resend / countdown block — "Resend" left, timer right
                                 GestureDetector(
                                   onTap: _isResendButtonEnabled ? resendOtp : null,
-                                  child: Text(
-                                    _isResendButtonEnabled ? "Resend" : "${_start}s",
-                                    style: TextStyle(
-                                      fontSize: AppSize.sp(11.5),
-                                      color: _isResendButtonEnabled
-                                          ? const Color(0xFF8A99A6)
-                                          : const Color(0xFF8A99A6).withValues(alpha: 0.5),
-                                      fontWeight: FontWeight.w600,
-                                      decoration: _isResendButtonEnabled
-                                          ? TextDecoration.underline
-                                          : TextDecoration.none,
-                                    ),
+                                  behavior: HitTestBehavior.opaque,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        "Resend",
+                                        style: TextStyle(
+                                          fontSize: AppSize.sp(11.5),
+                                          color: _isResendButtonEnabled
+                                              ? const Color(0xFF8A99A6)
+                                              : const Color(0xFF8A99A6)
+                                              .withValues(alpha: 0.5),
+                                          fontWeight: FontWeight.w600,
+                                          decoration: _isResendButtonEnabled
+                                              ? TextDecoration.underline
+                                              : TextDecoration.none,
+                                        ),
+                                      ),
+                                      if (!_isResendButtonEnabled) ...[
+                                        SizedBox(width: AppSize.w(4)),
+                                        Text(
+                                          "${_start}s",
+                                          key: ValueKey<int>(_start),
+                                          style: TextStyle(
+                                            fontSize: AppSize.sp(11.5),
+                                            color: const Color(0xFF8A99A6)
+                                                .withValues(alpha: 0.5),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               ],
@@ -490,22 +558,17 @@ class _EmailPageState extends State<EmailPage> {
                           ),
                           SizedBox(height: AppSize.h(20)),
                         ],
-
                       ),
 
-                    // Mascot yahan common place par shift kar diya hai taaki dono screens par dikhe jab keyboard open na ho
                     if (!keyboardOpen) ...[
                       SizedBox(height: AppSize.h(20)),
                       Align(
                         alignment: Alignment.bottomLeft,
                         child: FractionalTranslation(
-                          translation: const Offset(-0.15, 0),
-                          child: SizedBox(
-                            width: 300,
-                            height: 300,
-                            child: IgnorePointer(
-                              child: SoloMascot(isFormValid: isFormValid),
-                            ),
+                          translation: const Offset(-0.23, 0),
+                          child: SoloTurquoiseAnimation(
+                            width: AppSize.w(300),
+                            height: AppSize.w(300),
                           ),
                         ),
                       ),
@@ -544,7 +607,7 @@ class _EmailPageState extends State<EmailPage> {
                                 ),
                               ),
                               Text(
-                                "Sign In With\nPhone Number",
+                                "Sign Up With\nPhone Number",
                                 style: TextStyle(
                                   color: const Color(0xFF8A99A6),
                                   fontSize: AppSize.sp(11),
@@ -562,17 +625,20 @@ class _EmailPageState extends State<EmailPage> {
                   ),
                   Row(
                     children: [
-                      Text(
-                        "Continue",
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
                         style: TextStyle(
-                          color: const Color(0xFF002C3E).withValues(alpha: 0.7),
-                          fontSize: AppSize.sp(16),
-                          fontWeight: FontWeight.w600,
+                          color: isFormValid
+                              ? const Color(0xFF5A6C7D)
+                              : const Color(0xFF5A6C7D).withValues(alpha: 0.3),
+                          fontSize: AppSize.sp(20),
+                          fontWeight: FontWeight.w400,
                         ),
+                        child: const Text("Continue"),
                       ),
                       SizedBox(width: AppSize.w(18)),
                       GestureDetector(
-                        onTap: loading
+                        onTap: (loading || !isFormValid)
                             ? null
                             : (isOtpSent ? verifyOtp : submitEmail),
                         child: loading
@@ -590,10 +656,14 @@ class _EmailPageState extends State<EmailPage> {
                             ),
                           ),
                         )
-                            : SvgPicture.asset(
-                          "assets/svg/nextbutton.svg",
-                          width: AppSize.w(62),
-                          height: AppSize.w(62),
+                            : AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: isFormValid ? 1.0 : 0.4,
+                          child: SvgPicture.asset(
+                            "assets/svg/nextbutton.svg",
+                            width: AppSize.w(62),
+                            height: AppSize.w(62),
+                          ),
                         ),
                       ),
                     ],

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/utils/app_size.dart';
+export 'solo_turquoise_animation.dart';
 
 class SoloAnimation extends StatefulWidget {
   const SoloAnimation({super.key});

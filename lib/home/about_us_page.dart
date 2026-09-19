@@ -15,87 +15,102 @@ class AboutUsPage extends StatelessWidget {
     AppSize.init(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF7),
+      backgroundColor: const Color(0xFFF7F8F3),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: AppSize.h(10)),
-                      child: const SoloLogo(),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: SoloLogo(),
                     ),
-                    SizedBox(height: AppSize.h(20)),
-                    Text(
+                    const SizedBox(height: 20),
+                    const Text(
                       "About Us",
                       style: TextStyle(
-                        fontSize: AppSize.sp(20),
+                        fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF002C3E),
+                        color: Color(0xFF002C3E),
                       ),
                     ),
-                    SizedBox(height: AppSize.h(10)),
-                    Text(
+                    const SizedBox(height: 10),
+                    const Text(
                       "Let’s get\nto know SOLO",
                       style: TextStyle(
-                        fontSize: AppSize.sp(44),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF002C3E),
-                        height: 1.1,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF002C3E),
+                        height: 1.15,
+                        letterSpacing: -0.3,
                       ),
                     ),
-                    SizedBox(height: AppSize.h(24)),
-                    Text(
+                    const SizedBox(height: 20),
+                    const Text(
                       "SOLO was designed with a simple, caring intention: to ensure that people who live or travel alone are never truly alone.\n\nIn today’s world, many of us spend time alone — sometimes by choice, sometimes by circumstance — and can feel isolated. Yet a quiet worry remains: “If something happened, how long would it take for anyone to know?”\n\nSOLO is for those who live alone, travel solo, work remotely, or simply want the reassurance that someone is looking out for them. It’s not just an app — it’s your daily check-in buddy. Built with a minimalist, user-focused design free of ads and distractions, SOLO is here to give you and your loved ones the quiet assurance of knowing all is okay.",
                       style: TextStyle(
-                        fontSize: AppSize.sp(12),
-                        color: const Color(0xFF002C3E),
+                        fontSize: 13,
+                        color: Color(0xFF002C3E),
                         height: 1.5,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
-                    SizedBox(height: AppSize.h(34)),
-                    Text(
+                    const SizedBox(height: 28),
+                    const Text(
                       "Loving SOLO?",
                       style: TextStyle(
-                        fontSize: AppSize.sp(16),
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF002C3E),
+                        color: Color(0xFF002C3E),
                       ),
                     ),
-                    Text(
+                    const SizedBox(height: 2),
+                    const Text(
                       "Share the feeling. Rate us on the app stores",
                       style: TextStyle(
-                        fontSize: AppSize.sp(12),
-                        color: const Color(0xFF5A6C7D),
-                        height: 1.5,
+                        fontSize: 13,
+                        color: Color(0xFF5A6C7D),
+                        height: 1.4,
                       ),
                     ),
-                    SizedBox(height: AppSize.h(12)),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
-                        rateButton("Rate on", "App Store", const Color(0xFF26415E)),
-                        SizedBox(width: AppSize.w(12)),
-                        rateButton("Rate on", "Google Play", const Color(0xFF14B8A6)),
+                        Expanded(
+                          child: rateButton(
+                            "Rate on",
+                            "App Store",
+                            const Color(0xFF26415E),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: rateButton(
+                            "Rate on",
+                            "Google Play",
+                            const Color(0xFF14B8A6),
+                          ),
+                        ),
                       ],
                     ),
-                    SizedBox(height: AppSize.h(30)),
+                    const SizedBox(height: 28),
                     versionInfo(context),
-                    SizedBox(height: AppSize.h(40)),
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
             ),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: AppSize.w(24), vertical: AppSize.h(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               alignment: Alignment.centerLeft,
               child: GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 28),
+                child: const Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 26),
               ),
             ),
           ],
@@ -105,26 +120,35 @@ class AboutUsPage extends StatelessWidget {
   }
 
   Widget rateButton(String sub, String main, Color color) {
-    return SizedBox(
-      width: 124.w,
-      child: Container(
-        height: 39.h,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              sub,
-              style: const TextStyle(color: Color(0xFFF5F5F5), fontSize: 12, fontWeight: FontWeight.w400),
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            sub,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              height: 1.1,
             ),
-            Text(
-              main,
-              style: const TextStyle(color: Color(0xFFF5F5F5), fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            main,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.1,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -135,12 +159,22 @@ class AboutUsPage extends StatelessWidget {
       children: [
         const Text(
           "Version 1.0.0",
-          style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12, fontWeight: FontWeight.w400),
+          style: TextStyle(
+            color: Color(0xFF8A99A6),
+            fontSize: 11,
+            fontWeight: FontWeight.w400,
+          ),
         ),
+        const SizedBox(height: 4),
         const Text(
           "SOLO © 2026 Social Rebels™ Design. All rights reserved.",
-          style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12, fontWeight: FontWeight.w400),
+          style: TextStyle(
+            color: Color(0xFF8A99A6),
+            fontSize: 11,
+            fontWeight: FontWeight.w400,
+          ),
         ),
+        const SizedBox(height: 4),
         Row(
           children: [
             GestureDetector(
@@ -151,14 +185,14 @@ class AboutUsPage extends StatelessWidget {
                 "Privacy Policy",
                 style: TextStyle(
                   color: const Color(0xFF8A99A6),
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w400,
                   decoration: TextDecoration.underline,
                   decorationColor: const Color(0xFF8A99A6).withValues(alpha: 0.5),
                 ),
               ),
             ),
-            const Text(" | ", style: TextStyle(color: Color(0xFF8A99A6), fontSize: 12)),
+            const Text(" | ", style: TextStyle(color: Color(0xFF8A99A6), fontSize: 11)),
             GestureDetector(
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsOfUsePage()));
@@ -168,7 +202,7 @@ class AboutUsPage extends StatelessWidget {
                 style: TextStyle(
                   color: const Color(0xFF8A99A6),
                   fontWeight: FontWeight.w400,
-                  fontSize: 10,
+                  fontSize: 11,
                   decoration: TextDecoration.underline,
                   decorationColor: const Color(0xFF8A99A6).withValues(alpha: 0.5),
                 ),

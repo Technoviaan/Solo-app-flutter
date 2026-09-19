@@ -15,6 +15,7 @@ import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'package:solo_app/core/utils/solo_sounds.dart';
+import 'package:solo_app/home/contact/resume_checkin_page.dart';
 
 /// ✅ GLOBAL NAVIGATOR KEY (ADD THIS)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -49,6 +50,12 @@ class NotificationService {
       await _localNotifications.initialize(
         settings,
         onDidReceiveNotificationResponse: (response) async {
+          if (response.payload == 'resume_checkin') {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(builder: (_) => const ResumeCheckinPage()),
+            );
+            return;
+          }
           // 🚀 Prioritize active alarm, fallback to saved time
           final alarmSet = await Alarm.getAlarms();
           if (alarmSet.isNotEmpty) {
@@ -687,6 +694,35 @@ class NotificationService {
       }
     } catch (e) {
       print("❌ Error generating/saving FCM Token: $e");
+    }
+  }
+
+  /// Push notification message to inform user when app check-ins are paused:
+  /// SOLO Alert!
+  /// [User's Name], your check-ins are paused.
+  /// Tap to resume
+  static Future<void> showPausedNotification() async {
+    try {
+      final userName = await LocalStorage.getUserName();
+      final nameDisplay = userName.isNotEmpty ? userName : "User";
+      const androidDetails = AndroidNotificationDetails(
+        'solo_paused_channel',
+        'Solo App Paused',
+        channelDescription: 'Notifications sent when check-ins are paused after an alert',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+      );
+      const notificationDetails = NotificationDetails(android: androidDetails);
+      await _localNotifications.show(
+        1300,
+        'SOLO Alert!',
+        '$nameDisplay, your check-ins are paused. Tap to resume',
+        notificationDetails,
+        payload: 'resume_checkin',
+      );
+    } catch (e) {
+      debugPrint("⚠️ Error showing paused notification: $e");
     }
   }
 }

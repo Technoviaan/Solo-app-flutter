@@ -127,24 +127,21 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
                   alignment: Alignment.topCenter,
                   child: Container(
                     decoration: BoxDecoration(
-                      // 🛠️ FIX: row fill matches the page
-                      // background (#F7F8F3), same as the
-                      // Past Check-ins table, not pure white.
                       color: const Color(0xFFF7F8F3),
                       border: Border.all(
-                        color: const Color(0x808A99A6),
+                        color: const Color(0x338A99A6),
                         width: 1,
                       ),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           headerRow(),
                           Container(
-                            height: 48,
+                            height: 52,
                             alignment: Alignment.center,
                             child: const Text(
                               "No missed check-in or SOS alerts yet",
@@ -162,47 +159,28 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
                 )
                     : Container(
                   decoration: BoxDecoration(
-                    // 🛠️ FIX: row fill matches the page
-                    // background (#F7F8F3), same as the
-                    // Past Check-ins table, not pure white.
                     color: const Color(0xFFF7F8F3),
                     border: Border.all(
-                      color: const Color(0x808A99A6),
+                      color: const Color(0x338A99A6),
                       width: 1,
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     child: Column(
                       children: [
                         headerRow(),
                         Expanded(
-                          // 🛠️ FIX: RawScrollbar (plain Scrollbar
-                          // has no color param) adds the visible
-                          // right-side scroll thumb, in the same
-                          // coral as this page's header (#EC6A52).
-                          child: RawScrollbar(
+                          child: Scrollbar(
                             controller: _scrollController,
-                            thumbVisibility: true,
-                            thickness: 4,
-                            radius: const Radius.circular(8),
-                            thumbColor: const Color(0xFFEC6A52),
                             child: ListView.builder(
                               controller: _scrollController,
-                              physics:
-                              const BouncingScrollPhysics(),
+                              physics: const BouncingScrollPhysics(),
                               padding: EdgeInsets.zero,
                               itemCount: rows.length,
                               itemBuilder: (_, i) {
                                 final item = rows[i];
-                                // 🛠️ FIX: was ListView.separated,
-                                // which only draws a divider
-                                // BETWEEN items — the last row
-                                // never got a divider under it.
-                                // Now every row (including the
-                                // last) draws its own divider
-                                // directly beneath it.
                                 return Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -214,9 +192,9 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
                                     const Divider(
                                       height: 1,
                                       thickness: 1,
-                                      indent: 16,
-                                      endIndent: 16,
-                                      color: Color(0xFFCED5D6),
+                                      indent: 10,
+                                      endIndent: 10,
+                                      color: Color(0x2B8A99A6),
                                     ),
                                   ],
                                 );
@@ -237,7 +215,7 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
                   child: Icon(
                     Icons.arrow_back,
                     color: Color(0xFF8A99A6),
-                    size: 28,
+                    size: 26,
                   ),
                 ),
               ),
@@ -251,76 +229,80 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
   Widget headerRow() {
     return Container(
       color: const Color(0xFFEC6A52),
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
         children: [
           const Expanded(
-            flex: 20,
-            child: Padding(
-              padding: EdgeInsets.only(left: 16),
-              child: Text(
-                "Date",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: 2,
-            height: 26,
-            color: Colors.white.withValues(alpha: 0.5),
-          ),
-          const Expanded(
             flex: 22,
             child: Padding(
-              padding: EdgeInsets.only(left: 16),
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                "Date",
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 18,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
+          const Expanded(
+            flex: 24,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 "Time",
+                maxLines: 1,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ),
           Container(
-            width: 2,
-            height: 26,
-            color: Colors.white.withValues(alpha: 0.5),
+            width: 1,
+            height: 18,
+            color: Colors.white.withValues(alpha: 0.6),
           ),
           const Expanded(
-            flex: 38,
+            flex: 36,
             child: Padding(
-              padding: EdgeInsets.only(left: 16),
+              padding: EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 "Contact",
+                maxLines: 1,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ),
           Container(
-            width: 2,
-            height: 26,
-            color: Colors.white.withValues(alpha: 0.5),
+            width: 1,
+            height: 18,
+            color: Colors.white.withValues(alpha: 0.6),
           ),
           const Expanded(
-            flex: 20,
+            flex: 18,
             child: Padding(
-              padding: EdgeInsets.only(left: 16),
+              padding: EdgeInsets.symmetric(horizontal: 6),
               child: Text(
                 "Type",
+                maxLines: 1,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -332,64 +314,65 @@ class _AlertHistoryPageState extends State<AlertHistoryPage> {
 
   Widget dataRow(String type, String created, String contact) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           Expanded(
-            flex: 20,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Text(
-                getDate(created),
-                style: const TextStyle(
-                  color: Color(0xFF5A6C7D),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 1),
-          Expanded(
             flex: 22,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
-                getTime(created),
+                getDate(created),
+                maxLines: 1,
                 style: const TextStyle(
                   color: Color(0xFF5A6C7D),
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 1),
           Expanded(
-            flex: 38,
+            flex: 24,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                getTime(created),
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Color(0xFF5A6C7D),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 36,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 contact,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF5A6C7D),
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 1),
           Expanded(
-            flex: 20,
+            flex: 18,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Text(
                 type == "SOS" ? "SOS" : "Missed",
+                maxLines: 1,
                 style: const TextStyle(
                   color: Color(0xFF5A6C7D),
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
               ),

@@ -1,8 +1,8 @@
+import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
-import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/home/checkin/checkin_api.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/contact/contacts_page.dart';
@@ -19,7 +19,7 @@ class SchedulePage extends StatefulWidget {
   State<SchedulePage> createState() => _SchedulePageState();
 }
 
-class _SchedulePageState extends State<SchedulePage> {
+class _SchedulePageState extends State<SchedulePage> with SingleTickerProviderStateMixin {
   List<TimeOfDay?> checkins = [null, null];
   List<bool> enabled = [false, false];
 
@@ -30,7 +30,11 @@ class _SchedulePageState extends State<SchedulePage> {
   String selectedVoice = "Male";
   bool _isPlaying = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  AnimationController? _waveAnimationController;
   String userName = "User";
+
+  // Check if trial user (allowed only 1 check-in time)
+  bool get isTrialUser => subscriptionStatus <= 1;
 
   @override
   void initState() {
@@ -38,11 +42,23 @@ class _SchedulePageState extends State<SchedulePage> {
     loadData();
     loadSchedule();
 
+    _waveAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
     _audioPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) {
+        final playing = state == PlayerState.playing;
         setState(() {
-          _isPlaying = state == PlayerState.playing;
+          _isPlaying = playing;
         });
+        if (playing) {
+          _waveAnimationController?.repeat(reverse: true);
+        } else {
+          _waveAnimationController?.stop();
+          _waveAnimationController?.reset();
+        }
       }
     });
   }
@@ -81,10 +97,10 @@ class _SchedulePageState extends State<SchedulePage> {
     }
   }
 
-  /// ================= CUSTOM TIME PICKER =================
+  /// ================= CUSTOM TIME PICKER POPUP (FIGMA SPEC) =================
   void pickTime(int index) async {
-    // Restriction: 7-day trial users (Status 1) can only use the first check-in
-    if (index == 1 && subscriptionStatus == 1) {
+    // Restriction: Trial users can only use the first check-in
+    if (index == 1 && isTrialUser) {
       goToSubscription();
       return;
     }
@@ -95,6 +111,13 @@ class _SchedulePageState extends State<SchedulePage> {
     int tempMinute = TimeOfDay.now().minute;
     String tempPeriod = initialHour >= 12 ? "PM" : "AM";
 
+    if (checkins[index] != null) {
+      final t = checkins[index]!;
+      tempHour = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+      tempMinute = t.minute;
+      tempPeriod = t.period == DayPeriod.am ? "AM" : "PM";
+    }
+
     int selectedHourIndex = tempHour - 1;
     int selectedMinuteIndex = tempMinute;
     int selectedPeriodIndex = tempPeriod == "AM" ? 0 : 1;
@@ -103,70 +126,84 @@ class _SchedulePageState extends State<SchedulePage> {
     final minuteController = FixedExtentScrollController(initialItem: selectedMinuteIndex);
     final periodController = FixedExtentScrollController(initialItem: selectedPeriodIndex);
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      barrierDismissible: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return SafeArea(
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: Container(
-                height: 440,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(40),
-                    topRight: Radius.circular(40),
-                  ),
+                width: 402,
+                constraints: const BoxConstraints(maxWidth: 402),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F8F3),
+                  borderRadius: BorderRadius.circular(32),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 24),
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // HEADER
                     Row(
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: const BoxDecoration(),
-                          child: Center(
-                            child: SvgPicture.asset(
-                              'assets/svg/schudel.svg',
-                              width: 36,
-                              height: 36,
-                            ),
-                          ),
+                        SvgPicture.asset(
+                          'assets/svg/schudel.svg',
+                          width: 34,
+                          height: 34,
                         ),
-                        const SizedBox(width: 7),
-                        const Text(
-                          "Set Your Check-in Time",
-                          style: TextStyle(
-                            fontSize: 23,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF002C3E),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            "Set Your Check-in Time",
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF002C3E),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    const Divider(color: Color(0xFF8A99A6), thickness: 1),
+                    const SizedBox(height: 12),
+                    const Divider(
+                      color: Color(0x808A99A6),
+                      thickness: 1,
+                      height: 1,
+                    ),
+                    const SizedBox(height: 14),
 
                     // WHEEL PICKER AREA
-                    Expanded(
+                    SizedBox(
+                      height: 200,
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Selection Indicators
+                          // Two selection lines spaced exactly 44px apart
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Container(height: 1.2, color: const Color(0xFF8A99A6)),
-                              const SizedBox(height: 60),
-                              Container(height: 1.2, color: const Color(0xFF8A99A6)),
+                              Container(
+                                height: 1,
+                                margin: const EdgeInsets.symmetric(horizontal: 12),
+                                color: const Color(0x808A99A6),
+                              ),
+                              const SizedBox(height: 44),
+                              Container(
+                                height: 1,
+                                margin: const EdgeInsets.symmetric(horizontal: 12),
+                                color: const Color(0x808A99A6),
+                              ),
                             ],
                           ),
-                          // THE PICKER
+
+                          // ShaderMask for soft vertical fade out
                           ShaderMask(
                             shaderCallback: (rect) {
                               return const LinearGradient(
@@ -174,11 +211,11 @@ class _SchedulePageState extends State<SchedulePage> {
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   Colors.transparent,
-                                  Color(0xFF8A99A6),
-                                  Color(0xFF8A99A6),
+                                  Colors.black,
+                                  Colors.black,
                                   Colors.transparent,
                                 ],
-                                stops: [0.0, 0.2, 0.8, 1.0],
+                                stops: [0.0, 0.22, 0.78, 1.0],
                               ).createShader(rect);
                             },
                             blendMode: BlendMode.dstIn,
@@ -198,12 +235,16 @@ class _SchedulePageState extends State<SchedulePage> {
                                   },
                                   isHour: true,
                                 ),
-                                const Text(
-                                  " : ",
-                                  style: TextStyle(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xFF002C3E),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    " : ",
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFF002C3E),
+                                    ),
                                   ),
                                 ),
                                 // MINUTES
@@ -219,13 +260,13 @@ class _SchedulePageState extends State<SchedulePage> {
                                   },
                                   isHour: false,
                                 ),
-                                const SizedBox(width: 15),
-                                // PERIOD
+                                const SizedBox(width: 14),
+                                // AM / PM
                                 SizedBox(
-                                  width: 70,
-                                  height: 180,
+                                  width: 64,
+                                  height: 200,
                                   child: ListWheelScrollView(
-                                    itemExtent: 60,
+                                    itemExtent: 44,
                                     physics: const FixedExtentScrollPhysics(),
                                     controller: periodController,
                                     onSelectedItemChanged: (i) {
@@ -235,8 +276,8 @@ class _SchedulePageState extends State<SchedulePage> {
                                       });
                                     },
                                     children: [
-                                      _pickerText("AM", isSelected: selectedPeriodIndex == 0),
-                                      _pickerText("PM", isSelected: selectedPeriodIndex == 1),
+                                      _periodText("AM", isSelected: selectedPeriodIndex == 0),
+                                      _periodText("PM", isSelected: selectedPeriodIndex == 1),
                                     ],
                                   ),
                                 ),
@@ -247,20 +288,22 @@ class _SchedulePageState extends State<SchedulePage> {
                       ),
                     ),
 
+                    const SizedBox(height: 18),
+
                     // BUTTONS
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(
-                          width: AppSize.w(111),
-                          height: AppSize.h(46),
+                          width: 110,
+                          height: 42,
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF002C3E),
                               side: const BorderSide(
                                 color: Color(0xFF002C3E),
-                                width: 1.5,
+                                width: 1,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(50),
@@ -270,16 +313,17 @@ class _SchedulePageState extends State<SchedulePage> {
                             child: const Text(
                               "Cancel",
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(width: AppSize.w(12)),
+                        const SizedBox(width: 14),
                         SizedBox(
-                          width: AppSize.w(111),
-                          height: AppSize.h(46),
+                          width: 110,
+                          height: 42,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF002C3E),
@@ -304,8 +348,9 @@ class _SchedulePageState extends State<SchedulePage> {
                             child: const Text(
                               "Confirm",
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -330,9 +375,9 @@ class _SchedulePageState extends State<SchedulePage> {
     bool isHour = true,
   }) {
     return SizedBox(
-      width: 60,
+      width: 54,
       child: ListWheelScrollView.useDelegate(
-        itemExtent: 60,
+        itemExtent: 44,
         physics: const FixedExtentScrollPhysics(),
         controller: controller,
         onSelectedItemChanged: onChanged,
@@ -348,15 +393,33 @@ class _SchedulePageState extends State<SchedulePage> {
 
   Widget _pickerText(String text, {bool isSelected = false}) {
     return Center(
-      child: AnimatedDefaultTextStyle(
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeInOut,
+      child: Text(
+        text,
         style: TextStyle(
-          fontSize: isSelected ? 42 : 30,
+          fontFamily: 'Inter',
+          fontSize: isSelected ? 32 : 22,
           fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
           color: isSelected ? const Color(0xFF002C3E) : const Color(0xFF8A99A6),
+          height: 1.0,
         ),
-        child: Text(text),
+      ),
+    );
+  }
+
+  Widget _periodText(String text, {bool isSelected = false}) {
+    return Center(
+      child: Text(
+        text,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.visible,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: isSelected ? 20 : 16,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          color: isSelected ? const Color(0xFF002C3E) : const Color(0xFF8A99A6),
+          height: 1.0,
+        ),
       ),
     );
   }
@@ -370,75 +433,123 @@ class _SchedulePageState extends State<SchedulePage> {
     return "$hour:$minute $period";
   }
 
+  /// ================= SOUND WAVE ANIMATION BUILDER =================
+  Widget _buildSoundWave(bool isPlaying, double animValue) {
+    const baseHeights = [18.0, 25.0, 19.0, 31.0, 12.0];
+    const minHeights = [8.0, 12.0, 9.0, 14.0, 6.0];
+    const maxHeights = [28.0, 38.0, 30.0, 42.0, 22.0];
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: List.generate(5, (i) {
+        double height;
+        if (!isPlaying) {
+          height = baseHeights[i];
+        } else {
+          final phase = i * (math.pi / 2.5);
+          final sinVal = (math.sin(animValue * 2 * math.pi + phase) + 1) / 2;
+          height = minHeights[i] + (maxHeights[i] - minHeights[i]) * sinVal;
+        }
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 2.2),
+          width: 4.8,
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(2.5),
+          ),
+        );
+      }),
+    );
+  }
+
   /// ================= CHECK-IN TILE =================
   Widget checkinTile(int index) {
-    return Container(
-      padding: const EdgeInsets.only(left: 0, right: 0, top: 14, bottom: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: Color(0xFF76BDCB),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                "${index + 1}",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    final isInactive = (index == 1 && isTrialUser);
+
+    return Opacity(
+      opacity: isInactive ? 0.45 : 1.0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: Color(0xFF76BDCB),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  "${index + 1}",
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Check-in Time",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                    color: Color(0xFF5A6C7D),
-                  ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: isInactive ? goToSubscription : () => pickTime(index),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Check-in Time",
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                        color: Color(0xFF5A6C7D),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      formatTime(checkins[index]),
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: checkins[index] != null ? const Color(0xFF002C3E) : const Color(0xFF8A99A6),
+                        fontSize: checkins[index] != null ? 17 : 14,
+                        fontWeight: checkins[index] != null ? FontWeight.w500 : FontWeight.w400,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                Text(
-                  formatTime(checkins[index]),
-                  style: const TextStyle(
-                    color: Color(0xFF8A99A6),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          GestureDetector(
-            onTap: () => pickTime(index),
-            child: (index == 1 && subscriptionStatus == 1)
-                ? const Icon(Icons.lock, color: Colors.black26, size: 28)
-                : SvgPicture.asset(
-              'assets/svg/plus.svg',
-              width: 28.w,
-              height: 28.w,
+            GestureDetector(
+              onTap: isInactive ? goToSubscription : () => pickTime(index),
+              child: SvgPicture.asset(
+                'assets/svg/plus.svg',
+                width: 28,
+                height: 28,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          customSwitch(
-            value: enabled[index],
-            onChanged: (val) async {
-              if (val && index == 1 && subscriptionStatus == 1) {
-                goToSubscription();
-                return;
-              }
+            const SizedBox(width: 8),
+            customSwitch(
+              value: !isInactive && enabled[index],
+              onChanged: (val) async {
+                if (isInactive) {
+                  goToSubscription();
+                  return;
+                }
 
-              setState(() {
-                enabled[index] = val;
-              });
-            },
-          ),
-        ],
+                setState(() {
+                  enabled[index] = val;
+                });
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -452,180 +563,193 @@ class _SchedulePageState extends State<SchedulePage> {
         _handleBackNavigation();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9F5),
+        backgroundColor: const Color(0xFFF7F8F3),
         body: SafeArea(
           child: Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 27.h),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      // BIG HEADLINE: Inter, 600, 44px, line-height 50px (#002C3E), break after 'your'
+                      const Text(
                         "Set your\ndaily check-in\nschedule",
                         style: TextStyle(
-                          fontSize: 44.sp,
+                          fontFamily: 'Inter',
+                          fontSize: 44,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF002C3E),
-                          height: 1.1,
+                          color: Color(0xFF002C3E),
+                          height: 50 / 44,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        "Schedule up to 2 preferred check-in times daily. I'll be there to check on you, and you can change or pause reminders anytime.",
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Schedule up to 2 preferred check-in times daily.\n I'll be there to check on you, and you can change\n or pause reminders anytime.",
                         style: TextStyle(
-                          fontSize: 14.sp,
-                          color: const Color(0xFF5A6C7D),
-                          height: 1.4,
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          color: Color(0xFF5A6C7D),
+                          height: 1.45,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
-                      SizedBox(height: 16.h),
-                      const Divider(height: 1, color: Color(0xFF8A99A6)),
+                      const SizedBox(height: 20),
+                      // 1px stroke, 50% opacity #8A99A6
+                      const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
                       checkinTile(0),
-                      const Divider(height: 1, color: Color(0xFF8A99A6)),
+                      const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
                       checkinTile(1),
-                      const Divider(height: 1, color: Color(0xFF8A99A6)),
-                      SizedBox(height: 16.h),
-                      Text(
+                      const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                      const SizedBox(height: 16),
+                      const Text(
                         "Send alert after missed check-in",
                         style: TextStyle(
-                          fontSize: 15.sp,
+                          fontFamily: 'Inter',
+                          fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF5A6C7D),
+                          color: Color(0xFF5A6C7D),
                         ),
                       ),
-                      SizedBox(height: 12.h),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           customRadio(1, selectedAlertHour, (val) => setState(() => selectedAlertHour = val!)),
-                          SizedBox(width: 8.w),
-                          Text("1 Hour", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp)),
-                          SizedBox(width: 24.w),
+                          const SizedBox(width: 8),
+                          const Text("1 Hour", style: TextStyle(fontFamily: 'Inter', color: Color(0xFF5A6C7D), fontSize: 14)),
+                          const SizedBox(width: 24),
                           customRadio(2, selectedAlertHour, (val) => setState(() => selectedAlertHour = val!)),
-                          SizedBox(width: 8.w),
-                          Text("2 Hours (Default)", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp)),
+                          const SizedBox(width: 8),
+                          const Text("2 Hours (Default)", style: TextStyle(fontFamily: 'Inter', color: Color(0xFF5A6C7D), fontSize: 14)),
                         ],
                       ),
-                      SizedBox(height: 16.h),
-                      const Divider(height: 1, color: Color(0xFF8A99A6)),
-                      SizedBox(height: 15.h),
-                      // VOICE SELECTION SECTION
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 73.w,
-                            height: 73.w,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8705B),
-                              borderRadius: BorderRadius.circular(16.w),
-                            ),
-                            child: Center(
-                              child: SvgPicture.asset(
-                                'assets/svg/play.svg',
-                                width: 32.w,
-                                height: 32.w,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
-                                  BlendMode.srcIn,
+                      const SizedBox(height: 16),
+                      const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                      const SizedBox(height: 16),
+
+                      // VOICE SELECTION SECTION (Icon height matches section via IntrinsicHeight)
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              width: 72,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8705B),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Center(
+                                child: AnimatedBuilder(
+                                  animation: _waveAnimationController!,
+                                  builder: (context, child) {
+                                    return _buildSoundWave(_isPlaying, _waveAnimationController!.value);
+                                  },
                                 ),
                               ),
                             ),
-                          ),
-                          SizedBox(width: 13.w),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    RichText(
-                                      text: TextSpan(
-                                        text: "Voice ",
-                                        style: TextStyle(
-                                          color: const Color(0xFF5A6C7D),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16.sp,
-                                        ),
-                                        children: [
-                                          TextSpan(
-                                            text: "(Optional)",
-                                            style: TextStyle(
-                                              color: const Color(0xFF5A6C7D),
-                                              fontWeight: FontWeight.normal,
-                                              fontSize: 12.sp,
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      RichText(
+                                        text: const TextSpan(
+                                          text: "Voice ",
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            color: Color(0xFF5A6C7D),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                          children: [
+                                            TextSpan(
+                                              text: "(Optional)",
+                                              style: TextStyle(
+                                                fontFamily: 'Inter',
+                                                color: Color(0xFF5A6C7D),
+                                                fontWeight: FontWeight.normal,
+                                                fontSize: 12,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: _playVoice,
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
-                                            color: const Color(0xFFE8705B),
-                                            size: 20.sp,
-                                          ),
-                                          SizedBox(width: 6.w),
-                                          Text(
-                                            _isPlaying ? "Pause" : "Play",
-                                            style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 14.sp),
-                                          ),
-                                        ],
+                                      GestureDetector(
+                                        onTap: _playVoice,
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                                              color: const Color(0xFFE8705B),
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              _isPlaying ? "Pause" : "Play",
+                                              style: const TextStyle(
+                                                fontFamily: 'Inter',
+                                                color: Color(0xFF5A6C7D),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 5.h),
-                                Text(
-                                  "Choose a voice for your check-in reminder",
-                                  style: TextStyle(
-                                    color: const Color(0xFF5A6C7D),
-                                    fontSize: 12.sp,
-                                    fontWeight: FontWeight.w400,
+                                    ],
                                   ),
-                                ),
-                                SizedBox(height: 5.h),
-                                Row(
-                                  children: [
-                                    customRadioString(
-                                      "Male",
-                                      selectedVoice,
-                                          (val) => setState(() => selectedVoice = val!),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    "Choose a voice for your check-in reminder",
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      color: Color(0xFF5A6C7D),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
                                     ),
-                                    SizedBox(width: 6.w),
-                                    Text("Male", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
-                                    SizedBox(width: 16.w),
-                                    customRadioString(
-                                      "Female",
-                                      selectedVoice,
-                                          (val) => setState(() => selectedVoice = val!),
-                                    ),
-                                    SizedBox(width: 6.w),
-                                    Text("Female", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
-                                    SizedBox(width: 16.w),
-                                    customRadioString(
-                                      "None",
-                                      selectedVoice,
-                                          (val) => setState(() => selectedVoice = val!),
-                                    ),
-                                    SizedBox(width: 6.w),
-                                    Text("None", style: TextStyle(color: const Color(0xFF5A6C7D), fontSize: 12.sp)),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      customRadioString(
+                                        "Male",
+                                        selectedVoice,
+                                        (val) => setState(() => selectedVoice = val!),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text("Male", style: TextStyle(fontFamily: 'Inter', color: Color(0xFF5A6C7D), fontSize: 12)),
+                                      const SizedBox(width: 16),
+                                      customRadioString(
+                                        "Female",
+                                        selectedVoice,
+                                        (val) => setState(() => selectedVoice = val!),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text("Female", style: TextStyle(fontFamily: 'Inter', color: Color(0xFF5A6C7D), fontSize: 12)),
+                                      const SizedBox(width: 16),
+                                      customRadioString(
+                                        "None",
+                                        selectedVoice,
+                                        (val) => setState(() => selectedVoice = val!),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text("None", style: TextStyle(fontFamily: 'Inter', color: Color(0xFF5A6C7D), fontSize: 12)),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      SizedBox(height: 16.h),
-                      const Divider(height: 1, color: Color(0xFF8A99A6)),
-                      SizedBox(height: 20.h),
+                      const SizedBox(height: 16),
+                      const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -633,13 +757,15 @@ class _SchedulePageState extends State<SchedulePage> {
 
               // BOTTOM NAVIGATION BAR
               Container(
-                padding: EdgeInsets.only(left: 24.w, right: 24.w),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 color: Colors.transparent,
                 child: Row(
                   children: [
                     IconButton(
                       onPressed: _handleBackNavigation,
-                      icon: Icon(Icons.arrow_back, color: Colors.black45, size: 28.sp),
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFF5A6C7D), size: 26),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
                     const Spacer(),
                     GestureDetector(
@@ -699,22 +825,23 @@ class _SchedulePageState extends State<SchedulePage> {
                           Text(
                             "Next",
                             style: TextStyle(
-                              fontSize: 20.sp,
+                              fontFamily: 'Inter',
+                              fontSize: 20,
                               fontWeight: FontWeight.w400,
                               color: checkins.asMap().entries.any((e) => enabled[e.key] && e.value != null)
-                                  ? const Color(0xFF5A6C7D)
-                                  : Colors.black26,
+                                  ? const Color(0xFF002C3E)
+                                  : const Color(0xFF002C3E).withValues(alpha: 0.3),
                             ),
                           ),
-                          SizedBox(width: 16.w),
+                          const SizedBox(width: 14),
                           Opacity(
                             opacity: checkins.asMap().entries.any((e) => enabled[e.key] && e.value != null)
                                 ? 1.0
                                 : 0.3,
                             child: SvgPicture.asset(
                               'assets/svg/nextbutton.svg',
-                              width: 60.w,
-                              height: 60.w,
+                              width: 60,
+                              height: 60,
                             ),
                           ),
                         ],
@@ -735,20 +862,20 @@ class _SchedulePageState extends State<SchedulePage> {
     return GestureDetector(
       onTap: () => onChanged(value),
       child: Container(
-        width: 24.w,
-        height: 24.w,
+        width: 22,
+        height: 22,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
             color: const Color(0xFFD1DDE3),
-            width: 2.w,
+            width: 2,
           ),
         ),
         child: isSelected
             ? Center(
           child: Container(
-            width: 14.w,
-            height: 14.w,
+            width: 12,
+            height: 12,
             decoration: const BoxDecoration(
               color: Color(0xFF76BDCB),
               shape: BoxShape.circle,
@@ -765,20 +892,20 @@ class _SchedulePageState extends State<SchedulePage> {
     return GestureDetector(
       onTap: () => onChanged(value),
       child: Container(
-        width: 24.w,
-        height: 24.w,
+        width: 22,
+        height: 22,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
             color: const Color(0xFFD1DDE3),
-            width: 2.w,
+            width: 2,
           ),
         ),
         child: isSelected
             ? Center(
           child: Container(
-            width: 14.w,
-            height: 14.w,
+            width: 12,
+            height: 12,
             decoration: const BoxDecoration(
               color: Color(0xFF76BDCB),
               shape: BoxShape.circle,
@@ -795,19 +922,19 @@ class _SchedulePageState extends State<SchedulePage> {
       onTap: () => onChanged(!value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 50.w,
-        height: 28.w,
+        width: 50,
+        height: 28,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14.w),
+          borderRadius: BorderRadius.circular(14),
           color: value ? const Color(0xFFB5D43C) : const Color(0xFFD1DBE0),
         ),
-        padding: EdgeInsets.all(2.w),
+        padding: const EdgeInsets.all(2),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 200),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            width: 24.w,
-            height: 24.w,
+            width: 24,
+            height: 24,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
@@ -839,7 +966,6 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   void _playVoice() async {
-    // If "None" is selected, do not play any audio or trigger player state
     if (selectedVoice == "None") {
       if (_isPlaying) {
         await _audioPlayer.stop();
@@ -865,6 +991,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   void dispose() {
+    _waveAnimationController?.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }

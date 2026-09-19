@@ -13,6 +13,7 @@ import 'package:solo_app/loginWithNumber/email_page.dart';
 import 'package:solo_app/loginWithNumber/name_onboarding_page.dart';
 import 'package:solo_app/loginWithNumber/registration_email_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
+import '../splash_screen.dart';
 import 'auth_bloc.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -120,7 +121,11 @@ class _LoginPageState extends State<LoginPage> {
 
   int get _currentRequiredPhoneLength => _dialCodeToRequiredLength[selectedDialCode] ?? 10;
 
+  // 👇 FIX: agar error present hai toh Next button disabled/dim rahega,
+  // chahe phone/otp length technically complete kyun na ho.
   bool get _isNextButtonEnabled {
+    if (error.isNotEmpty) return false;
+
     if (!isOtpSent) {
       return phone.length == _currentRequiredPhoneLength;
     } else {
@@ -505,14 +510,14 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(height: 40.h),
 
                           // Logo & Tagline Section
-                          Center(
+                          const Center(
                             child: Column(
                               children: [
                                 Hero(
                                   tag: 'logo_hero',
                                   child: Material(
                                     color: Colors.transparent,
-                                    child: SoloLogoWidget(size: 64.w),
+                                    child:  SoloLogoAnimated(width: 260)
                                   ),
                                 ),
                               ],
@@ -602,38 +607,77 @@ class _LoginPageState extends State<LoginPage> {
                                         behavior: HitTestBehavior.opaque,
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment: MainAxisAlignment.end, // 👈 hamesha right-edge se align
                                           children: [
-                                            Text(
-                                              "Resend",
-                                              style: TextStyle(
-                                                color: _canResend
-                                                    ? const Color(0xFFF5F5F5)
-                                                    : const Color(0xFF8A99A6),
-                                                fontSize: 11.sp,
-                                                fontWeight: _canResend
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w400,
-                                                decoration: _canResend
-                                                    ? TextDecoration.underline
-                                                    : TextDecoration.none,
-                                                decorationColor: const Color(0xFFF5F5F5),
-                                              ),
-                                            ),
-                                            if (!_canResend) ...[
-                                              SizedBox(width: 4.w),
-                                              Text(
-                                                _formatResendTime(_resendSecondsLeft),
-                                                style: TextStyle(
-                                                  color: const Color(0xFF8A99A6),
-                                                  fontSize: 11.sp,
-                                                  fontWeight: FontWeight.w400,
+                                            // 👇 Countdown — jab timer chal raha hai tab hi dikhega
+                                            AnimatedSize(
+                                              duration: const Duration(milliseconds: 350),
+                                              curve: Curves.easeInOut,
+                                              child: AnimatedOpacity(
+                                                duration: const Duration(milliseconds: 250),
+                                                opacity: _canResend ? 0.0 : 1.0,
+                                                child: _canResend
+                                                    ? const SizedBox(width: 0, height: 0)
+                                                    : Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      "00:",
+                                                      style: TextStyle(
+                                                        color: const Color(0xFF8A99A6),
+                                                        fontSize: 11.sp,
+                                                        fontWeight: FontWeight.w400,
+                                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                                      ),
+                                                    ),
+                                                    SizedBox(
+                                                      width: 18.w,
+                                                      child: AnimatedSwitcher(
+                                                        duration: const Duration(milliseconds: 250),
+                                                        transitionBuilder: (child, animation) =>
+                                                            FadeTransition(opacity: animation, child: child),
+                                                        child: Text(
+                                                          _resendSecondsLeft.toString().padLeft(2, '0'),
+                                                          key: ValueKey<int>(_resendSecondsLeft),
+                                                          maxLines: 1,
+                                                          softWrap: false,
+                                                          overflow: TextOverflow.visible,
+                                                          style: TextStyle(
+                                                            color: const Color(0xFF8A99A6),
+                                                            fontSize: 11.sp,
+                                                            fontWeight: FontWeight.w400,
+                                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                            ],
+                                            ),
+                                            AnimatedSize(
+                                              duration: const Duration(milliseconds: 350),
+                                              curve: Curves.easeInOut,
+                                              child: AnimatedOpacity(
+                                                duration: const Duration(milliseconds: 300),
+                                                opacity: _canResend ? 1.0 : 0.0,
+                                                child: !_canResend
+                                                    ? const SizedBox(width: 0, height: 0)
+                                                    : Text(
+                                                  "Resend",
+                                                  style: TextStyle(
+                                                    color: const Color(0xFFF5F5F5),
+                                                    fontSize: 11.sp,
+                                                    fontWeight: FontWeight.w700,
+                                                    decoration: TextDecoration.underline,
+                                                    decorationColor: const Color(0xFFF5F5F5),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
                                           ],
                                         ),
-                                      ),
-                                    ],
+                                      ),                                    ],
                                   ),
                                 ),
                               ],

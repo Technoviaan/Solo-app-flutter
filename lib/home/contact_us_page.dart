@@ -26,6 +26,7 @@ class ContactUsPage extends StatefulWidget {
 }
 
 class _ContactUsPageState extends State<ContactUsPage> {
+  final TextEditingController emailController = TextEditingController();
   final TextEditingController subjectController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
 
@@ -50,13 +51,11 @@ class _ContactUsPageState extends State<ContactUsPage> {
   @override
   void initState() {
     super.initState();
-    // IP based HTTPS SSL certificate validation errors avoid karne ke liye
     HttpOverrides.global = MyHttpOverrides();
   }
 
   // ================= FILE PICK =================
   Future<void> pickAttachment() async {
-    print("\n================= ATTACHMENT PICKER STARTED =================");
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? picked = await picker.pickImage(
@@ -65,58 +64,39 @@ class _ContactUsPageState extends State<ContactUsPage> {
         maxWidth: 1600,
       );
 
-      if (picked == null) {
-        print("[CANCELLED] User closed attachment picker.");
-      } else {
+      if (picked != null) {
         final file = File(picked.path);
-        final sizeKb = (await file.length()) / 1024;
-        print("[SELECTED] File path: ${picked.path}");
-        print("[SELECTED] File size: ${sizeKb.toStringAsFixed(1)} KB");
         setState(() {
           attachedFile = file;
         });
       }
-    } catch (e, stackTrace) {
-      print("[EXCEPTION] Attachment pick error: $e\n$stackTrace");
+    } catch (e) {
+      debugImageOwner: print("Attachment pick error: $e");
     }
-    print("================= ATTACHMENT PICKER FINISHED =================\n");
   }
 
   // ================= REFUND CHECKBOX TAP =================
   Future<void> onRefundCheckboxTap() async {
-    print("\n================= REFUND CHECKBOX TAPPED =================");
-    print("[REFUND] Current state before tap -> isRefundRequest: $isRefundRequest, refundReason: $refundReason");
-
     if (!isRefundRequest) {
-      // Going from unchecked -> checked: open the action sheet to pick a reason
-      print("[REFUND] Opening 'Select Refund Reason' action sheet...");
       final String? selected = await _showRefundReasonSheet();
 
       if (selected == null) {
-        // User cancelled the sheet -> keep checkbox unchecked
-        print("[REFUND] User cancelled reason selection. Checkbox stays unchecked.");
         setState(() {
           isRefundRequest = false;
           refundReason = null;
         });
       } else {
-        print("[REFUND] Reason selected: '$selected'");
         setState(() {
           isRefundRequest = true;
           refundReason = selected;
         });
       }
     } else {
-      // Going from checked -> unchecked: clear the reason
-      print("[REFUND] Unchecking. Clearing refund reason.");
       setState(() {
         isRefundRequest = false;
         refundReason = null;
       });
     }
-
-    print("[REFUND] Final state -> isRefundRequest: $isRefundRequest, refundReason: $refundReason");
-    print("================= REFUND CHECKBOX HANDLED =================\n");
   }
 
   // ================= ACTION SHEET =================
@@ -140,7 +120,6 @@ class _ContactUsPageState extends State<ContactUsPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Header Title
                       Padding(
                         padding: EdgeInsets.symmetric(vertical: AppSize.h(14)),
                         child: Text(
@@ -153,14 +132,9 @@ class _ContactUsPageState extends State<ContactUsPage> {
                         ),
                       ),
                       const Divider(height: 1, thickness: 0.8, color: Color(0xFF8A99A6)),
-
-                      // Reason Options List
                       for (int i = 0; i < refundReasonOptions.length; i++) ...[
                         InkWell(
-                          onTap: () {
-                            print("[REFUND SHEET] Option tapped: '${refundReasonOptions[i]}'");
-                            Navigator.pop(sheetContext, refundReasonOptions[i]);
-                          },
+                          onTap: () => Navigator.pop(sheetContext, refundReasonOptions[i]),
                           child: Container(
                             width: double.infinity,
                             padding: EdgeInsets.symmetric(vertical: AppSize.h(14), horizontal: AppSize.w(16)),
@@ -181,14 +155,9 @@ class _ContactUsPageState extends State<ContactUsPage> {
                     ],
                   ),
                 ),
-
                 SizedBox(height: AppSize.h(8)),
-
                 GestureDetector(
-                  onTap: () {
-                    print("[REFUND SHEET] Cancel tapped.");
-                    Navigator.pop(sheetContext, null);
-                  },
+                  onTap: () => Navigator.pop(sheetContext, null),
                   child: Container(
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(vertical: AppSize.h(14)),
@@ -217,23 +186,14 @@ class _ContactUsPageState extends State<ContactUsPage> {
 
   // ================= SUBMIT =================
   Future<void> submitSupportTicket() async {
-    print("\n---------------- SUPPORT TICKET SUBMISSION (VPS TEST) ----------------");
-
+    final email = emailController.text.trim();
     final subject = subjectController.text.trim();
     final description = descriptionController.text.trim();
 
-    print("[FORM] Subject: '$subject'");
-    print("[FORM] Description: '$description'");
-    print("[FORM] Attachment: ${attachedFile?.path ?? 'none'}");
-    print("[FORM] isRefundRequest: $isRefundRequest");
-    print("[FORM] refundReason: ${refundReason ?? '(none)'}");
-
-    if (subject.isEmpty || description.isEmpty) {
-      print("[VALIDATION ERROR] Subject or Description is empty.");
-      print("--------------------------------------------------------\n");
+    if (email.isEmpty || subject.isEmpty || description.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Subject and description are required."),
+          content: Text("Email, subject and description are required."),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -241,11 +201,9 @@ class _ContactUsPageState extends State<ContactUsPage> {
     }
 
     if (description.length > maxDescriptionLength) {
-      print("[VALIDATION ERROR] Description exceeds $maxDescriptionLength chars.");
-      print("--------------------------------------------------------\n");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Description must be under $maxDescriptionLength characters."),
+          content: Text("Description must be under 500 characters."),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -253,8 +211,6 @@ class _ContactUsPageState extends State<ContactUsPage> {
     }
 
     if (isRefundRequest && (refundReason == null || refundReason!.isEmpty)) {
-      print("[VALIDATION ERROR] Refund request checked but no reason selected.");
-      print("--------------------------------------------------------\n");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Please select a refund reason."),
@@ -270,12 +226,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
 
     try {
       final token = await TokenStorage.getToken();
-      print("[AUTH] Token present: ${token != null && token.isNotEmpty}");
-
-      // 📍 New VPS URL Endpoint
       final url = Uri.parse("$vpsBaseUrl/support");
-      print("[API REQUEST] POST $url");
-
       final request = http.MultipartRequest("POST", url);
 
       request.headers.addAll({
@@ -284,45 +235,26 @@ class _ContactUsPageState extends State<ContactUsPage> {
           "Authorization": token.startsWith("Bearer ") ? token : "Bearer $token",
       });
 
+      request.fields["email"] = email;
       request.fields["subject"] = subject;
       request.fields["description"] = description;
       request.fields["isRefundRequest"] = isRefundRequest.toString();
       request.fields["refundReason"] = isRefundRequest ? (refundReason ?? "") : "";
 
-      print("[API FIELDS]: ${request.fields}");
-
       if (attachedFile != null) {
-        print("[API FILE] Attaching: ${attachedFile!.path}");
         request.files.add(
           await http.MultipartFile.fromPath("file", attachedFile!.path),
         );
-      } else {
-        print("[API FILE] No attachment to send.");
       }
-
-      print("[API REQUEST HEADERS]: ${request.headers}");
-
-      final stopwatch = Stopwatch()..start();
-      print("[API] Sending request to VPS host...");
 
       final streamedResponse = await client.send(request).timeout(
         const Duration(seconds: 30),
-        onTimeout: () {
-          print("[API TIMEOUT] No response after 30s (elapsed: ${stopwatch.elapsedMilliseconds}ms)");
-          throw TimeoutException("VPS Server request timed out after 30 seconds.");
-        },
+        onTimeout: () => throw TimeoutException("VPS Server request timed out."),
       );
 
       final response = await http.Response.fromStream(streamedResponse);
 
-      stopwatch.stop();
-      print("[API] Response received in ${stopwatch.elapsedMilliseconds}ms");
-      print("[API RESPONSE] Status Code: ${response.statusCode}");
-      print("[API RESPONSE] Response Body: ${response.body}");
-
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        print("[SUCCESS] Support ticket submitted successfully on VPS!");
-
         String message = "Your request has been submitted.";
         try {
           final decoded = jsonDecode(response.body);
@@ -336,6 +268,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
             SnackBar(content: Text(message), backgroundColor: Colors.green),
           );
 
+          emailController.clear();
           subjectController.clear();
           descriptionController.clear();
           setState(() {
@@ -355,16 +288,13 @@ class _ContactUsPageState extends State<ContactUsPage> {
           }
         } catch (_) {}
 
-        print("[API ERROR] $message");
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
           );
         }
       }
-    } on TimeoutException catch (e) {
-      print("[API ERROR] VPS Request timed out: $e");
+    } on TimeoutException catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -373,25 +303,21 @@ class _ContactUsPageState extends State<ContactUsPage> {
           ),
         );
       }
-    } catch (e, stackTrace) {
-      print("[API ERROR] VPS Request Failed: $e\n$stackTrace");
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
       client.close();
-      print("--------------------------------------------------------\n");
       if (mounted) setState(() => isSubmitting = false);
     }
   }
 
   @override
   void dispose() {
+    emailController.dispose();
     subjectController.dispose();
     descriptionController.dispose();
     super.dispose();
@@ -417,32 +343,54 @@ class _ContactUsPageState extends State<ContactUsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: AppSize.h(20)),
+                    SizedBox(height: AppSize.h(15)),
                     Text(
                       "Contact Us",
                       style: TextStyle(
-                        fontSize: AppSize.sp(20),
+                        fontSize: AppSize.sp(16),
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF002C3E),
                       ),
                     ),
-                    SizedBox(height: AppSize.h(17)),
+                    SizedBox(height: AppSize.h(10)),
                     Text(
-                      "How can we\nhelp you today?",
+                      "How can we help\nyou today?",
                       style: TextStyle(
-                        fontSize: AppSize.sp(40),
+                        fontSize: AppSize.sp(32),
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF002C3E),
-                        height: 1.1,
+                        height: 1.15,
                       ),
                     ),
-                    SizedBox(height: AppSize.h(16)),
+                    SizedBox(height: AppSize.h(10)),
                     Text(
                       "We're here to listen. Tell us what you need below and we’ll get back to you soon.",
                       style: TextStyle(
-                        fontSize: AppSize.sp(14),
+                        fontSize: AppSize.sp(13),
                         color: const Color(0xFF8A99A6),
                         height: 1.4,
+                      ),
+                    ),
+                    SizedBox(height: AppSize.h(20)),
+
+                    // Email Field (Added as per Figma)
+                    Text.rich(
+                      TextSpan(
+                        text: "Email Address",
+                        style: TextStyle(color: const Color(0xFF8A99A6), fontSize: AppSize.sp(12)),
+                        children: const [
+                          TextSpan(text: "*", style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                    TextField(
+                      controller: emailController,
+                      maxLines: 1,
+                      enabled: !isSubmitting,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD1D8DD), width: 0.8)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF002C3E), width: 1.2)),
                       ),
                     ),
                     SizedBox(height: AppSize.h(15)),
@@ -462,8 +410,8 @@ class _ContactUsPageState extends State<ContactUsPage> {
                       maxLines: 1,
                       enabled: !isSubmitting,
                       decoration: const InputDecoration(
-                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8A99A6))),
-                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF002C3E))),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD1D8DD), width: 0.8)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF002C3E), width: 1.2)),
                       ),
                     ),
                     SizedBox(height: AppSize.h(15)),
@@ -485,11 +433,11 @@ class _ContactUsPageState extends State<ContactUsPage> {
                       enabled: !isSubmitting,
                       decoration: const InputDecoration(
                         counterText: "",
-                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8A99A6))),
-                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF002C3E))),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD1D8DD), width: 0.8)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF002C3E), width: 1.2)),
                       ),
                     ),
-                    SizedBox(height: AppSize.h(14)),
+                    SizedBox(height: AppSize.h(8)),
                     Text(
                       "Please include all relevant details so we can assist you better. Maximum length is 500 characters.",
                       style: TextStyle(
@@ -498,21 +446,21 @@ class _ContactUsPageState extends State<ContactUsPage> {
                         height: 1.3,
                       ),
                     ),
-                    SizedBox(height: AppSize.h(24)),
+                    SizedBox(height: AppSize.h(20)),
 
                     // Attachments
                     Text(
                       "Attachments",
                       style: TextStyle(color: const Color(0xFF8A99A6), fontSize: AppSize.sp(12), fontWeight: FontWeight.w400),
                     ),
-                    SizedBox(height: AppSize.h(10)),
+                    SizedBox(height: AppSize.h(8)),
                     GestureDetector(
                       onTap: isSubmitting ? null : pickAttachment,
                       child: Container(
                         width: double.infinity,
                         height: AppSize.h(41),
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFF8A99A6)),
+                          border: Border.all(color: const Color(0xFFD1D8DD), width: 0.8),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -522,7 +470,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                               "Add file",
                               style: TextStyle(
                                 color: const Color(0xFF14B8A6),
-                                fontSize: AppSize.sp(9),
+                                fontSize: AppSize.sp(10),
                                 decoration: TextDecoration.underline,
                               ),
                             ),
@@ -535,7 +483,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: const Color(0xFF8A99A6),
-                                  fontSize: AppSize.sp(9),
+                                  fontSize: AppSize.sp(10),
                                 ),
                               ),
                             ),
@@ -552,7 +500,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                             "Remove attachment",
                             style: TextStyle(
                               color: Colors.redAccent,
-                              fontSize: AppSize.sp(9),
+                              fontSize: AppSize.sp(10),
                               decoration: TextDecoration.underline,
                             ),
                           ),
@@ -572,7 +520,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                             height: AppSize.w(18),
                             decoration: BoxDecoration(
                               color: isRefundRequest ? const Color(0xFF78BCC4) : Colors.transparent,
-                              border: Border.all(color: const Color(0xFF8A99A6)),
+                              border: Border.all(color: const Color(0xFF8A99A6), width: 1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: isRefundRequest
@@ -595,7 +543,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
                         ],
                       ),
                     ),
-                    SizedBox(height: AppSize.h(27)),
+                    SizedBox(height: AppSize.h(24)),
 
                     // Submit Button
                     GestureDetector(
@@ -619,18 +567,18 @@ class _ContactUsPageState extends State<ContactUsPage> {
                           "Submit",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: AppSize.sp(18),
+                            fontSize: AppSize.sp(16),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
 
-                    SizedBox(height: AppSize.h(40)),
+                    SizedBox(height: AppSize.h(30)),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: const Padding(
-                        padding: EdgeInsets.only(bottom: 30),
+                        padding: EdgeInsets.only(bottom: 20),
                         child: Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 28),
                       ),
                     ),

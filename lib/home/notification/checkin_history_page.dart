@@ -130,24 +130,21 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
                   alignment: Alignment.topCenter,
                   child: Container(
                     decoration: BoxDecoration(
-                      // 🛠️ FIX: image sample shows row fill is the
-                      // same off-white as the page background
-                      // (#F7F8F3), not pure white.
                       color: const Color(0xFFF7F8F3),
                       border: Border.all(
-                        color: const Color(0x808A99A6),
+                        color: const Color(0x338A99A6),
                         width: 1,
                       ),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           headerRow(),
                           Container(
-                            height: 48,
+                            height: 52,
                             alignment: Alignment.center,
                             child: const Text(
                               "No past check-ins yet",
@@ -165,48 +162,28 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
                 )
                     : Container(
                   decoration: BoxDecoration(
-                    // 🛠️ FIX: image sample shows row fill is the
-                    // same off-white as the page background
-                    // (#F7F8F3), not pure white.
                     color: const Color(0xFFF7F8F3),
                     border: Border.all(
-                      color: const Color(0x808A99A6),
+                      color: const Color(0x338A99A6),
                       width: 1,
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     child: Column(
                       children: [
                         headerRow(),
                         Expanded(
-                          // 🛠️ FIX: RawScrollbar (not plain
-                          // Scrollbar, which has no color param)
-                          // adds the visible right-side scroll
-                          // thumb seen in the design, in the same
-                          // teal as the header (#78BCC4).
-                          child: RawScrollbar(
+                          child: Scrollbar(
                             controller: _scrollController,
-                            thumbVisibility: true,
-                            thickness: 4,
-                            radius: const Radius.circular(8),
-                            thumbColor: const Color(0xFF78BCC4),
                             child: ListView.builder(
                               controller: _scrollController,
-                              physics:
-                              const BouncingScrollPhysics(),
+                              physics: const BouncingScrollPhysics(),
                               padding: EdgeInsets.zero,
                               itemCount: rows.length,
                               itemBuilder: (_, i) {
                                 final item = rows[i];
-                                // 🛠️ FIX: was ListView.separated,
-                                // which only draws a divider
-                                // BETWEEN items — the last row
-                                // never got a divider under it.
-                                // Now every row (including the
-                                // last) draws its own divider
-                                // directly beneath it.
                                 return Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -215,19 +192,12 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
                                       getTime(item["createdAt"]!),
                                       item["status"]!,
                                     ),
-                                    // 🛠️ FIX: sampled exact grey
-                                    // from the design image
-                                    // (#CED5D6, was #E5E7EB), and
-                                    // it's inset from the left/
-                                    // right edges (not edge-to-
-                                    // edge) — indent matches the
-                                    // row text's left padding.
                                     const Divider(
                                       height: 1,
                                       thickness: 1,
-                                      indent: 16,
-                                      endIndent: 16,
-                                      color: Color(0xFFCED5D6),
+                                      indent: 14,
+                                      endIndent: 14,
+                                      color: Color(0x2B8A99A6),
                                     ),
                                   ],
                                 );
@@ -248,7 +218,7 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
                   child: Icon(
                     Icons.arrow_back,
                     color: Color(0xFF8A99A6),
-                    size: 28,
+                    size: 26,
                   ),
                 ),
               ),
@@ -261,60 +231,58 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
 
   Widget headerRow() {
     return Container(
-      // 🛠️ FIX: sampled exact teal from the design image (#78BCC4), was
-      // slightly off (#7CBBC9).
       color: const Color(0xFF78BCC4),
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
         children: [
           const Expanded(
-            flex: 25,
+            flex: 26,
             child: Padding(
-              padding: EdgeInsets.only(left: 16),
+              padding: EdgeInsets.only(left: 14),
               child: Text(
                 "Date",
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ),
           Container(
-            width: 2,
-            height: 26,
-            color: Colors.white.withValues(alpha: 0.5),
+            width: 1,
+            height: 18,
+            color: Colors.white.withValues(alpha: 0.6),
           ),
           const Expanded(
-            flex: 30,
+            flex: 28,
             child: Padding(
-              padding: EdgeInsets.only(left: 16),
+              padding: EdgeInsets.only(left: 14),
               child: Text(
                 "Time",
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ),
           Container(
-            width: 2,
-            height: 26,
-            color: Colors.white.withValues(alpha: 0.5),
+            width: 1,
+            height: 18,
+            color: Colors.white.withValues(alpha: 0.6),
           ),
           const Expanded(
-            flex: 45,
+            flex: 46,
             child: Padding(
-              padding: EdgeInsets.only(left: 16),
+              padding: EdgeInsets.only(left: 14),
               child: Text(
                 "Check-in Status",
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -326,43 +294,43 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
 
   Widget dataRow(String date, String time, String status) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           Expanded(
-            flex: 25,
+            flex: 26,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.only(left: 14),
               child: Text(
                 date,
+                maxLines: 1,
                 style: const TextStyle(
                   color: Color(0xFF5A6C7D),
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 1),
           Expanded(
-            flex: 30,
+            flex: 28,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.only(left: 14),
               child: Text(
                 time,
+                maxLines: 1,
                 style: const TextStyle(
                   color: Color(0xFF5A6C7D),
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 1),
           Expanded(
-            flex: 45,
+            flex: 46,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.only(left: 14),
               child: Row(
                 children: [
                   Icon(
@@ -370,14 +338,15 @@ class _CheckinHistoryPageState extends State<CheckinHistoryPage> {
                     color: status == "CHECKED_IN"
                         ? const Color(0xFF26A69A)
                         : const Color(0xFFEF5350),
-                    size: 16,
+                    size: 15,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text(
                     status == "CHECKED_IN" ? "Checked in" : "Missed",
+                    maxLines: 1,
                     style: const TextStyle(
                       color: Color(0xFF5A6C7D),
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w400,
                     ),
                   ),

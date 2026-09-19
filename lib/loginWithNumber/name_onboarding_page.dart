@@ -7,6 +7,7 @@ import '../home/terms_of_use_page.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'user_name_api.dart';
 import 'registration_email_page.dart';
+import '../widgets/solo_turquoise_animation.dart';
 
 class NameOnboardingPage extends StatefulWidget {
   const NameOnboardingPage({super.key});
@@ -87,19 +88,14 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
 
   void next() {
     FocusScope.of(context).unfocus();
+
+    // Page 0 (Name input) par naam submit hoga
     if (page == 0) {
       submitName();
       return;
     }
 
-    if (page < 2) {
-      controller.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.ease,
-      );
-      return;
-    }
-
+    // Page 1 ya Page 2 par kahin bhi "Get Started" dabane par seedha RegistrationEmailPage par jayega
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -109,9 +105,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   }
 
   String _getMascotAsset() {
-    if (page == 0) {
-      return isFocused ? 'assets/svg/second.svg' : 'assets/svg/first.svg';
-    } else if (page == 1) {
+    if (page == 1) {
       return 'assets/svg/third.svg';
     } else {
       return 'assets/svg/fourth.svg';
@@ -119,6 +113,13 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   }
 
   Widget _buildMascot() {
+    if (page == 0) {
+      return SoloTurquoiseAnimation(
+        width: AppSize.w(200),
+        height: AppSize.w(200),
+      );
+    }
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -165,7 +166,6 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                   child: buildNamePage(),
                 ),
               ),
-
 
               /// PAGE 2
               SafeArea(
@@ -291,7 +291,8 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                         color: const Color(0xFF5A6C7D),
                       ),
                     ),
-                  ),                ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -341,10 +342,11 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.transparent.withValues(alpha: 0.1), // or Colors.black.withValues(alpha: 0.5)
-                  offset: const Offset(0, 6),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  offset: const Offset(5, 5),
                 ),
               ],
+
             ),
             child: Row(
               children: [
@@ -436,35 +438,43 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
           Text.rich(
             TextSpan(
               text: "I’m ",
+              style: TextStyle(
+                fontSize: AppSize.sp(36),
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF002C3E),
+                height: 1.2,
+              ),
               children: [
                 TextSpan(
                   text: "SOLO",
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
                     fontSize: AppSize.sp(36),
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        offset: const Offset(0, 2),
+                        blurRadius: 4,
+                      ),
+                    ],
                   ),
                 ),
                 const TextSpan(text: "\nyour daily\n"),
                 TextSpan(
                   text: "Check-in Buddy",
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: AppSize.sp(36),
+                    color: Colors.white.withValues(alpha: 0.95),
                     fontWeight: FontWeight.bold,
+                    fontSize: AppSize.sp(36),
                   ),
                 ),
                 const TextSpan(text: "\nI’ll be here for you"),
               ],
             ),
-            style: TextStyle(
-              fontSize: AppSize.sp(36),
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF002C3E),
-              height: 1.2,
-            ),
-          ),
-          SizedBox(height: AppSize.h(16)),
+          ),          SizedBox(height: AppSize.h(16)),
           GestureDetector(
             onTap: () {
               controller.nextPage(
@@ -492,12 +502,8 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     bool isKeyboardVisible = keyboardHeight > 0;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        left: AppSize.w(24),
-        right: AppSize.w(24),
-        bottom: isKeyboardVisible ? keyboardHeight + 100 : AppSize.h(140), // Footer ke liye extra padding
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -507,14 +513,18 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
             child: _buildMascot(),
           ),
           Text.rich(
-            TextSpan(
+            const TextSpan(
               text: "How\n",
               children: [
                 TextSpan(
                   text: "SOLO",
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9)),
+                  style: TextStyle(color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600
+
+                  ),
                 ),
-                const TextSpan(text: " works"),
+                TextSpan(text: " works"),
               ],
             ),
             style: TextStyle(
@@ -547,9 +557,9 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
           ),
         ],
       ),
-      
     );
   }
+
   Widget buildStep(String number, String title, String subtitle) {
     return Padding(
       padding: EdgeInsets.only(bottom: AppSize.h(16)),
@@ -582,15 +592,16 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: AppSize.sp(17),
+                    fontSize: AppSize.sp(19),
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF002C3E),
                   ),
                 ),
+                SizedBox(height: AppSize.h(4),),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: AppSize.sp(11),
+                    fontSize: AppSize.sp(13),
                     color: const Color(0xFF002C3E),
                     fontWeight: FontWeight.w400,
                   ),

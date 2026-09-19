@@ -10,6 +10,7 @@ import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:solo_app/main.dart';
 import '../core/utils/app_size.dart';
+import '../splash_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -48,14 +49,6 @@ class _HomePageState extends State<HomePage> {
     if (!isExactAlarmGranted && mounted) {
       _showPermissionSnackBar(
         "Please allow 'Alarms & reminders' for SOLO to ensure timely alerts.",
-            () => openAppSettings(),
-      );
-    }
-
-    final isOverlayGranted = await Permission.systemAlertWindow.isGranted;
-    if (!isOverlayGranted && mounted) {
-      _showPermissionSnackBar(
-        "Please allow 'Display over other apps' to open the alarm screen automatically.",
             () => openAppSettings(),
       );
     }
@@ -133,12 +126,12 @@ class _HomePageState extends State<HomePage> {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) {
-      return "Good morning";
+    if (hour >= 6 && hour < 12) {
+      return "Morning";
     } else if (hour >= 12 && hour < 17) {
-      return "Good afternoon";
+      return "Afternoon";
     } else {
-      return "Hello";
+      return "Evening";
     }
   }
 
@@ -167,8 +160,8 @@ class _HomePageState extends State<HomePage> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Transform.translate(
-                      offset: Offset(-140.w * (80 / 700.0), 0),
-                      child: const SoloLogoWidget(size: 80),
+                      offset: Offset(310.w * (80 / 700.0), 0),
+                      child: const SoloLogoAnimated(width: 260)
                     ),
 
                   ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/core/widgets/solo_logo.dart';
 import 'package:solo_app/home/notification/alert_history_page.dart';
 import 'package:solo_app/home/notification/checkin_history_page.dart';
@@ -14,7 +13,7 @@ class HistoryPage extends StatelessWidget {
   static const Color _bg = Color(0xFFF7F8F3);
   static const Color _navy = Color(0xFF002C3E);
   static const Color _label = Color(0xFF5A6C7D);
-  static const Color _divider = Color(0xFF8A99A6);
+  static const Color _divider = Color(0x338A99A6);
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +35,10 @@ class HistoryPage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF002C3E),
+                  color: _navy,
                 ),
               ),
-             // const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // ── Menu items ──
               _historyTile(
@@ -78,7 +77,7 @@ class HistoryPage extends StatelessWidget {
               // ── Back arrow ──
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back, color: _label, size: 24),
+                child: const Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 26),
               ),
             ],
           ),
@@ -102,12 +101,12 @@ class HistoryPage extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 color: _label,
                 fontWeight: FontWeight.w400,
               ),
             ),
-            const Icon(Icons.chevron_right, color: _label, size: 25),
+            const Icon(Icons.chevron_right, color: Color(0xFF8A99A6), size: 22),
           ],
         ),
       ),
@@ -115,7 +114,6 @@ class HistoryPage extends StatelessWidget {
   }
 
   void _confirmClearHistory(BuildContext context) {
-    AppSize.init(context);
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.45),
@@ -123,88 +121,69 @@ class HistoryPage extends StatelessWidget {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(28),
           ),
-          insetPadding: EdgeInsets.zero, // allows perfect exact sizing
-          child: SizedBox(
-            width: AppSize.w(335),
-            height: AppSize.h(295),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSize.w(20),
-                vertical: AppSize.h(24),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // ── Icon + "Clear History" title in one row ──
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 44,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Icon + "Clear History" title in one row ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/svg/dustbin.svg',
+                      width: 38,
+                      height: 38,
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      "Clear History",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF002C3E),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // ── Main warning text ──
+                const Text(
+                  "Are you sure you want\nto clear your history?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF002C3E),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // ── Sub-caption ──
+                const Text(
+                  "Your past check-ins and alerts will be\npermanently deleted.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF8A99A6),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Buttons ──
+                Row(
+                  children: [
+                    // Cancel — outlined pill
+                    Expanded(
+                      child: SizedBox(
                         height: 44,
-                        decoration: const BoxDecoration(
-                          //color: Color(0xFFB5D43C),
-                         // shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: SvgPicture.asset(
-                            'assets/svg/dustbin.svg',
-                            width: 50,
-                            height: 50,
-                            // colorFilter: const ColorFilter.mode(
-                            //   Color(0xFF002C3E),
-                            //   BlendMode.srcIn,
-                            // ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        "Clear History",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF002C3E),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // ── Main warning text ──
-                  const Text(
-                    "Are you sure you want to clear\nyour history?",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF1B3A4B),
-                      height: 1.3,
-                    ),
-                  ),
-
-                  // ── Sub-caption ──
-                  const Text(
-                    "Your past check-ins and alerts will be\npermanently deleted.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xFF002C3E),
-                      height: 1.4,
-                    ),
-                  ),
-
-                  // ── Buttons ──
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Cancel — outlined
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           style: OutlinedButton.styleFrom(
@@ -221,18 +200,19 @@ class HistoryPage extends StatelessWidget {
                           child: const Text(
                             "Cancel",
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: AppSize.w(12)),
+                    ),
+                    const SizedBox(width: 12),
 
-                      // Confirm — filled navy
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
+                    // Confirm — filled navy pill
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF002C3E),
@@ -257,16 +237,16 @@ class HistoryPage extends StatelessWidget {
                           child: const Text(
                             "Confirm",
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         );

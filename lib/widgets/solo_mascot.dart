@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import '../core/utils/app_size.dart';
 
 class SoloMascot extends StatefulWidget {
@@ -15,9 +16,9 @@ class SoloMascot extends StatefulWidget {
 }
 
 class _SoloMascotState extends State<SoloMascot> {
-  static const String eyeCenter = "assets/images/eye_center.png";
-  static const String eyeRight = "assets/images/eye_right.png";
-  static const String eyeLeft = "assets/images/eye_left.png";
+  static const String eyeCenter = "assets/svg/eye_c.svg";
+  static const String eyeRight = "assets/svg/eye_r.svg";
+  static const String eyeLeft = "assets/svg/eye_l.svg";
 
   bool _initialDelayDone = false;
   Timer? _initialTimer;
@@ -32,7 +33,6 @@ class _SoloMascotState extends State<SoloMascot> {
         });
       }
     });
-
   }
 
   @override
@@ -57,9 +57,11 @@ class _SoloMascotState extends State<SoloMascot> {
       height: size,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
-        child: Image.asset(
+        child: SvgPicture.asset(
           _currentFrame,
           key: ValueKey(_currentFrame),
+          width: size,
+          height: size,
           fit: BoxFit.contain,
         ),
       ),

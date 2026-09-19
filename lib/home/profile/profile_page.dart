@@ -22,6 +22,13 @@ class _ProfilePageState extends State<ProfilePage> {
   File? selectedImage;
   String? profileImageUrl;
 
+  // Stored values for Cancel reversion
+  String _savedName = '';
+  String _savedEmail = '';
+  String _savedPhone = '';
+  String _savedAge = '';
+  String? _savedGender;
+
   bool loading = true;
   bool saving = false;
   bool isEditing = false;
@@ -30,10 +37,9 @@ class _ProfilePageState extends State<ProfilePage> {
   static const Color _bg = Color(0xFFF7F8F3);
   static const Color _navy = Color(0xFF002C3E);
   static const Color _teal = Color(0xFF78BCC4);
-  static const Color _green = Color(0xFFB5D43C);
   static const Color _label = Color(0xFF8A99A6);
   static const Color _text = Color(0xFF002C3E);
-  static const Color _divider = Color(0xFFDDDDDD);
+  static const Color _divider = Color(0x338A99A6);
 
   String get _greeting {
     final h = DateTime.now().hour;
@@ -58,15 +64,22 @@ class _ProfilePageState extends State<ProfilePage> {
     if (userMap != null && userMap['name'] != null && userMap['name'].toString().isNotEmpty) {
       final name = userMap['name'].toString();
       nameController.text = name;
+      _savedName = name;
       await TokenStorage.saveUserName(name);
-      emailController.text = userMap['email'] ?? '';
+      final email = userMap['email'] ?? '';
+      emailController.text = email;
+      _savedEmail = email;
       String phone = userMap['phone'] ?? '';
       if (phone.isNotEmpty && !phone.startsWith('+')) {
         phone = '+65 $phone';
       }
       phoneController.text = phone;
-      if (userMap['age'] != null) ageController.text = userMap['age'].toString();
+      _savedPhone = phone;
+      final age = userMap['age'] != null ? userMap['age'].toString() : '';
+      ageController.text = age;
+      _savedAge = age;
       gender = userMap['gender'];
+      _savedGender = gender;
       if (userMap['profileImage'] != null && userMap['profileImage'] != '') {
         profileImageUrl =
             'https://api.hello-solo.com${userMap["profileImage"]}?t=${DateTime.now().millisecondsSinceEpoch}';
@@ -76,12 +89,16 @@ class _ProfilePageState extends State<ProfilePage> {
       final localName = await TokenStorage.getUserName();
       if (localName != "User") {
         nameController.text = localName;
+        _savedName = localName;
       }
     }
     setState(() => loading = false);
   }
 
   Future<void> pickImage() async {
+    if (!isEditing) {
+      setState(() => isEditing = true);
+    }
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
@@ -89,6 +106,18 @@ class _ProfilePageState extends State<ProfilePage> {
     if (picked != null) {
       setState(() => selectedImage = File(picked.path));
     }
+  }
+
+  void cancelEditing() {
+    setState(() {
+      nameController.text = _savedName;
+      emailController.text = _savedEmail;
+      phoneController.text = _savedPhone;
+      ageController.text = _savedAge;
+      gender = _savedGender;
+      selectedImage = null;
+      isEditing = false;
+    });
   }
 
   Future<void> saveProfile() async {
@@ -110,6 +139,11 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     setState(() => saving = false);
     if (success) {
+      _savedName = nameController.text;
+      _savedEmail = email;
+      _savedPhone = phoneController.text;
+      _savedAge = ageController.text;
+      _savedGender = gender;
       setState(() {
         isEditing = false;
         selectedImage = null; // Reset local image so server image shows
@@ -140,9 +174,9 @@ class _ProfilePageState extends State<ProfilePage> {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
           children: [
             // ── SOLO logo ──
-            Padding(
-              padding: const EdgeInsets.only(right: 245),
-              child: const Align(
+            const Padding(
+              padding: EdgeInsets.only(right: 245),
+              child: Align(
                 alignment: Alignment.topLeft,
                 child: SoloLogo(height: 28, width: 101),
               ),
@@ -235,11 +269,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 return Text(
                   '$_greeting,\n$displayName',
                   style: const TextStyle(
-                    fontSize: 38,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
                     color: _navy,
                     height: 1.15,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.3,
                   ),
                 );
               },
@@ -252,7 +286,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: TextField(
                 controller: nameController,
                 readOnly: !isEditing,
-                style: const TextStyle(color: _text, fontSize: 12),
+                style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w400),
                 decoration: _inputDec(),
               ),
             ),
@@ -260,13 +294,11 @@ class _ProfilePageState extends State<ProfilePage> {
             // ── Gender field ──
             _fieldRow(
               label: 'Gender (Optional)',
-
-              showEditIcon: true,
               child: Row(
                 children: ['Male', 'Female', 'Others'].map((g) {
                   final selected = gender == g;
                   return Padding(
-                    padding: const EdgeInsets.only(right: 17),
+                    padding: const EdgeInsets.only(right: 20),
                     child: GestureDetector(
                       onTap: isEditing
                           ? () => setState(() => gender = g)
@@ -280,7 +312,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: selected ? _teal : _label,
+                                color: selected ? _teal : _label.withValues(alpha: 0.6),
                                 width: 2,
                               ),
                             ),
@@ -297,14 +329,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                   )
                                 : null,
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 8),
                           Text(
                             g,
                             style: TextStyle(
                               color: selected ? _text : _label,
-                              fontSize: 13,
+                              fontSize: 14,
                               fontWeight: selected
-                                  ? FontWeight.w600
+                                  ? FontWeight.w500
                                   : FontWeight.w400,
                             ),
                           ),
@@ -323,7 +355,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 controller: emailController,
                 readOnly: !isEditing,
                 keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(color: _text, fontSize: 15),
+                style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w400),
                 decoration: _inputDec(),
               ),
             ),
@@ -331,12 +363,11 @@ class _ProfilePageState extends State<ProfilePage> {
             // ── Phone field ──
             _fieldRow(
               label: 'Phone',
-              showEditIcon: true,
               child: TextField(
                 controller: phoneController,
                 readOnly: !isEditing,
                 keyboardType: TextInputType.phone,
-                style: const TextStyle(color: _text, fontSize: 15),
+                style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w400),
                 decoration: _inputDec(),
               ),
             ),
@@ -344,66 +375,117 @@ class _ProfilePageState extends State<ProfilePage> {
             // ── Age field ──
             _fieldRow(
               label: 'Age',
-              showEditIcon: true,
               child: TextField(
                 controller: ageController,
                 readOnly: !isEditing,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: _text, fontSize: 15),
+                style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w400),
                 decoration: _inputDec(),
               ),
             ),
 
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
 
-            // ── Save / Edit button ──
-            Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: 175,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (isEditing) {
-                      saveProfile();
-                    } else {
-                      setState(() => isEditing = true);
-                    }
+            // ── Edit / Cancel / Confirm Action Row (Figma Design) ──
+            Row(
+              children: [
+                // Circular Pencil Edit Button
+                GestureDetector(
+                  onTap: () {
+                    setState(() => isEditing = true);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF002C3E),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: const BoxDecoration(
+                      color: _navy,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.edit, size: 20, color: Colors.white),
                     ),
                   ),
-                  child: saving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
-                        )
-                      : Text(
-                          isEditing ? 'Save Changes' : 'Edit Profile',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
                 ),
-              ),
+                const SizedBox(width: 14),
+
+                // Cancel Button
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: isEditing ? cancelEditing : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _navy,
+                        disabledForegroundColor: _label.withValues(alpha: 0.5),
+                        side: BorderSide(
+                          color: isEditing ? _navy : _label.withValues(alpha: 0.4),
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Confirm Button
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: isEditing
+                          ? (saving ? null : saveProfile)
+                          : () => setState(() => isEditing = true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _navy,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: _navy.withValues(alpha: 0.5),
+                        disabledForegroundColor: Colors.white70,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                      child: saving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Confirm',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
  
             // ── Back arrow ──
             Align(
               alignment: Alignment.centerLeft,
               child: GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back, color: _label, size: 24),
+                child: const Icon(Icons.arrow_back, color: Color(0xFF8A99A6), size: 26),
               ),
             ),
           ],
@@ -412,11 +494,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ── Field row with label + edit icon ──
+  // ── Field row with label ──
   Widget _fieldRow({
     required String label,
     required Widget child,
-    bool showEditIcon = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,35 +506,12 @@ class _ProfilePageState extends State<ProfilePage> {
           label,
           style: const TextStyle(
             color: _label,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
           ),
         ),
-        const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(child: child),
-            if (showEditIcon)
-              Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: GestureDetector(
-                  onTap: () => setState(() => isEditing = true),
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: const BoxDecoration(
-                      color: _navy,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.edit, size: 12, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        const SizedBox(height: 6),
+        child,
         const SizedBox(height: 8),
         const Divider(color: _divider, height: 1, thickness: 1),
         const SizedBox(height: 16),
@@ -464,11 +522,11 @@ class _ProfilePageState extends State<ProfilePage> {
   InputDecoration _inputDec({String? hint, String? prefix}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF5A6C7D), fontSize: 16),
+      hintStyle: const TextStyle(color: Color(0xFF8A99A6), fontSize: 15),
       prefixText: prefix,
       prefixStyle: const TextStyle(color: _text, fontSize: 15),
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+      contentPadding: const EdgeInsets.symmetric(vertical: 2),
       border: InputBorder.none,
       enabledBorder: InputBorder.none,
       focusedBorder: InputBorder.none,

@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/core/network/delete_account_api.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/core/widgets/solo_logo.dart';
@@ -25,27 +23,6 @@ class MorePage extends StatefulWidget {
 
 class _MorePageState extends State<MorePage> {
   bool deleting = false;
-
-  Future<void> _runQuickTestAlert(
-      BuildContext context,
-      int delaySeconds,
-      int windowSeconds,
-      ) async {
-    await NotificationService.triggerQuickTestAlert(
-      delaySeconds: delaySeconds,
-      windowSeconds: windowSeconds,
-    );
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 4),
-        content: Text(
-          "Test alert set — check-in screen fires in ${delaySeconds}s. "
-              "Lock the phone (or kill the app) now.",
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -281,63 +258,60 @@ class _MorePageState extends State<MorePage> {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
           ),
-          insetPadding: EdgeInsets.zero,
-          child: SizedBox(
-            width: AppSize.w(342),
-            height: AppSize.h(295),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSize.w(24),
-                vertical: AppSize.h(24),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/svg/signout.svg',
-                        width: 46,
-                        height: 46,
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        "Sign Out",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF002C3E),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Text(
-                    "Are you sure you would like\nto sign out?",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF002C3E),
-                      height: 1.35,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/svg/signout.svg',
+                      width: 38,
+                      height: 38,
                     ),
-                  ),
-                  const Text(
-                    "You'll need to sign in again to use SOLO.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF002C3E),
+                    const SizedBox(width: 10),
+                    const Text(
+                      "Sign Out",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF002C3E),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  "Are you sure you would like\nto sign out?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF002C3E),
+                    height: 1.3,
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "You'll need to sign in again to use SOLO.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF8A99A6),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           style: OutlinedButton.styleFrom(
@@ -354,16 +328,17 @@ class _MorePageState extends State<MorePage> {
                           child: const Text(
                             "Cancel",
                             style: TextStyle(
-                              fontSize: 17,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: AppSize.w(12)),
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF002C3E),
@@ -382,22 +357,22 @@ class _MorePageState extends State<MorePage> {
                               MaterialPageRoute(
                                 builder: (_) => const LoginPage(),
                               ),
-                                  (route) => false,
+                              (route) => false,
                             );
                           },
                           child: const Text(
                             "Confirm",
                             style: TextStyle(
-                              fontSize: 17,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         );
@@ -414,66 +389,61 @@ class _MorePageState extends State<MorePage> {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(28),
           ),
-          insetPadding: EdgeInsets.zero,
-          child: SizedBox(
-            width: AppSize.w(335),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSize.w(20),
-                vertical: AppSize.h(24),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/svg/delete.svg',
-                        width: 46,
-                        height: 46,
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        "Delete Account",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF002C3E),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    "All your data will be erased\npermanently. This cannot be\nundone.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1B3A4B),
-                      height: 1.35,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/svg/delete.svg',
+                      width: 38,
+                      height: 38,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Your subscription must be canceled separately\nin your app store settings.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF8A99A6),
-                      height: 1.4,
+                    const SizedBox(width: 10),
+                    const Text(
+                      "Delete Account",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF002C3E),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  "All your data will be erased\npermanently. This cannot be\nundone.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF002C3E),
+                    height: 1.3,
                   ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Your subscription must be canceled separately\nin your app store settings.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF8A99A6),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           style: OutlinedButton.styleFrom(
@@ -490,16 +460,17 @@ class _MorePageState extends State<MorePage> {
                           child: const Text(
                             "Cancel",
                             style: TextStyle(
-                              fontSize: 17,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: AppSize.w(12)),
-                      SizedBox(
-                        width: AppSize.w(111),
-                        height: AppSize.h(46),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF002C3E),
@@ -513,52 +484,53 @@ class _MorePageState extends State<MorePage> {
                           onPressed: deleting
                               ? null
                               : () async {
-                            setState(() => deleting = true);
-                            final success =
-                            await DeleteAccountApi.deleteAccount();
-                            if (!mounted) return;
-                            if (success) {
-                              await TokenStorage.clear();
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder: (_) => const LoginPage(),
-                                ),
-                                    (route) => false,
-                              );
-                            } else {
-                              setState(() => deleting = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text("Delete failed")),
-                              );
-                            }
-                          },
+                                  setState(() => deleting = true);
+                                  final success =
+                                      await DeleteAccountApi.deleteAccount();
+                                  if (!context.mounted) return;
+                                  if (success) {
+                                    await TokenStorage.clear();
+                                    if (!context.mounted) return;
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => const LoginPage(),
+                                      ),
+                                      (route) => false,
+                                    );
+                                  } else {
+                                    setState(() => deleting = false);
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text("Delete failed")),
+                                    );
+                                  }
+                                },
                           child: deleting
                               ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
                               : const Text(
-                            "Confirm",
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                                  "Confirm",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         );
-
       },
     );
   }
