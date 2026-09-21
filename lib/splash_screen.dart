@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/home_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
@@ -8,29 +7,11 @@ import 'package:solo_app/loginWithNumber/login_page.dart';
 import 'package:solo_app/loginWithNumber/name_onboarding_page.dart';
 import 'package:solo_app/loginWithNumber/email_page.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
-import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/core/deeplink/deep_link_service.dart';
 import 'package:solo_app/subscription/subscription_api.dart';
 import 'package:solo_app/subscription/payment_result_page.dart';
 
-// solo_logo_animated.dart
-//
-// SOLO-Logo-Animated.svg ka 1:1 Flutter port (blinking eyes + ghadi ke hands).
-// Values (paths, colors, keyTimes, keySplines, durations) seedha SVG se generate hui hain.
-//
-// pubspec.yaml:
-//   dependencies:
-//     path_drawing: ^1.0.1
-//
-// Use:
-//   const SoloLogoAnimated(width: 260)                    // tight crop (default)
-//   const SoloLogoAnimated(width: 260, cropToLogo: false) // original 2048x2048 viewBox
-//
-// Background transparent hai (SVG jaisa) — brand blue ke upar rakhna.
-
 import 'dart:math' as math;
-
-import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:path_drawing/path_drawing.dart';
 
@@ -52,12 +33,14 @@ class _SoloLogoAnimatedState extends State<SoloLogoAnimated>
   late final Ticker _ticker;
   final ValueNotifier<double> _seconds = ValueNotifier<double>(0);
 
+  static final DateTime _epoch = DateTime.now();
+
   @override
   void initState() {
     super.initState();
-    // Alag-alag loops (13.44s / 2.5s / 30s) ke liye ek hi continuous clock.
-    _ticker = createTicker((elapsed) {
-      _seconds.value = elapsed.inMicroseconds / 1000000.0;
+    _ticker = createTicker((_) {
+      _seconds.value =
+          DateTime.now().difference(_epoch).inMicroseconds / 1000000.0;
     })..start();
   }
 
@@ -413,7 +396,6 @@ class _SplashScreenState extends State<SplashScreen> {
               child: child,
             );
           },
-          transitionDuration: const Duration(milliseconds: 1300),
         ),
       );
       return;
@@ -525,8 +507,8 @@ class _SplashScreenState extends State<SplashScreen> {
       children: [
         // Solo Logo Widget with Smooth Animation
         _smoothElement(
-          visible: _phase >= 1,
-          child: const SoloLogoAnimated(width: 260)
+            visible: _phase >= 1,
+            child: const SoloLogoAnimated(width: 260)
         ),
 
       ],
