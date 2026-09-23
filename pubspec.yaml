@@ -4,8 +4,6 @@ description: "A new Flutter project."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-
-
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
 # followed by an optional build number separated by a +.
@@ -62,6 +60,11 @@ dependencies:
   libphonenumber_plugin: ^0.3.3
   app_links: ^6.3.3
   geolocator: ^13.0.1
+  webview_flutter: ^4.8.0
+  path_drawing: ^1.0.1
+
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -102,6 +105,8 @@ flutter:
     - assets/audio/voices/male/
     - assets/audio/voices/female/
     - assets/audio/effects/
+    - assets/
+    - assets/Check_in_SOLO Button_Turquoise .svg
     - assets/eye_clock_animation.gif
   #   - images/a_dot_ham.jpeg
 

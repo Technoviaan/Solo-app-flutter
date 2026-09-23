@@ -160,9 +160,11 @@ class _HomePageState extends State<HomePage> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Transform.translate(
-                      offset: Offset(310.w * (80 / 700.0), 0),
+                      offset: Offset(310.w * (80 / 840.0), 0),
                       child: const SoloLogoAnimated(width: 260)
                     ),
+
+
 
                   ),
                   const Spacer(),

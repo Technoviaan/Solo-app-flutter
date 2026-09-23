@@ -1,6 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+/// Controller that lets external code (a text field's focus/typing
+/// listeners, for example) drive the SOLO button's eyes without needing
+/// a GlobalKey.
+///
+/// Usage:
+///   final soloController = SoloButtonController();
+///   SoloTurquoiseAnimation(controller: soloController, ...)
+///   ...
+///   soloController.lookDown();  // on field focus / on keystroke
+///   soloController.resume();   // on field blur / 1s after last keystroke
+class SoloButtonController {
+  _SoloTurquoiseAnimationState? _state;
+
+  void _attach(_SoloTurquoiseAnimationState state) => _state = state;
+
+  void _detach(_SoloTurquoiseAnimationState state) {
+    if (_state == state) _state = null;
+  }
+
+  /// Pupils slide from wherever they currently are straight to the
+  /// bottom-left, as if looking down at a field being typed into.
+  void lookDown() => _state?._lookDown();
+
+  /// Pupils return to front, then the idle wander resumes — skipping
+  /// whichever direction was interrupted so it's never repeated
+  /// immediately.
+  void resume() => _state?._resume();
+
+  void dispose() {
+    _state = null;
+  }
+}
+
 class SoloTurquoiseAnimation extends StatefulWidget {
   final double? width;
   final double? height;
@@ -9,6 +42,11 @@ class SoloTurquoiseAnimation extends StatefulWidget {
   final bool isRed;
   final bool lookUpRight;
   final VoidCallback? onTap;
+
+  /// Optional controller so a parent (e.g. an onboarding page) can call
+  /// [SoloButtonController.lookDown] / [SoloButtonController.resume]
+  /// without rebuilding or remounting this widget.
+  final SoloButtonController? controller;
 
   const SoloTurquoiseAnimation({
     super.key,
@@ -19,6 +57,7 @@ class SoloTurquoiseAnimation extends StatefulWidget {
     this.isRed = false,
     this.lookUpRight = false,
     this.onTap,
+    this.controller,
   });
 
   @override
@@ -26,9 +65,7 @@ class SoloTurquoiseAnimation extends StatefulWidget {
 }
 
 class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
+    with TickerProviderStateMixin {
   static const String _buttonSvgBase = '''
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="100%" height="100%">
   <g id="Shadow">
@@ -70,19 +107,165 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
 </svg>
 ''';
 
+  // ---------------------------------------------------------------------
+  // 8-direction idle wander (same offsets/order as the original SMIL
+  // keyframes: left, right, up, down, up-left, up-right, down-left,
+  // down-right). Pupils always return to front between looks; a blink
+  // fires on every 4th return.
+  // ---------------------------------------------------------------------
+  static const List<Offset> _directions = [
+    Offset(-139, 0),
+    Offset(139, 0),
+    Offset(0, -139),
+    Offset(0, 139),
+    Offset(-98, -98),
+    Offset(98, -98),
+    Offset(-98, 98),
+    Offset(98, 98),
+  ];
+
+  // "Look down at the field" = bottom-left, same offset as that direction.
+  static const Offset _lookDownOffset = Offset(-98, 98);
+
+  static const Duration _moveDuration = Duration(milliseconds: 500);
+  static const Duration _holdAtDirection = Duration(milliseconds: 500);
+  static const Duration _holdAtFront = Duration(milliseconds: 700);
+  static const Duration _blinkHalf = Duration(milliseconds: 110);
+
+  late final AnimationController _moveCtrl;
+  late final AnimationController _blinkCtrl;
+
+  Offset _pupilOffset = Offset.zero;
+  double _blinkFactor = 1.0; // 1 = fully open, 0 = fully closed
+
+  int _dirIndex = 0;
+  int _returnCount = 0;
+  int _gen = 0; // bumped on every external interruption (lookDown/resume)
+  bool _lookingDown = false;
+
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 14),
-    )..repeat();
+    _moveCtrl = AnimationController(vsync: this, duration: _moveDuration);
+    _blinkCtrl = AnimationController(vsync: this, duration: _blinkHalf * 2);
+    widget.controller?._attach(this);
+
+    if (widget.lookUpRight) {
+      _pupilOffset = const Offset(98, -98);
+    } else if (!widget.isHappy) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _runIdleLoop(_gen));
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant SoloTurquoiseAnimation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    widget.controller?._detach(this);
+    _moveCtrl.dispose();
+    _blinkCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _animateTo(Offset target, int myGen) async {
+    if (!mounted || myGen != _gen) return;
+    final Offset start = _pupilOffset;
+    final Animation<Offset> anim = Tween<Offset>(begin: start, end: target).animate(
+      CurvedAnimation(parent: _moveCtrl, curve: const Cubic(0.42, 0.0, 0.58, 1.0)),
+    );
+
+    void listener() {
+      if (!mounted || myGen != _gen) return;
+      setState(() => _pupilOffset = anim.value);
+    }
+
+    _moveCtrl.addListener(listener);
+    _moveCtrl.reset();
+    await _moveCtrl.forward();
+    _moveCtrl.removeListener(listener);
+
+    if (mounted && myGen == _gen) {
+      setState(() => _pupilOffset = target);
+    }
+  }
+
+  Future<void> _playBlink(int myGen) async {
+    if (!mounted || myGen != _gen) return;
+
+    void listener() {
+      if (!mounted || myGen != _gen) return;
+      final double t = _blinkCtrl.value;
+      final double factor = t <= 0.5 ? 1.0 - (t / 0.5) : (t - 0.5) / 0.5;
+      setState(() => _blinkFactor = factor);
+    }
+
+    _blinkCtrl.addListener(listener);
+    _blinkCtrl.reset();
+    await _blinkCtrl.forward();
+    _blinkCtrl.removeListener(listener);
+
+    if (mounted && myGen == _gen) setState(() => _blinkFactor = 1.0);
+  }
+
+  /// Idle (automatic, no external calls needed): wanders through the 8
+  /// directions forever, returning to front between looks, blinking on
+  /// every 4th return.
+  Future<void> _runIdleLoop(int myGen) async {
+    while (mounted && myGen == _gen) {
+      await _animateTo(_directions[_dirIndex], myGen);
+      if (!mounted || myGen != _gen) return;
+
+      await Future.delayed(_holdAtDirection);
+      if (!mounted || myGen != _gen) return;
+
+      await _animateTo(Offset.zero, myGen);
+      if (!mounted || myGen != _gen) return;
+
+      _returnCount++;
+      if (_returnCount % 4 == 0) {
+        await _playBlink(myGen);
+        if (!mounted || myGen != _gen) return;
+      }
+
+      _dirIndex = (_dirIndex + 1) % _directions.length;
+      await Future.delayed(_holdAtFront);
+    }
+  }
+
+  void _lookDown() {
+    if (widget.isHappy || widget.lookUpRight) return;
+    _gen++;
+    final myGen = _gen;
+    _lookingDown = true;
+    _animateTo(_lookDownOffset, myGen);
+  }
+
+  Future<void> _resume() async {
+    if (widget.isHappy || widget.lookUpRight || !_lookingDown) return;
+    _lookingDown = false;
+    _gen++;
+    final myGen = _gen;
+
+    // Pupils return to front first.
+    await _animateTo(Offset.zero, myGen);
+    if (myGen != _gen) return;
+
+    _returnCount++;
+    if (_returnCount % 4 == 0) {
+      await _playBlink(myGen);
+      if (myGen != _gen) return;
+    }
+
+    // Skip the interrupted direction so it's never repeated immediately.
+    _dirIndex = (_dirIndex + 1) % _directions.length;
+    _runIdleLoop(myGen);
   }
 
   @override
@@ -96,31 +279,21 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Base SVG Button (Shadow & Colored Body)
           SvgPicture.string(
             widget.isRed ? _buttonSvgRed : _buttonSvgBase,
             width: targetWidth,
             height: targetHeight,
             fit: BoxFit.contain,
           ),
-
-          // Moving & Blinking Eyes (Exact SVG SMIL Animation)
           if (!widget.isHappy)
             Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) {
-                  return CustomPaint(
-                    painter: _SoloEyesPainter(
-                      progress: _controller.value,
-                      lookUpRight: widget.lookUpRight,
-                    ),
-                  );
-                },
+              child: CustomPaint(
+                painter: _SoloEyesPainter(
+                  pupilOffset: widget.lookUpRight ? const Offset(98, -98) : _pupilOffset,
+                  blinkFactor: widget.lookUpRight ? 1.0 : _blinkFactor,
+                ),
               ),
             ),
-
-          // Happy Eyes (When checked-in / happy)
           if (widget.isHappy)
             SvgPicture.string(
               _happyLidsSvg,
@@ -133,12 +306,8 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
     );
 
     if (widget.onTap != null) {
-      return GestureDetector(
-        onTap: widget.onTap,
-        child: mascot,
-      );
+      return GestureDetector(onTap: widget.onTap, child: mascot);
     }
-
     return mascot;
   }
 }
@@ -147,82 +316,11 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
 typedef SoloTurquoiseMascot = SoloTurquoiseAnimation;
 typedef SoloMascotAnimation = SoloTurquoiseAnimation;
 
-class _Keyframe {
-  final double time;
-  final Offset offset;
-  const _Keyframe(this.time, this.offset);
-}
-
 class _SoloEyesPainter extends CustomPainter {
-  final double progress;
-  final bool lookUpRight;
+  final Offset pupilOffset;
+  final double blinkFactor;
 
-  _SoloEyesPainter({required this.progress, this.lookUpRight = false});
-
-  static const List<_Keyframe> _keyframes = [
-    _Keyframe(0.00, Offset(0, 0)),
-    _Keyframe(0.06, Offset(-139, 0)),
-    _Keyframe(0.12, Offset(0, 0)),
-    _Keyframe(0.18, Offset(139, 0)),
-    _Keyframe(0.24, Offset(0, 0)),
-    _Keyframe(0.30, Offset(0, -139)),
-    _Keyframe(0.36, Offset(0, 0)),
-    _Keyframe(0.42, Offset(0, 139)),
-    _Keyframe(0.48, Offset(0, 0)),
-    _Keyframe(0.54, Offset(-98, -98)),
-    _Keyframe(0.60, Offset(0, 0)),
-    _Keyframe(0.66, Offset(98, -98)),
-    _Keyframe(0.72, Offset(0, 0)),
-    _Keyframe(0.78, Offset(-98, 98)),
-    _Keyframe(0.84, Offset(0, 0)),
-    _Keyframe(0.90, Offset(98, 98)),
-    _Keyframe(0.96, Offset(0, 0)),
-    _Keyframe(1.00, Offset(0, 0)),
-  ];
-
-  static const List<List<double>> _blinks = [
-    [0.231, 0.240, 0.249],
-    [0.471, 0.480, 0.489],
-    [0.711, 0.720, 0.729],
-    [0.951, 0.960, 0.969],
-  ];
-
-  Offset _getPupilOffset(double t) {
-    if (lookUpRight) {
-      return const Offset(98, -98);
-    }
-    for (int i = 0; i < _keyframes.length - 1; i++) {
-      final kf1 = _keyframes[i];
-      final kf2 = _keyframes[i + 1];
-      if (t >= kf1.time && t <= kf2.time) {
-        final double interval = kf2.time - kf1.time;
-        if (interval <= 0) return kf1.offset;
-        final double localT = ((t - kf1.time) / interval).clamp(0.0, 1.0);
-        // SVG keySplines="0.42 0 0.58 1"
-        const curve = Cubic(0.42, 0.0, 0.58, 1.0);
-        final double easedT = curve.transform(localT);
-        return Offset(
-          kf1.offset.dx + (kf2.offset.dx - kf1.offset.dx) * easedT,
-          kf1.offset.dy + (kf2.offset.dy - kf1.offset.dy) * easedT,
-        );
-      }
-    }
-    return Offset.zero;
-  }
-
-  double _getBlinkFactor(double t) {
-    for (final b in _blinks) {
-      final double tStart = b[0];
-      final double tMid = b[1];
-      final double tEnd = b[2];
-      if (t >= tStart && t <= tMid) {
-        return 1.0 - ((t - tStart) / (tMid - tStart));
-      } else if (t > tMid && t <= tEnd) {
-        return (t - tMid) / (tEnd - tMid);
-      }
-    }
-    return 1.0;
-  }
+  _SoloEyesPainter({required this.pupilOffset, required this.blinkFactor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -231,9 +329,7 @@ class _SoloEyesPainter extends CustomPainter {
     canvas.save();
     canvas.scale(scale, scale);
 
-    final double blinkFactor = _getBlinkFactor(progress);
     if (blinkFactor > 0.01) {
-      // Blink clip rect centered at y = 853.15, original height = 377.22
       final double clipHeight = 377.22 * blinkFactor;
       final double clipY = 853.15 - clipHeight / 2.0;
       final Rect blinkRect = Rect.fromLTWH(578.83, clipY, 889.87, clipHeight);
@@ -249,36 +345,27 @@ class _SoloEyesPainter extends CustomPainter {
       const double eyeRadius = 188.61;
       const double pupilRadius = 125.1;
 
-      // Draw eye whites
       canvas.drawCircle(leftEyeCenter, eyeRadius, whitePaint);
       canvas.drawCircle(rightEyeCenter, eyeRadius, whitePaint);
 
-      final Offset pupilOffset = _getPupilOffset(progress);
-
-      // Left pupil clipped to left eye circle
       canvas.save();
-      canvas.clipPath(
-        Path()..addOval(Rect.fromCircle(center: leftEyeCenter, radius: eyeRadius)),
-      );
+      canvas.clipPath(Path()..addOval(Rect.fromCircle(center: leftEyeCenter, radius: eyeRadius)));
       canvas.drawCircle(leftEyeCenter + pupilOffset, pupilRadius, pupilPaint);
       canvas.restore();
 
-      // Right pupil clipped to right eye circle
       canvas.save();
-      canvas.clipPath(
-        Path()..addOval(Rect.fromCircle(center: rightEyeCenter, radius: eyeRadius)),
-      );
+      canvas.clipPath(Path()..addOval(Rect.fromCircle(center: rightEyeCenter, radius: eyeRadius)));
       canvas.drawCircle(rightEyeCenter + pupilOffset, pupilRadius, pupilPaint);
       canvas.restore();
 
-      canvas.restore(); // restore blink clip
+      canvas.restore();
     }
 
-    canvas.restore(); // restore scale
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _SoloEyesPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.lookUpRight != lookUpRight;
+    return oldDelegate.pupilOffset != pupilOffset || oldDelegate.blinkFactor != blinkFactor;
   }
 }

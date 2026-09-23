@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
@@ -20,6 +22,10 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   final PageController controller = PageController();
   final TextEditingController nameController = TextEditingController();
 
+  // SOLO button: one instance for the whole onboarding flow, lives in the
+  // fixed overlay below (outside the PageView), controlled from here.
+  final SoloButtonController soloController = SoloButtonController();
+
   int page = 0;
   String name = "";
   bool loading = false;
@@ -28,6 +34,12 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   final FocusNode nameFocusNode = FocusNode();
   bool isFocused = false;
 
+  Timer? _typingTimer;
+
+  // Height reserved at the top of every page for the fixed SOLO button +
+  // "Hello" header overlay, so page content never overlaps it.
+  double get _headerReserve => AppSize.h(240);
+
   @override
   void initState() {
     super.initState();
@@ -35,16 +47,33 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
       setState(() {
         isNameEntered = nameController.text.trim().isNotEmpty;
       });
+
+      // Spec: on field focus or when the user starts typing, SOLO looks
+      // down at the field; it resumes wandering 1s after the last
+      // keystroke (or on blur, handled below).
+      soloController.lookDown();
+      _typingTimer?.cancel();
+      _typingTimer = Timer(const Duration(seconds: 1), () {
+        soloController.resume();
+      });
     });
+
     nameFocusNode.addListener(() {
       setState(() {
         isFocused = nameFocusNode.hasFocus;
       });
+      if (nameFocusNode.hasFocus) {
+        soloController.lookDown();
+      } else {
+        _typingTimer?.cancel();
+        soloController.resume();
+      }
     });
   }
 
   @override
   void dispose() {
+    _typingTimer?.cancel();
     nameController.dispose();
     nameFocusNode.dispose();
     super.dispose();
@@ -104,35 +133,40 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     );
   }
 
-  String _getMascotAsset() {
-    if (page == 1) {
-      return 'assets/svg/third.svg';
-    } else {
-      return 'assets/svg/fourth.svg';
-    }
-  }
-
-  Widget _buildMascot() {
-    if (page == 0) {
-      return SoloTurquoiseAnimation(
-        width: AppSize.w(200),
-        height: AppSize.w(200),
-      );
-    }
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
-      },
-      child: SvgPicture.asset(
-        _getMascotAsset(),
-        key: ValueKey(_getMascotAsset()),
-        width: AppSize.w(195.13),
-        height: AppSize.w(195.13),
+  /// Fixed overlay: SOLO button + "Hello" header.
+  /// Lives OUTSIDE the PageView so it is mounted exactly once and never
+  /// moves, resizes, or re-renders when the page changes (per spec).
+  /// "Hello" is shared by screens 1 & 2 only; screen 3 has its own
+  /// "How SOLO works" heading, drawn as part of that page's own content.
+  Widget _buildSharedHeader() {
+    return SizedBox(
+      height: _headerReserve,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SoloTurquoiseAnimation(
+              controller: soloController,
+              width: AppSize.w(195.13),
+              height: AppSize.w(195.13),
+            ),
+          ),
+          if (page < 2)
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: Text(
+                "Hello",
+                style: TextStyle(
+                  fontSize: AppSize.sp(48),
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF002C3E),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -146,194 +180,175 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF88C7CF),
       resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          PageView(
-            controller: controller,
-            physics: const NeverScrollableScrollPhysics(),
-            onPageChanged: (p) {
-              setState(() {
-                page = p;
-              });
-            },
-            children: [
-              /// PAGE 1
-              SafeArea(
-                child: SingleChildScrollView(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            PageView(
+              controller: controller,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (p) {
+                setState(() {
+                  page = p;
+                });
+              },
+              children: [
+                /// PAGE 1
+                SingleChildScrollView(
                   padding: EdgeInsets.only(
                     bottom: isKeyboardVisible ? keyboardHeight + 20 : AppSize.h(140),
                   ),
                   child: buildNamePage(),
                 ),
-              ),
 
-              /// PAGE 2
-              SafeArea(
-                child: SingleChildScrollView(
+                /// PAGE 2
+                SingleChildScrollView(
                   padding: EdgeInsets.only(bottom: AppSize.h(160)),
                   child: buildHelloPage(),
                 ),
-              ),
 
-              /// PAGE 3
-              SafeArea(
-                child: SingleChildScrollView(
+                /// PAGE 3
+                SingleChildScrollView(
                   padding: EdgeInsets.only(bottom: AppSize.h(160)),
                   child: buildHowSoloWorks(),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          // Bottom navigation and Footer (Figma Aligned)
-          Positioned(
-            bottom: isKeyboardVisible ? keyboardHeight + 12 : AppSize.h(24),
-            left: AppSize.w(24),
-            right: AppSize.w(24),
-            child: Container(
-              color: const Color(0xFF88C7CF).withValues(alpha: 0.95),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const SizedBox.shrink(),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            page == 0 ? "Next" : "Get Started",
-                            style: TextStyle(
-                              fontSize: AppSize.sp(18),
-                              color: const Color(0xFF5A6C7D).withValues(
-                                  alpha: isNameEntered || page > 0 ? 0.8 : 0.2),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(width: AppSize.w(12)),
-                          GestureDetector(
-                            onTap: (isNameEntered || page > 0) && !loading
-                                ? next
-                                : null,
-                            child: Opacity(
-                              opacity: isNameEntered || page > 0 ? 1.0 : 0.3,
-                              child: loading
-                                  ? Container(
-                                height: AppSize.h(50),
-                                width: AppSize.h(50),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFB7D43A),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                      color: Color(0xFF002C3E)),
-                                ),
-                              )
-                                  : SvgPicture.asset(
-                                "assets/svg/nextbutton.svg",
-                                height: AppSize.h(52),
-                                width: AppSize.h(52),
+            // Fixed SOLO button + "Hello" header — mounted once, persists
+            // across all 3 screens, unaffected by PageView transitions.
+            Positioned(
+              top: AppSize.h(20),
+              left: AppSize.w(24),
+              right: AppSize.w(24),
+              child: IgnorePointer(child: _buildSharedHeader()),
+            ),
+
+            // Bottom navigation and Footer (Figma Aligned)
+            Positioned(
+              bottom: isKeyboardVisible ? keyboardHeight + 12 : AppSize.h(24),
+              left: AppSize.w(24),
+              right: AppSize.w(24),
+              child: Container(
+                color: const Color(0xFF88C7CF).withValues(alpha: 0.95),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox.shrink(),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              page == 0 ? "Next" : "Get Started",
+                              style: TextStyle(
+                                fontSize: AppSize.sp(18),
+                                color: const Color(0xFF5A6C7D).withValues(
+                                    alpha: isNameEntered || page > 0 ? 0.8 : 0.2),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: AppSize.h(12)),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.center,
-                    child: Text.rich(
-                      TextSpan(
-                        text: "By continuing, you agree to our ",
-                        children: [
-                          TextSpan(
-                            text: "Privacy Policy",
-                            style: const TextStyle(
-                                color: Color(0xFF5A6C7D),
-                                decoration: TextDecoration.underline,
-                                fontWeight: FontWeight.w600),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const PrivacyPolicyPage()),
-                                );
-                              },
-                          ),
-                          const TextSpan(text: " & "),
-                          TextSpan(
-                            text: "Terms of Service",
-                            style: const TextStyle(
-                                color: Color(0xFF5A6C7D),
-                                fontWeight: FontWeight.w600,
-                                decoration: TextDecoration.underline),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const TermsOfUsePage()),
-                                );
-                              },
-                          ),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: AppSize.sp(9.5),
-                        color: const Color(0xFF5A6C7D),
+                            SizedBox(width: AppSize.w(12)),
+                            GestureDetector(
+                              onTap: (isNameEntered || page > 0) && !loading
+                                  ? next
+                                  : null,
+                              child: Opacity(
+                                opacity: isNameEntered || page > 0 ? 1.0 : 0.3,
+                                child: loading
+                                    ? Container(
+                                  height: AppSize.h(50),
+                                  width: AppSize.h(50),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFB7D43A),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                        color: Color(0xFF002C3E)),
+                                  ),
+                                )
+                                    : SvgPicture.asset(
+                                  "assets/svg/nextbutton.svg",
+                                  height: AppSize.h(52),
+                                  width: AppSize.h(52),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: AppSize.h(12)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Text.rich(
+                        TextSpan(
+                          text: "By continuing, you agree to our ",
+                          children: [
+                            TextSpan(
+                              text: "Privacy Policy",
+                              style: const TextStyle(
+                                  color: Color(0xFF5A6C7D),
+                                  decoration: TextDecoration.underline,
+                                  fontWeight: FontWeight.w600),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const PrivacyPolicyPage()),
+                                  );
+                                },
+                            ),
+                            const TextSpan(text: " & "),
+                            TextSpan(
+                              text: "Terms of Service",
+                              style: const TextStyle(
+                                  color: Color(0xFF5A6C7D),
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const TermsOfUsePage()),
+                                  );
+                                },
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppSize.sp(9.5),
+                          color: const Color(0xFF5A6C7D),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  /// PAGE 1
+  /// PAGE 1 — content below the shared "Hello" header only.
   Widget buildNamePage() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: AppSize.h(20)),
-          SizedBox(
-            height: AppSize.h(200.13),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _buildMascot(),
-                ),
-                Positioned(
-                  bottom: -AppSize.h(53),
-                  left: 0,
-                  child: Text(
-                    "Hello",
-                    style: TextStyle(
-                      fontSize: AppSize.sp(60),
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF002C3E),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: AppSize.h(52)),
+          SizedBox(height: _headerReserve),
+          SizedBox(height: AppSize.h(32)),
           Container(
             padding: EdgeInsets.symmetric(horizontal: AppSize.w(16)),
             height: AppSize.h(56),
@@ -346,7 +361,6 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                   offset: const Offset(5, 5),
                 ),
               ],
-
             ),
             child: Row(
               children: [
@@ -391,50 +405,26 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     );
   }
 
-  /// PAGE 2
+  /// PAGE 2 — content below the shared "Hello" header only. The name line
+  /// is drawn here (not the word "Hello", which the fixed overlay already
+  /// shows) so it lines up right underneath it.
   Widget buildHelloPage() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: AppSize.h(20)),
-          SizedBox(
-            height: AppSize.h(200),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _buildMascot(),
-                ),
-                Positioned(
-                  bottom: -AppSize.h(60),
-                  left: 0,
-                  child: Text.rich(
-                    TextSpan(
-                      text: "Hello\n",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: AppSize.sp(48),
-                        color: const Color(0xFF002C3E),
-                        height: 1.1,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: "$name...",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          SizedBox(height: _headerReserve),
+          Text(
+            "$name...",
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: AppSize.sp(48),
+              color: const Color(0xFF002C3E),
+              height: 1.1,
             ),
           ),
-          SizedBox(height: AppSize.h(95)),
+          SizedBox(height: AppSize.h(24)),
           Text.rich(
             TextSpan(
               text: "I’m ",
@@ -448,9 +438,9 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 TextSpan(
                   text: "SOLO",
                   style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
                     fontSize: AppSize.sp(36),
                     letterSpacing: 0.5,
                     shadows: [
@@ -474,7 +464,8 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 const TextSpan(text: "\nI’ll be here for you"),
               ],
             ),
-          ),          SizedBox(height: AppSize.h(16)),
+          ),
+          SizedBox(height: AppSize.h(16)),
           GestureDetector(
             onTap: () {
               controller.nextPage(
@@ -497,31 +488,26 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     );
   }
 
-  /// PAGE 3
+  /// PAGE 3 — its own "How SOLO works" heading (not shared with pages 1/2),
+  /// but starts at the same offset so it lines up under the fixed SOLO
+  /// button, which is still visible via the overlay above.
   Widget buildHowSoloWorks() {
-    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    bool isKeyboardVisible = keyboardHeight > 0;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: AppSize.h(20)),
-          Align(
-            alignment: Alignment.centerRight,
-            child: _buildMascot(),
-          ),
+          SizedBox(height: _headerReserve),
           Text.rich(
             const TextSpan(
               text: "How\n",
               children: [
                 TextSpan(
                   text: "SOLO",
-                  style: TextStyle(color: Colors.white,
+                  style: TextStyle(
+                    color: Colors.white,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600
-
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 TextSpan(text: " works"),
@@ -597,7 +583,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                     color: const Color(0xFF002C3E),
                   ),
                 ),
-                SizedBox(height: AppSize.h(4),),
+                SizedBox(height: AppSize.h(4)),
                 Text(
                   subtitle,
                   style: TextStyle(

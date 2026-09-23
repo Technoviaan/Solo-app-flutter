@@ -643,7 +643,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 padding: EdgeInsets.symmetric(
                                     horizontal: AppSize.w(4)),
                                 child: Text(
-                                  "Subscribe so I can look out for you every day",
+                                  "Subscribe so I can look out for\n you every day",
                                   style: TextStyle(
                                     color: const Color(0xFFD1D9E0),
                                     fontSize: AppSize.sp(16),

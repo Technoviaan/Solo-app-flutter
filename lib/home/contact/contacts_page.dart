@@ -428,12 +428,12 @@ class _ContactsPageState extends State<ContactsPage> {
                     const Text(
                       "Let Loved\nOnes Know\nYou're Okay",
                       style: TextStyle(
-                        fontFamily: 'Inter',
                         color: Color(0xFF002C3E),
                         fontSize: 44,
                         fontWeight: FontWeight.w600,
-                        height: 50 / 44,
-                        letterSpacing: -0.5,
+                        letterSpacing: 0,
+                        height: 1.1,
+
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -462,7 +462,7 @@ class _ContactsPageState extends State<ContactsPage> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      "Let your contacts know they're added as emergency contacts so they'll recognize alerts from your SOLO app.",
+                      "Let your contacts know they're added as\n emergency contacts so they'll recognize alerts\n from your SOLO app.",
                       style: TextStyle(
                         fontFamily: 'Inter',
                         color: _subtitleColor,

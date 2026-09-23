@@ -81,9 +81,20 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     );
   }
 
+  // Sirf aur sirf strict @gmail.com validation
   bool isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[\w\.-]+@gmail\.com$', caseSensitive: false);
-    return emailRegex.hasMatch(email);
+    final value = email.trim().toLowerCase();
+
+    if (!value.endsWith('@gmail.com')) return false;
+
+    final parts = value.split('@');
+    if (parts.length != 2) return false;
+
+    final username = parts[0];
+    final usernameRegex = RegExp(r'^[\w.+-]+$');
+    if (username.isEmpty || !usernameRegex.hasMatch(username)) return false;
+
+    return true;
   }
 
   void submitEmail() async {
@@ -95,6 +106,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
       return;
     }
 
+    // Agar @gmail.com format nahi hai toh turant "Invalid Email" aayega
     if (!isValidEmail(email)) {
       _triggerError(email: "Invalid Email");
       return;
@@ -144,10 +156,8 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     AppSize.init(context);
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
-    // Mascot ke liye form validity — email valid + terms accepted
-    final isEmailValid = isValidEmail(emailController.text.trim());
-    final isFormValid =
-        isEmailValid && agree && emailError.isEmpty && termsError.isEmpty;
+    // Button ab tabhi active hoga jab text box me kuch likha ho
+    final isFormValid = emailController.text.trim().isNotEmpty;
 
     final screenHeight = MediaQuery.of(context).size.height;
     final isSmallScreen = screenHeight < 700;
@@ -245,10 +255,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                             keyboardType: TextInputType.emailAddress,
                             onChanged: (val) {
                               setState(() {
-                                if (val.trim().isNotEmpty &&
-                                    !isValidEmail(val.trim())) {
-                                  emailError = "Invalid Email";
-                                } else {
+                                if (emailError.isNotEmpty) {
                                   emailError = "";
                                 }
                               });

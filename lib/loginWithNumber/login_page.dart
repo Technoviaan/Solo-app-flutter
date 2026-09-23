@@ -201,13 +201,12 @@ class _LoginPageState extends State<LoginPage> {
     } catch (_) {}
   }
 
-  // ---- Centered popup country picker with dark backdrop ----
   Future<void> _openCountryPicker() async {
     FocusScope.of(context).unfocus();
     final CountryCode? result = await showDialog<CountryCode>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.65), // darkened background
+      barrierColor: Colors.black.withOpacity(0.65),
       builder: (_) => CountryPickerDialog(
         isoCodes: _worldIsoToDialCode.keys
             .where((iso) => !_excludedIsoCodes.contains(iso))
@@ -239,11 +238,7 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         if (otp.length < 6) {
           otp += digit;
-          if (otp.length == 6) {
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (mounted && otp.length == 6) verifyOtp();
-            });
-          }
+          // Auto-submission hata diya gaya hai, ab user khud Next button dabayega
         }
       }
     });
@@ -395,7 +390,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Flag + dial code. Tap to open the country popup.
   Widget _buildCountrySelector() {
     final flagPath = CountryCode.fromCountryCode(selectedIsoCode).flagUri;
 
@@ -428,43 +422,83 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Resend OTP countdown / button (shown on OTP screen)
-  Widget _buildResendSection() {
+  Widget _buildCodeSentRow() {
+    final sentText = "Code sent to $lastUsedDialCode ${_formatSentPhone(lastUsedPhone)}";
+
+    Widget rightSide;
     if (_canResend) {
-      return GestureDetector(
+      rightSide = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: resendOtp,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 8.w),
+          padding: EdgeInsets.symmetric(vertical: 4.h),
+          child: SizedBox(
+            width: 55.w,
+            child: Text(
+              "Resend",
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      final mm = (_resendSecondsLeft ~/ 60).toString().padLeft(2, '0');
+      final ss = (_resendSecondsLeft % 60).toString().padLeft(2, '0');
+
+      rightSide = Padding(
+        padding: EdgeInsets.symmetric(vertical: 4.h),
+        child: SizedBox(
+          width: 55.w,
           child: Text(
-            "Resend",
+            "$mm:$ss",
+            textAlign: TextAlign.right,
             style: TextStyle(
-              color: const Color(0xFFB5D43C),
+              color: const Color(0xFF859BAD),
               fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
+              fontFeatures: const [
+                FontFeature.tabularFigures(),
+              ],
             ),
           ),
         ),
       );
     }
 
-    final mm = (_resendSecondsLeft ~/ 60).toString().padLeft(2, '0');
-    final ss = (_resendSecondsLeft % 60).toString().padLeft(2, '0');
-
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4.h),
-      child: Text(
-        "Resend OTP in $mm:$ss",
-        style: TextStyle(
-          color: const Color(0xFF859BAD),
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w400,
-        ),
+    return SizedBox(
+      width: 322.w,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 4.h),
+              child: Text(
+                sentText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: const Color(0xFF859BAD),
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 8.w),
+          rightSide,
+        ],
       ),
     );
   }
 
-  // 91234567 -> "9123 4567" (display only)
   String _formatPhone(String p) {
     final b = StringBuffer();
     for (int i = 0; i < p.length; i++) {
@@ -472,6 +506,11 @@ class _LoginPageState extends State<LoginPage> {
       b.write(p[i]);
     }
     return b.toString();
+  }
+
+  String _formatSentPhone(String p) {
+    if (p.length <= 4) return p;
+    return '${p.substring(0, 4)} ${p.substring(4)}';
   }
 
   @override
@@ -569,25 +608,31 @@ class _LoginPageState extends State<LoginPage> {
                                     )
                                         : Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        if (otp.isEmpty) ...[
-                                          Container(width: 2.w, height: 20.sp, color: const Color(0xFFB5D43C)),
-                                          SizedBox(width: 6.w),
-                                        ],
-                                        Text(
-                                          otp.isEmpty ? "Enter 6-Digit Code" : otp,
-                                          style: TextStyle(
-                                            color: otp.isEmpty ? const Color(0xFF859BAD) : const Color(0xFFF5F5F5),
-                                            fontSize: 20.sp,
-                                            fontWeight: FontWeight.w400,
-                                            letterSpacing: otp.isEmpty ? 0 : 4,
+                                        Expanded(
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              if (otp.isEmpty) ...[
+                                                Container(width: 2.w, height: 20.sp, color: const Color(0xFFB5D43C)),
+                                                SizedBox(width: 6.w),
+                                              ],
+                                              Text(
+                                                otp.isEmpty ? "Enter 6-Digit Code" : otp,
+                                                style: TextStyle(
+                                                  color: otp.isEmpty ? const Color(0xFF859BAD) : const Color(0xFFF5F5F5),
+                                                  fontSize: 20.sp,
+                                                  fontWeight: FontWeight.w400,
+                                                  letterSpacing: otp.isEmpty ? 0 : 6,
+                                                ),
+                                              ),
+                                              if (otp.isNotEmpty) ...[
+                                                SizedBox(width: 6.w),
+                                                Container(width: 2.w, height: 20.sp, color: const Color(0xFFB5D43C)),
+                                              ],
+                                            ],
                                           ),
                                         ),
-                                        if (otp.isNotEmpty) ...[
-                                          SizedBox(width: 6.w),
-                                          Container(width: 2.w, height: 20.sp, color: const Color(0xFFB5D43C)),
-                                        ],
                                       ],
                                     ),
                                   ),
@@ -595,8 +640,8 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               SizedBox(height: 10.h),
                               Container(width: 322.w, height: 1, color: otp.isNotEmpty ? const Color(0xFFF5F5F5) : const Color(0xFF294256)),
-                              SizedBox(height: 12.h),
-                              _buildResendSection(),
+                              SizedBox(height: 8.h),
+                              _buildCodeSentRow(),
                             ],
                           )
                         else
@@ -628,10 +673,8 @@ class _LoginPageState extends State<LoginPage> {
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         crossAxisAlignment: CrossAxisAlignment.center,
                                         children: [
-                                          // Flag + dial code (tap to change country)
                                           _buildCountrySelector(),
                                           SizedBox(width: 8.w),
-                                          // Fixed-width number area: dial code never moves while typing
                                           SizedBox(
                                             width: 150.w,
                                             child: FittedBox(
@@ -745,18 +788,18 @@ class _LoginPageState extends State<LoginPage> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  // Hide the "Next" text label on the right side if OTP is sent and timer is active, or cleanly display when enabled/disabled
-                                  if (!isOtpSent || _canResend)
-                                    Text(
-                                      "Next",
-                                      style: TextStyle(
-                                        color: _isNextButtonEnabled ? const Color(0xFFD1D9E0) : const Color(0xFFD1D9E0).withValues(alpha: 0.4),
-                                        fontSize: 18.sp,
-                                        fontWeight: FontWeight.w400,
-                                        height: 1.0,
-                                      ),
+                                  Text(
+                                    "Next",
+                                    style: TextStyle(
+                                      color: _isNextButtonEnabled
+                                          ? const Color(0xFFD1D9E0)
+                                          : const Color(0xFFD1D9E0).withOpacity(0.4),
+                                      fontSize: 18.sp,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.0,
                                     ),
-                                  if (!isOtpSent || _canResend) SizedBox(width: 14.w),
+                                  ),
+                                  SizedBox(width: 14.w),
                                   GestureDetector(
                                     onTap: () {
                                       if (!_isNextButtonEnabled || context.read<AuthBloc>().state is AuthLoading) {
@@ -775,7 +818,7 @@ class _LoginPageState extends State<LoginPage> {
                                             width: 60.w,
                                             height: 60.w,
                                             decoration: BoxDecoration(
-                                              color: _isNextButtonEnabled ? const Color(0xFFB5D43C) : const Color(0xFFB5D43C).withValues(alpha: 0.4),
+                                              color: _isNextButtonEnabled ? const Color(0xFFB5D43C) : const Color(0xFFB5D43C).withOpacity(0.4),
                                               shape: BoxShape.circle,
                                             ),
                                             child: Center(
@@ -853,7 +896,6 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
     'ó': 'o', 'ô': 'o', 'ö': 'o', 'Ü': 'U', 'Ú': 'U', 'ü': 'u', 'ú': 'u',
   };
 
-  // English names for every supported country (independent of device language)
   static const Map<String, String> _englishNames = {
     'AF': 'Afghanistan', 'AS': 'American Samoa', 'AU': 'Australia', 'BD': 'Bangladesh',
     'BT': 'Bhutan', 'BN': 'Brunei', 'KH': 'Cambodia', 'CN': 'China', 'CK': 'Cook Islands',
@@ -902,7 +944,6 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
     'BM': 'Bermuda',
   };
 
-  // Extra English spellings people may type
   static const Map<String, String> _aliases = {
     'CI': 'cote d ivoire', 'CZ': 'czechia', 'TR': 'turkiye', 'SZ': 'swaziland',
     'MK': 'macedonia', 'CV': 'cabo verde', 'TL': 'east timor', 'GB': 'uk england britain',
@@ -958,8 +999,8 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     return Dialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent, // removes the white glow/fade
+      backgroundColor: const Color(0xFF5A6C7D),
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       insetPadding: EdgeInsets.symmetric(
         horizontal: size.width * 0.06,
@@ -974,13 +1015,14 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
             child: TextField(
               controller: _searchController,
               onChanged: _onSearch,
-              style: const TextStyle(fontSize: 16, color: Colors.black87),
+              style: const TextStyle(fontSize: 16, color: Colors.white),
+              cursorColor: Colors.white,
               decoration: InputDecoration(
                 hintText: 'Search',
-                hintStyle: const TextStyle(color: Colors.black45),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF002C3E)),
+                hintStyle: const TextStyle(color: Colors.white70),
+                prefixIcon: const Icon(Icons.search, color: Colors.white),
                 filled: true,
-                fillColor: const Color(0xFFF0F4F8),
+                fillColor: const Color(0xFF364756),
                 contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 border: OutlineInputBorder(
@@ -994,7 +1036,7 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
             child: _filtered.isEmpty
                 ? const Center(
               child: Text('No country found',
-                  style: TextStyle(color: Colors.black54)),
+                  style: TextStyle(color: Colors.white70)),
             )
                 : ListView.builder(
               itemCount: _filtered.length,
@@ -1005,7 +1047,7 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
                   onTap: () => Navigator.pop(context, c),
                   child: Container(
                     color: selected
-                        ? const Color(0xFFF0F4F8)
+                        ? const Color(0xFF364756)
                         : Colors.transparent,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
@@ -1017,18 +1059,16 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
                           width: 26,
                         ),
                         const SizedBox(width: 10),
-                        // fixed width => every country name starts at same point
                         SizedBox(
                           width: 52,
                           child: Text(
                             c.dialCode ?? '',
                             style: const TextStyle(
-                                fontSize: 13, color: Colors.black87),
+                                fontSize: 13, color: Colors.white),
                           ),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
-                          // shrinks long names so they always stay on one line
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
@@ -1037,7 +1077,7 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
                               maxLines: 1,
                               softWrap: false,
                               style: const TextStyle(
-                                  fontSize: 13, color: Colors.black87),
+                                  fontSize: 13, color: Colors.white),
                             ),
                           ),
                         ),

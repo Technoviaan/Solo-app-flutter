@@ -21,7 +21,8 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
     with SingleTickerProviderStateMixin {
   String _userName = "";
   String _greeting = "";
-  bool _isResumed = false; // false = Paused Mode (Red), true = Resumed Mode (Teal)
+  bool _isResumed =
+      false; // false = Paused Mode (Red), true = Resumed Mode (Teal)
   bool _isDismissing = false;
   DateTime? _nextCheckinTime;
   DateTime? _previousCheckinTime;
@@ -105,7 +106,8 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
     try {
       final player = AudioPlayer();
       await player.play(
-        AssetSource(SoloSounds.screenTakeoverNotification.replaceFirst('assets/', '')),
+        AssetSource(
+            SoloSounds.screenTakeoverNotification.replaceFirst('assets/', '')),
       );
     } catch (e) {
       debugPrint("⚠️ Error playing takeover sound: $e");
@@ -213,7 +215,10 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                       ),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          minHeight: (availableHeight - (availableHeight < 720 ? 24 : 36) - 76).clamp(0, double.infinity),
+                          minHeight: (availableHeight -
+                                  (availableHeight < 720 ? 24 : 36) -
+                                  76)
+                              .clamp(0, double.infinity),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,27 +230,25 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                               children: [
                                 RichText(
                                   text: TextSpan(
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: headlineFontSize,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF002C3E),
-                                      height: headlineLineHeight,
-                                      letterSpacing: -0.5,
+                                    style: const TextStyle(
+                                      color: Color(0xFF002C3E),
+                                      fontSize: 44,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0,
+                                      height: 1.1,
                                     ),
                                     children: [
                                       TextSpan(text: _greeting),
                                       if (_userName.isNotEmpty)
-                                        TextSpan(text: " $_userName,"),
+                                        TextSpan(text: "\n$_userName,"),
                                       const TextSpan(
                                         text: "\nready to\nresume your\ncheck-ins?",
                                       ),
                                     ],
                                   ),
-                                ),
-                                SizedBox(height: verticalGap),
+                                ),                                SizedBox(height: verticalGap),
                                 const Text(
-                                  "I paused your check-ins after alerting your contacts earlier, as I was concerned. Let's restart when you're ready.",
+                                  "I paused your check-ins after alerting your contacts\n earlier, as I was concerned. Let's restart when\n you're ready.",
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     color: Color(0xFF5A6C7D),
@@ -281,7 +284,9 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                                     onTap: _onResumeTapped,
                                     behavior: HitTestBehavior.opaque,
                                     child: Text(
-                                      _isResumed ? "You're All Set" : "Tap to Resume",
+                                      _isResumed
+                                          ? "You're All Set"
+                                          : "Tap to Resume",
                                       style: TextStyle(
                                         fontFamily: 'Inter',
                                         color: _isResumed
@@ -305,7 +310,8 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
-                                                  builder: (_) => const SchedulePage(),
+                                                  builder: (_) =>
+                                                      const SchedulePage(),
                                                 ),
                                               ).then((_) => _loadNextTime());
                                             },

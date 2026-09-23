@@ -577,15 +577,13 @@ class _SchedulePageState extends State<SchedulePage> with SingleTickerProviderSt
                       const Text(
                         "Set your\ndaily check-in\nschedule",
                         style: TextStyle(
-                          fontFamily: 'Inter',
                           fontSize: 44,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF002C3E),
-                          height: 50 / 44,
-                          letterSpacing: -0.5,
+                          letterSpacing: 0,
+                          height: 1.1,
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                      ),                      const SizedBox(height: 16),
                       const Text(
                         "Schedule up to 2 preferred check-in times daily.\n I'll be there to check on you, and you can change\n or pause reminders anytime.",
                         style: TextStyle(

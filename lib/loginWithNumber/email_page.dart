@@ -108,22 +108,23 @@ class _EmailPageState extends State<EmailPage> {
     return "$timeGreeting,\nwelcome back \nto Solo";
   }
 
-  static const Set<String> _validTlds = {
-    // generic
-    'com', 'net', 'org', 'edu', 'gov', 'info', 'biz', 'io', 'ai', 'app', 'dev',
-    'me', 'xyz', 'online', 'tech', 'site', 'store', 'cloud',
-    // country
-    'in', 'uk', 'us', 'ca', 'au', 'nz', 'de', 'fr', 'it', 'es', 'nl', 'jp',
-    'cn', 'ru', 'br', 'sg', 'ae', 'pk', 'bd', 'lk', 'np', 'za',
-  };
-
+  // Sirf aur sirf @gmail.com check karne ke liye strict validation
   bool isValidEmail(String email) {
     final value = email.trim().toLowerCase();
-    final emailRegex = RegExp(r'^[\w.+-]+@([a-z0-9-]+\.)+[a-z]{2,}$');
-    if (!emailRegex.hasMatch(value)) return false;
 
-    final domain = value.substring(value.indexOf('@') + 1);
-    return _validTlds.any((tld) => domain.endsWith('.$tld'));
+    // Check if it ends strictly with @gmail.com and has something before @
+    if (!value.endsWith('@gmail.com')) return false;
+
+    // Ensure there is a valid username part before @gmail.com
+    final parts = value.split('@');
+    if (parts.length != 2) return false;
+
+    final username = parts[0];
+    // Username must not be empty and should follow basic email rules
+    final usernameRegex = RegExp(r'^[\w.+-]+$');
+    if (username.isEmpty || !usernameRegex.hasMatch(username)) return false;
+
+    return true;
   }
 
   void submitEmail() async {
@@ -134,6 +135,7 @@ class _EmailPageState extends State<EmailPage> {
       return;
     }
 
+    // Agar @gmail.com nahi hai toh turant "Invalid Email" aayega
     if (!isValidEmail(enteredEmail)) {
       _setError("Invalid Email", autoDismiss: false);
       return;
@@ -251,10 +253,9 @@ class _EmailPageState extends State<EmailPage> {
     final isSmallScreen = screenHeight < 700;
     final mascotSize = isSmallScreen ? 280.0 : 300.0;
 
-    final isEmailValid = isValidEmail(emailController.text.trim());
+    final isEmailNotEmpty = emailController.text.trim().isNotEmpty;
     final isOtpValid = otp.length == 6;
-    final isFormValid =
-        error.isEmpty && (isOtpSent ? isOtpValid : isEmailValid);
+    final isFormValid = isOtpSent ? isOtpValid : isEmailNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF7),
@@ -338,15 +339,13 @@ class _EmailPageState extends State<EmailPage> {
                                 maxLines: 1,
                                 keyboardType: TextInputType.emailAddress,
                                 onChanged: (val) {
-                                  _errorTimer?.cancel();
-                                  setState(() {
-                                    if (val.trim().isNotEmpty &&
-                                        !isValidEmail(val.trim())) {
-                                      error = "Invalid Email";
-                                    } else {
+                                  if (error.isNotEmpty) {
+                                    setState(() {
                                       error = "";
-                                    }
-                                  });
+                                    });
+                                  } else {
+                                    setState(() {});
+                                  }
                                 },
                                 style: TextStyle(
                                   color: const Color(0xFF5A6C7D),
