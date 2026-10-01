@@ -21,6 +21,8 @@ import 'package:solo_app/home/contact/resume_checkin_page.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class NotificationService {
+  static final StreamController<Map<String, dynamic>> consentStream =
+      StreamController<Map<String, dynamic>>.broadcast();
   static StreamSubscription<dynamic>? _ringSub;
   static bool _isNavigationInProgress = false;
   static final FlutterLocalNotificationsPlugin _localNotifications =
@@ -165,6 +167,34 @@ class NotificationService {
     // 🚀 NEW: Listen for foreground FCM messages to trigger full screen wake
     fcm.FirebaseMessaging.onMessage.listen((fcm.RemoteMessage message) {
       print("🔔 Foreground FCM message received: ${message.messageId}");
+      final type = (message.data['type'] ?? '').toString().toLowerCase();
+      final title = message.notification?.title ?? '';
+      if (type == 'consent_update' || title.contains('Consent')) {
+        final contactName = message.data['contact_name'] ??
+            message.data['name'] ??
+            message.notification?.body?.split(' ').first ??
+            'Contact';
+        final status = (message.data['status'] ?? '').toString().toLowerCase();
+        final bodyText = (message.notification?.body ?? '').toLowerCase();
+        final isAccepted = status == 'accepted' ||
+            status == 'yes' ||
+            bodyText.contains('accepted');
+        showConsentUpdateNotification(
+          contactName: contactName,
+          isAccepted: isAccepted,
+        );
+        final identifier = message.data['phone'] ?? contactName;
+        LocalStorage.updateContactConsentByMatch(
+          identifier: identifier,
+          status: isAccepted ? 'accepted' : 'declined',
+        );
+        consentStream.add({
+          'contactName': contactName,
+          'status': isAccepted ? 'accepted' : 'declined',
+          'identifier': identifier,
+        });
+        return;
+      }
       triggerImmediateCheckinAlarm();
     });
 
@@ -723,6 +753,41 @@ class NotificationService {
       );
     } catch (e) {
       debugPrint("⚠️ Error showing paused notification: $e");
+    }
+  }
+
+  /// Push notification when contact replies to consent SMS (PDF Section 3: Step 5 & Step 7):
+  /// Title: SOLO Consent Update
+  /// Body: [Contact Name] has accepted to receive SMS alerts from you.
+  ///   or: [Contact Name] has declined to receive SMS alerts from you.
+  static Future<void> showConsentUpdateNotification({
+    required String contactName,
+    required bool isAccepted,
+  }) async {
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        'solo_consent_channel',
+        'SOLO Consent Updates',
+        channelDescription:
+            'Notifications sent when a contact accepts or declines alert SMS consent',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+      );
+      const notificationDetails = NotificationDetails(android: androidDetails);
+      final body = isAccepted
+          ? '$contactName has accepted to receive SMS alerts from you.'
+          : '$contactName has declined to receive SMS alerts from you.';
+
+      await _localNotifications.show(
+        1400 + DateTime.now().millisecond,
+        'SOLO Consent Update',
+        body,
+        notificationDetails,
+        payload: 'consent_update',
+      );
+    } catch (e) {
+      debugPrint("⚠️ Error showing consent update notification: $e");
     }
   }
 }

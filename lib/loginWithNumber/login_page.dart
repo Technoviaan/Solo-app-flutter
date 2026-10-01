@@ -1,5 +1,6 @@
 import 'dart:async'; // Required for Timer
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,13 +21,14 @@ import 'auth_state.dart';
 import '../core/utils/app_size.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final bool animateEntrance;
+  const LoginPage({super.key, this.animateEntrance = false});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   // Default to Singapore (+65) as requested fallback
   String selectedDialCode = "+65";
   String selectedIsoCode = "SG";
@@ -119,14 +121,95 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // Entrance animation from splash
+  late AnimationController _fadeController;
+  late Animation<double> _logoOpacityAnimation;
+  late Animation<double> _logoScaleAnimation;
+
+  late AnimationController _shiftController;
+  late Animation<double> _shiftCurve;
+  late Animation<Offset> _contentSlideAnimation;
+  late Animation<double> _contentOpacityAnimation;
+
+  bool _isEntranceActive = false;
+  bool _isEntranceComplete = false;
+
   @override
   void initState() {
     super.initState();
+    _isEntranceActive = widget.animateEntrance;
+    _isEntranceComplete = !widget.animateEntrance;
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _logoOpacityAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOutCubic,
+    );
+    _logoScaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    _shiftController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _shiftCurve = CurvedAnimation(
+      parent: _shiftController,
+      curve: Curves.easeInOutCubic,
+    );
+    _contentSlideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.75),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _shiftController,
+      curve: const Interval(0.08, 1.0, curve: Curves.easeOutCubic),
+    ));
+    _contentOpacityAnimation = CurvedAnimation(
+      parent: _shiftController,
+      curve: const Interval(0.15, 0.9, curve: Curves.easeOut),
+    );
+
     _autoFetchUserCountry();
+
+    if (_isEntranceActive) {
+      _runEntranceSequence();
+    }
+  }
+
+  Future<void> _runEntranceSequence() async {
+    // Initial frame pause for smooth render
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
+
+    // 1. Logo fades in smoothly at screen center
+    await _fadeController.forward();
+    if (!mounted) return;
+
+    // 2. Holds at center so user perceives the animated clock & eyes
+    await Future.delayed(const Duration(milliseconds: 1800));
+    if (!mounted) return;
+
+    // 3. Smoothly shifts logo up to header while keyboard & form slide in from bottom
+    await _shiftController.forward();
+    if (!mounted) return;
+
+    if (mounted) {
+      setState(() {
+        _isEntranceComplete = true;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _fadeController.dispose();
+    _shiftController.dispose();
     _resendTimer?.cancel();
     super.dispose();
   }
@@ -373,19 +456,47 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildFixedLogoHeader() {
+  Widget _buildLogoHeader(double availableHeight) {
+    const double logoHeight = 260 / 2.1753;
+    final double targetTop = 40.h;
+    final double targetBottom = 143.h;
+
+    double currentTop = targetTop;
+    double currentBottom = targetBottom;
+    double logoOpacity = 1.0;
+    double logoScale = 1.0;
+
+    if (_isEntranceActive && !_isEntranceComplete) {
+      final double centerTop = math.max(
+        targetTop,
+        (availableHeight - logoHeight) / 2,
+      );
+      final double t = _shiftCurve.value;
+      currentTop = (1.0 - t) * centerTop + t * targetTop;
+      currentBottom = t * targetBottom;
+      logoOpacity = _logoOpacityAnimation.value;
+      logoScale = _logoScaleAnimation.value;
+    }
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: 40.h),
-        const Center(
-          child: RepaintBoundary(
-            child: Material(
-              color: Colors.transparent,
-              child: SoloLogoAnimated(width: 260),
+        SizedBox(height: currentTop),
+        Center(
+          child: Transform.scale(
+            scale: logoScale,
+            child: Opacity(
+              opacity: logoOpacity.clamp(0.0, 1.0),
+              child: const RepaintBoundary(
+                child: Material(
+                  color: Colors.transparent,
+                  child: SoloLogoAnimated(width: 260),
+                ),
+              ),
             ),
           ),
         ),
-        SizedBox(height: 143.h),
+        SizedBox(height: currentBottom),
       ],
     );
   }
@@ -433,16 +544,20 @@ class _LoginPageState extends State<LoginPage> {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 4.h),
           child: SizedBox(
-            width: 55.w,
-            child: Text(
-              "Resend",
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                decoration: TextDecoration.underline,
-                decorationColor: Colors.white,
+            width: 65.w, // Thoda sa width badha diya hai safety ke liye
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                "Resend",
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Colors.white,
+                ),
               ),
             ),
           ),
@@ -455,17 +570,21 @@ class _LoginPageState extends State<LoginPage> {
       rightSide = Padding(
         padding: EdgeInsets.symmetric(vertical: 4.h),
         child: SizedBox(
-          width: 55.w,
-          child: Text(
-            "$mm:$ss",
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: const Color(0xFF859BAD),
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w400,
-              fontFeatures: const [
-                FontFeature.tabularFigures(),
-              ],
+          width: 65.w,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              "$mm:$ss",
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: const Color(0xFF859BAD),
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w400,
+                fontFeatures: const [
+                  FontFeature.tabularFigures(),
+                ],
+              ),
             ),
           ),
         ),
@@ -498,7 +617,6 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
-
   String _formatPhone(String p) {
     final b = StringBuffer();
     for (int i = 0; i < p.length; i++) {
@@ -516,7 +634,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !isOtpSent,
+      canPop: !isOtpSent && _isEntranceComplete,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (isOtpSent) {
@@ -584,11 +702,43 @@ class _LoginPageState extends State<LoginPage> {
             }
           },
           child: SafeArea(
-            child: Column(
-              children: [
-                _buildFixedLogoHeader(),
-                Expanded(
-                  child: SingleChildScrollView(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableHeight = constraints.maxHeight;
+                return AnimatedBuilder(
+                  animation: Listenable.merge([_fadeController, _shiftController]),
+                  builder: (context, _) {
+                    return Column(
+                      children: [
+                        _buildLogoHeader(availableHeight),
+                        Expanded(
+                          child: _isEntranceActive && !_isEntranceComplete
+                              ? FadeTransition(
+                                  opacity: _contentOpacityAnimation,
+                                  child: SlideTransition(
+                                    position: _contentSlideAnimation,
+                                    child: IgnorePointer(
+                                      ignoring: !_isEntranceComplete,
+                                      child: _buildLoginBody(),
+                                    ),
+                                  ),
+                                )
+                              : _buildLoginBody(),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginBody() {
+    return SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     child: Column(
                       children: [
@@ -772,7 +922,23 @@ class _LoginPageState extends State<LoginPage> {
                                 onTap: () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (_) => const EmailPage()),
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) =>
+                                          const EmailPage(),
+                                      transitionDuration: const Duration(milliseconds: 300),
+                                      reverseTransitionDuration:
+                                          const Duration(milliseconds: 300),
+                                      transitionsBuilder: (context, animation,
+                                          secondaryAnimation, child) {
+                                        return FadeTransition(
+                                          opacity: CurvedAnimation(
+                                            parent: animation,
+                                            curve: Curves.easeInOut,
+                                          ),
+                                          child: child,
+                                        );
+                                      },
+                                    ),
                                   );
                                 },
                                 child: Text(
@@ -847,19 +1013,11 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
+                          ]),
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+                  );
   }
 }
 

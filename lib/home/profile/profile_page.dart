@@ -183,13 +183,17 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 20),
 
-            // ── My Profile label ──
-            const Text(
-              'My Profile',
-              style: TextStyle(
-                fontSize: 20,
+            // ── Timed-based Headline ──
+            Text(
+              nameController.text.isNotEmpty
+                  ? '$_greeting, ${nameController.text}'
+                  : '$_greeting, User',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 32,
                 fontWeight: FontWeight.w600,
                 color: _text,
+                height: 1.1,
               ),
             ),
             const SizedBox(height: 20),

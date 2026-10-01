@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:solo_app/core/widgets/solo_logo.dart';
+import 'package:solo_app/core/widgets/solo_toast.dart';
 
 import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
@@ -71,7 +72,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
         });
       }
     } catch (e) {
-      debugImageOwner: print("Attachment pick error: $e");
+      print("Attachment pick error: $e");
     }
   }
 
@@ -191,31 +192,28 @@ class _ContactUsPageState extends State<ContactUsPage> {
     final description = descriptionController.text.trim();
 
     if (email.isEmpty || subject.isEmpty || description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Email, subject and description are required."),
-          backgroundColor: Colors.redAccent,
-        ),
+      SoloToast.show(
+        context,
+        "Email, subject and description are required.",
+        isDark: false,
       );
       return;
     }
 
     if (description.length > maxDescriptionLength) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Description must be under 500 characters."),
-          backgroundColor: Colors.redAccent,
-        ),
+      SoloToast.show(
+        context,
+        "Description must be under 500 characters.",
+        isDark: false,
       );
       return;
     }
 
     if (isRefundRequest && (refundReason == null || refundReason!.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please select a refund reason."),
-          backgroundColor: Colors.redAccent,
-        ),
+      SoloToast.show(
+        context,
+        "Please select a refund reason.",
+        isDark: false,
       );
       return;
     }
@@ -264,9 +262,7 @@ class _ContactUsPageState extends State<ContactUsPage> {
         } catch (_) {}
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message), backgroundColor: Colors.green),
-          );
+          SoloToast.show(context, message, isDark: false);
 
           emailController.clear();
           subjectController.clear();
@@ -289,25 +285,20 @@ class _ContactUsPageState extends State<ContactUsPage> {
         } catch (_) {}
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
-          );
+          SoloToast.show(context, message, isDark: false);
         }
       }
     } on TimeoutException catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("VPS Server took too long to respond."),
-            backgroundColor: Colors.redAccent,
-          ),
+        SoloToast.show(
+          context,
+          "VPS Server took too long to respond.",
+          isDark: false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
-        );
+        SoloToast.show(context, "Error: $e", isDark: false);
       }
     } finally {
       client.close();
@@ -354,21 +345,24 @@ class _ContactUsPageState extends State<ContactUsPage> {
                     ),
                     SizedBox(height: AppSize.h(10)),
                     Text(
-                      "How can we help\nyou today?",
+                      "How can we help you today?",
                       style: TextStyle(
-                        fontSize: AppSize.sp(32),
+                        fontFamily: 'Inter',
+                        fontSize: AppSize.sp(36),
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF002C3E),
-                        height: 1.15,
+                        height: 1.1,
                       ),
                     ),
                     SizedBox(height: AppSize.h(10)),
-                    Text(
+                    const Text(
                       "We're here to listen. Tell us what you need below and we’ll get back to you soon.",
                       style: TextStyle(
-                        fontSize: AppSize.sp(13),
-                        color: const Color(0xFF8A99A6),
-                        height: 1.4,
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        color: Color(0xFF5A6C7D),
+                        height: 1.45,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                     SizedBox(height: AppSize.h(20)),

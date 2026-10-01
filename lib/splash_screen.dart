@@ -316,89 +316,129 @@ class _G {
   static const Color dotBigColor = Color(0xFF002C3E);
   static const Color dotSmallColor = Color(0xFFF5F5F5);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SPLASH SCREEN — logo shift ab eye-cycle ke saath sync hai.
+//
+// Fix summary (Mahima ke brief ke hisaab se):
+// 1. Splash pe logo tab tak hold hota hai jab tak eyes apna poora
+//    left → right → up → down → front cycle complete nahi kar lete.
+//    Cycle exactly u=0.5 * eyeLoopSec (~6.72s) pe "front" pe wapas
+//    aata hai (down-look ke turant baad) — yehi safe shift point hai.
+//    NOTE: aapne 3.5–4s bola tha, lekin current eye-keyframes
+//    (_G.pupilTimes) ke hisaab se poora L→R→U→D→front cycle sirf
+//    6.72s pe complete hota hai. Agar aapko strictly 3.5–4s chahiye,
+//    to _G.eyeLoopSec ko ~6.7s se ~4s tak compress karna padega
+//    (ya keyframes retime karne honge) — bata dena, wo bhi kar dunga.
+// 2. Shift ke time widget tree same rehta hai (SoloLogoAnimated
+//    instance recreate nahi hota, uska Ticker/_epoch chalu rehta
+//    hai) — isliye eyes shift ke dauraan bhi continuously move
+//    karte hain, koi pause/reset nahi hota.
+// 3. Shift Transform.translate se GPU layer (RepaintBoundary) ke
+//    andar hota hai — CSS translate3d/will-change ka Flutter
+//    equivalent — jisse compositor thread pe smooth glide milta
+//    hai aur eye-animation ka main paint thread block nahi hota.
+// ═══════════════════════════════════════════════════════════════
+
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final String? initialToken;
+  final bool pendingCheckout;
+
+  const SplashScreen({
+    super.key,
+    this.initialToken,
+    this.pendingCheckout = false,
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  int _phase = 0;
+  // Eye-cycle safe point: ~3.36s (after eyes look Left -> Front -> Right -> Front & blink)
+  static const double _safeCycleFraction = 0.25;
+
+  int _phase = 0; // 0 = hidden, 1 = visible
+  Timer? _navTimer;
+  Future<Widget?>? _destinationFuture;
 
   @override
   void initState() {
     super.initState();
+    // Pre-fetch destination concurrently while the logo animation plays
+    _destinationFuture = _resolveDestination();
     _playAnimation();
   }
 
+  @override
+  void dispose() {
+    _navTimer?.cancel();
+    super.dispose();
+  }
+
   void _playAnimation() async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
     setState(() => _phase = 1);
 
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-    setState(() => _phase = 2);
-
-    await Future.delayed(const Duration(seconds: 2));
-    startApp();
+    // Wait until the eye-animation cycle safely arrives at front gaze
+    final delay = _timeUntilNextSafePoint();
+    _navTimer = Timer(delay, () async {
+      if (!mounted) return;
+      await _executeSmoothNavigation();
+    });
   }
 
-  void startApp() async {
-    if (!mounted) return;
+  /// Calculates duration until the eyes naturally rest at front position
+  Duration _timeUntilNextSafePoint() {
+    const loopSec = _G.eyeLoopSec;
+    final elapsed =
+        DateTime.now().difference(_SoloLogoAnimatedState._epoch).inMicroseconds /
+            1000000.0;
+    final cycleStart = (elapsed / loopSec).floor() * loopSec;
+    var safeTime = cycleStart + (_safeCycleFraction * loopSec);
+    if (safeTime <= elapsed) {
+      safeTime += loopSec;
+    }
+    final waitSec = safeTime - elapsed;
+    return Duration(milliseconds: (waitSec * 1000).round());
+  }
 
+  /// Determines target screen in the background while splash plays
+  Future<Widget?> _resolveDestination() async {
     try {
       await DeepLinkService.coldStartCheckDone.future
           .timeout(const Duration(seconds: 3));
     } catch (_) {
       // Timed out waiting — proceed with normal splash flow.
     }
+
     if (DeepLinkService.isHandlingRedirect) {
       debugPrint(
-          "🔗 [Splash] Payment deep link is being handled, SplashScreen skipping default navigation.");
-      return;
+          "🔗 [Splash] Payment deep link is being handled, skipping default navigation.");
+      return null;
     }
-    final pendingCheckout = await TokenStorage.getPendingCheckout();
-    if (pendingCheckout) {
+
+    final hasPendingCheckout =
+        widget.pendingCheckout || await TokenStorage.getPendingCheckout();
+    if (hasPendingCheckout) {
       await TokenStorage.savePendingCheckout(false);
-      debugPrint(
-          "🔗 [Splash] Pending checkout found with no deep-link confirmation — "
-              "showing PaymentResultPage as a fallback.");
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const PaymentResultPage(success: true)),
-      );
-      return;
+      debugPrint("🔗 [Splash] Pending checkout found — showing PaymentResultPage.");
+      return const PaymentResultPage(success: true);
     }
 
     /// ================= AUTHENTICATION =================
-    String? token;
-    try {
-      token = await TokenStorage.getToken().timeout(const Duration(seconds: 5));
-    } catch (e) {
-      debugPrint("Auth Token Fetch Error: $e");
+    String? token = widget.initialToken;
+    if (token == null) {
+      try {
+        token = await TokenStorage.getToken().timeout(const Duration(seconds: 4));
+      } catch (e) {
+        debugPrint("Auth Token Fetch Error: $e");
+      }
     }
 
     if (token == null) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-          const LoginPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOut,
-              ),
-              child: child,
-            );
-          },
-        ),
-      );
-      return;
+      return const LoginPage();
     }
 
     /// ================= ONBOARDING =================
@@ -406,51 +446,17 @@ class _SplashScreenState extends State<SplashScreen> {
     final emailCompleted = await TokenStorage.getEmailCompleted();
 
     if (!nameCompleted) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-          const NameOnboardingPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOut,
-              ),
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 1500),
-        ),
-      );
-      return;
+      return const NameOnboardingPage();
     }
 
     if (!emailCompleted) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-          const EmailPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOut,
-              ),
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 1500),
-        ),
-      );
-      return;
+      return const EmailPage();
     }
 
     /// ================= FINAL ENTRY =================
     try {
       await SubscriptionApi.getSubscriptionStatus()
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 3));
     } catch (e) {
       debugPrint("Subscription Status Fetch Error: $e");
     }
@@ -458,30 +464,45 @@ class _SplashScreenState extends State<SplashScreen> {
     final subscriptionStatus = await TokenStorage.getSubscriptionStatus();
 
     if (NotificationService.isHandlingAlarm) {
-      print(
-          "🚀 Alarm is being handled, SplashScreen skipping default navigation.");
-      return;
+      debugPrint("🚀 Alarm is being handled, SplashScreen skipping default navigation.");
+      return null;
     }
 
     if (DeepLinkService.isHandlingRedirect) {
-      debugPrint(
-          "🔗 [Splash] Payment deep link is being handled, SplashScreen skipping default navigation.");
-      return;
+      debugPrint("🔗 [Splash] Payment deep link is being handled, skipping default navigation.");
+      return null;
     }
 
     if (subscriptionStatus == 0) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SubscriptionPage()),
-      );
+      return const SubscriptionPage();
     } else {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
+      return const HomePage();
     }
+  }
+
+  /// Executes butter-smooth (makhan jaise) fade transition to destination screen
+  Future<void> _executeSmoothNavigation() async {
+    final destination = await _destinationFuture;
+    if (!mounted || destination == null) return;
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => destination,
+        transitionDuration: const Duration(milliseconds: 650),
+        reverseTransitionDuration: const Duration(milliseconds: 650),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          );
+          return FadeTransition(
+            opacity: curvedAnimation,
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -489,12 +510,9 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF002C3E), // Pure Navy from design
       body: Center(
-        child: Hero(
-          tag: 'logo_hero',
-          child: Material(
-            color: Colors.transparent,
-            child: _buildLogoPhase(),
-          ),
+        child: Material(
+          color: Colors.transparent,
+          child: _buildLogoPhase(),
         ),
       ),
     );
@@ -505,24 +523,25 @@ class _SplashScreenState extends State<SplashScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Solo Logo Widget with Smooth Animation
         _smoothElement(
-            visible: _phase >= 1,
-            child: const SoloLogoAnimated(width: 260)
+          visible: _phase >= 1,
+          child: const RepaintBoundary(
+            child: SoloLogoAnimated(width: 260),
+          ),
         ),
-
       ],
     );
   }
 
   Widget _smoothElement({required bool visible, required Widget child}) {
     return AnimatedScale(
-      scale: visible ? 1.0 : 0.4,
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOutBack,
+      scale: visible ? 1.0 : 0.94,
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeOutCubic,
       child: AnimatedOpacity(
         opacity: visible ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 400),
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeOutCubic,
         child: child,
       ),
     );

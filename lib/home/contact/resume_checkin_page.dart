@@ -9,6 +9,7 @@ import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/home_page.dart';
 import 'package:solo_app/home/shedule/schedule_page.dart';
 import 'package:solo_app/widgets/solo_turquoise_animation.dart';
+import 'package:solo_app/core/widgets/solo_toast.dart';
 
 class ResumeCheckinPage extends StatefulWidget {
   const ResumeCheckinPage({super.key});
@@ -126,15 +127,51 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
 
     await _resumeCheckinFlow();
 
-    // After action and confirmation, app screen dismisses after short period
+    // After action and confirmation, dismiss seamlessly into HomePage
     Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const HomePage(),
+            transitionDuration: const Duration(milliseconds: 400),
+            reverseTransitionDuration: const Duration(milliseconds: 400),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity:
+                    CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+                child: child,
+              );
+            },
+          ),
+          (route) => false,
         );
       }
     });
+  }
+
+  void _handleBackNavigation() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const HomePage(),
+          transitionDuration: const Duration(milliseconds: 350),
+          reverseTransitionDuration: const Duration(milliseconds: 350),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity:
+                  CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+              child: child,
+            );
+          },
+        ),
+      );
+    }
   }
 
   Future<void> _resumeCheckinFlow() async {
@@ -142,8 +179,10 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
     final dueTime = await NotificationService.resolveNextDueTime();
     if (dueTime == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please set schedule first.")),
+      SoloToast.show(
+        context,
+        "Please set schedule first.",
+        isDark: true,
       );
       return;
     }
@@ -169,10 +208,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
+        _handleBackNavigation();
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9F5),
@@ -188,20 +224,20 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
               final double verticalGap;
 
               if (availableHeight < 680) {
-                headlineFontSize = 34.0;
-                headlineLineHeight = 40.0 / 34.0;
-                mascotSize = 140.0;
+                headlineFontSize = 32.0;
+                headlineLineHeight = 1.1;
+                mascotSize = 150.0;
                 verticalGap = 8.0;
               } else if (availableHeight < 760) {
-                headlineFontSize = 38.0;
-                headlineLineHeight = 44.0 / 38.0;
-                mascotSize = 160.0;
+                headlineFontSize = 36.0;
+                headlineLineHeight = 1.1;
+                mascotSize = 180.0;
                 verticalGap = 12.0;
               } else {
-                headlineFontSize = 44.0;
-                headlineLineHeight = 50.0 / 44.0;
-                mascotSize = 185.0;
-                verticalGap = 16.0;
+                headlineFontSize = 40.0;
+                headlineLineHeight = 1.1;
+                mascotSize = 210.0;
+                verticalGap = 14.0;
               }
 
               return Column(
@@ -211,12 +247,12 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                       physics: const ClampingScrollPhysics(),
                       padding: EdgeInsets.symmetric(
                         horizontal: 24,
-                        vertical: availableHeight < 720 ? 12 : 18,
+                        vertical: availableHeight < 720 ? 10 : 16,
                       ),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
                           minHeight: (availableHeight -
-                                  (availableHeight < 720 ? 24 : 36) -
+                                  (availableHeight < 720 ? 20 : 32) -
                                   76)
                               .clamp(0, double.infinity),
                         ),
@@ -228,35 +264,67 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(
-                                      color: Color(0xFF002C3E),
-                                      fontSize: 44,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0,
-                                      height: 1.1,
-                                    ),
-                                    children: [
-                                      TextSpan(text: _greeting),
-                                      if (_userName.isNotEmpty)
-                                        TextSpan(text: "\n$_userName,"),
-                                      const TextSpan(
-                                        text: "\nready to\nresume your\ncheck-ins?",
+                                if (Navigator.canPop(context)) ...[
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: _handleBackNavigation,
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(bottom: 12),
+                                      child: Icon(
+                                        Icons.arrow_back,
+                                        color: Color(0xFF5A6C7D),
+                                        size: 26,
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),                                SizedBox(height: verticalGap),
-                                const Text(
-                                  "I paused your check-ins after alerting your contacts\n earlier, as I was concerned. Let's restart when\n you're ready.",
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    color: Color(0xFF5A6C7D),
-                                    fontWeight: FontWeight.w400,
-                                    fontSize: 14,
-                                    height: 20 / 14,
-                                    letterSpacing: 0,
-                                  ),
+                                ],
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    double screenWidth = MediaQuery.of(context).size.width;
+
+                                    // Screen ke size ke hisaab se font size aur vertical spacing ko dynamic banana
+                                    // (Aap apne existing variables 'headlineFontSize' aur 'verticalGap' ki jagah inko use kar sakte hain)
+                                    double dynamicFontSize = screenWidth < 360 ? 28 : (headlineFontSize ?? 34);
+                                    double dynamicGap = screenWidth < 360 ? 12 : (verticalGap ?? 16);
+
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start, // Left alignment hamesha fix rakhne ke liye
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        RichText(
+                                          text: TextSpan(
+                                            style: TextStyle(
+                                              color: const Color(0xFF002C3E),
+                                              fontSize: dynamicFontSize,
+                                              fontWeight: FontWeight.w500,
+                                              letterSpacing: 0,
+                                              height: headlineLineHeight ?? 1.2,
+                                            ),
+                                            children: [
+                                              TextSpan(
+                                                text: _userName.isNotEmpty
+                                                    ? "$_greeting\n$_userName,\nready to\nresume your\ncheck-ins?"
+                                                    : "$_greeting,\nready to\nresume your\ncheck-ins?",
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(height: dynamicGap),
+                                        Text(
+                                          "I paused your check-ins after alerting your contacts\nearlier, as I was concerned. Let's restart when\nyou're ready.",
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            color: const Color(0xFF5A6C7D),
+                                            fontWeight: FontWeight.w400,
+                                            // Chote phones par subtitle bhi thoda adjust ho sake
+                                            fontSize: screenWidth < 360 ? 13 : 14,
+                                            height: 1.45,
+                                            letterSpacing: 0,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -298,7 +366,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                                       ),
                                     ),
                                   ),
-                                  SizedBox(height: verticalGap + 4),
+                                  SizedBox(height: verticalGap + 2),
 
                                   // "Edit Schedule First"
                                   Opacity(
@@ -325,7 +393,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                                           ),
                                           const SizedBox(width: 8),
                                           const Text(
-                                            "Edit Scedule First",
+                                            "Edit Schedule First",
                                             style: TextStyle(
                                               fontFamily: 'Inter',
                                               color: Color(0xFF5A6C7D),
@@ -384,7 +452,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                "Checkin Status",
+                "Check-in Status",
                 style: TextStyle(
                   fontFamily: 'Inter',
                   color: Color(0xFFA8B6C2),
@@ -446,6 +514,7 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                 ),
               ),
             ],
+
           ),
         ],
       ),

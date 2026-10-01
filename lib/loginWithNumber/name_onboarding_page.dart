@@ -37,7 +37,8 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   Timer? _typingTimer;
 
   // Height reserved at the top of every page for the fixed SOLO button +
-  // "Hello" header overlay, so page content never overlaps it.
+  // heading overlay, so page content never overlaps it. Same value is used
+  // on all 3 screens so the heading never visibly jumps between pages.
   double get _headerReserve => AppSize.h(240);
 
   @override
@@ -136,8 +137,10 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
   /// Fixed overlay: SOLO button + "Hello" header.
   /// Lives OUTSIDE the PageView so it is mounted exactly once and never
   /// moves, resizes, or re-renders when the page changes (per spec).
-  /// "Hello" is shared by screens 1 & 2 only; screen 3 has its own
-  /// "How SOLO works" heading, drawn as part of that page's own content.
+  /// "Hello" is shared by screens 1 & 2 only; screen 3 keeps its OWN
+  /// "How SOLO works" heading, drawn as part of that page's own content
+  /// (see buildHowSoloWorks) — but it starts at the same _headerReserve
+  /// offset as "Hello" so the two line up in the same spot, with no jump.
   Widget _buildSharedHeader() {
     return SizedBox(
       height: _headerReserve,
@@ -192,30 +195,19 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 });
               },
               children: [
-                /// PAGE 1
-                SingleChildScrollView(
-                  padding: EdgeInsets.only(
-                    bottom: isKeyboardVisible ? keyboardHeight + 20 : AppSize.h(140),
-                  ),
-                  child: buildNamePage(),
-                ),
+                /// PAGE 1 (Non-scrollable fit)
+                buildNamePage(),
 
-                /// PAGE 2
-                SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: AppSize.h(160)),
-                  child: buildHelloPage(),
-                ),
+                /// PAGE 2 (Non-scrollable fit)
+                buildHelloPage(),
 
-                /// PAGE 3
-                SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: AppSize.h(160)),
-                  child: buildHowSoloWorks(),
-                ),
+                /// PAGE 3 (Non-scrollable fit)
+                buildHowSoloWorks(),
               ],
             ),
 
-            // Fixed SOLO button + "Hello" header — mounted once, persists
-            // across all 3 screens, unaffected by PageView transitions.
+            // Fixed SOLO button + heading — mounted once, persists across
+            // all 3 screens, unaffected by PageView transitions.
             Positioned(
               top: AppSize.h(20),
               left: AppSize.w(24),
@@ -340,7 +332,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     );
   }
 
-  /// PAGE 1 — content below the shared "Hello" header only.
+  /// PAGE 1 — content below the shared header only (Non-scrollable).
   Widget buildNamePage() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
@@ -405,16 +397,14 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     );
   }
 
-  /// PAGE 2 — content below the shared "Hello" header only. The name line
-  /// is drawn here (not the word "Hello", which the fixed overlay already
-  /// shows) so it lines up right underneath it.
+  /// PAGE 2 — content below the shared header only (Non-scrollable).
   Widget buildHelloPage() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: _headerReserve),
+          SizedBox(height: AppSize.h(245)),
           Text(
             "$name...",
             style: TextStyle(
@@ -443,16 +433,8 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                     fontWeight: FontWeight.w600,
                     fontSize: AppSize.sp(36),
                     letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        offset: const Offset(0, 2),
-                        blurRadius: 4,
-                      ),
-                    ],
                   ),
-                ),
-                const TextSpan(text: "\nyour daily\n"),
+                ),                const TextSpan(text: "\nyour daily\n"),
                 TextSpan(
                   text: "Check-in Buddy",
                   style: TextStyle(
@@ -488,61 +470,75 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
     );
   }
 
-  /// PAGE 3 — its own "How SOLO works" heading (not shared with pages 1/2),
-  /// but starts at the same offset so it lines up under the fixed SOLO
-  /// button, which is still visible via the overlay above.
+  /// PAGE 3 — Non-scrollable using FittedBox to automatically fit screen
   Widget buildHowSoloWorks() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: _headerReserve),
-          Text.rich(
-            const TextSpan(
-              text: "How\n",
-              children: [
-                TextSpan(
-                  text: "SOLO",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: constraints.maxWidth - AppSize.w(48),
+                maxWidth: constraints.maxWidth - AppSize.w(48),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: AppSize.h(180)),
+                  Text.rich(
+                    const TextSpan(
+                      text: "How\n",
+                      children: [
+                        TextSpan(
+                          text: "SOLO",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        TextSpan(text: " works"),
+                      ],
+                    ),
+                    style: TextStyle(
+                      fontSize: AppSize.sp(42),
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF002C3E),
+                      height: 1.1,
+                    ),
                   ),
-                ),
-                TextSpan(text: " works"),
-              ],
+                  SizedBox(height: AppSize.h(16)),
+                  buildStep(
+                    "1",
+                    "Choose when I check in on you each day",
+                    "Tap SOLO’s button during check-ins",
+                  ),
+                  buildStep(
+                    "2",
+                    "Choose when I alert your contacts",
+                    "1 hour (fast) or 2 hours (default)",
+                  ),
+                  buildStep(
+                    "3",
+                    "I alert your contacts by SMS with your location",
+                    "Send straight to their phones",
+                  ),
+                  buildStep(
+                    "4",
+                    "I provide an SOS button for emergency alerts",
+                    "Activate it on the check-in screen",
+                  ),
+                  SizedBox(height: AppSize.h(20)),
+                ],
+              ),
             ),
-            style: TextStyle(
-              fontSize: AppSize.sp(42),
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF002C3E),
-              height: 1.1,
-            ),
           ),
-          SizedBox(height: AppSize.h(20)),
-          buildStep(
-            "1",
-            "Choose when I check in on you each day",
-            "Tap SOLO’s button during check-ins",
-          ),
-          buildStep(
-            "2",
-            "Choose when I alert your contacts",
-            "1 hour (fast) or 2 hours (default)",
-          ),
-          buildStep(
-            "3",
-            "I alert your contacts by SMS with your location",
-            "Send straight to their phones",
-          ),
-          buildStep(
-            "4",
-            "I provide an SOS button for emergency alerts",
-            "Activate it on the check-in screen",
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -8,8 +9,10 @@ import 'package:http/http.dart' as http;
 
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
+import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/contact/resume_checkin_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
+import 'package:solo_app/core/widgets/solo_toast.dart';
 
 import '../../core/network/api_config.dart';
 
@@ -28,6 +31,7 @@ class _ContactsPageState extends State<ContactsPage> {
   bool isContact2Enabled = false;
 
   int _subscriptionStatus = 0; // 0 = None, 1 = Trial, 2 = Monthly, 3 = Yearly, 4 = Unlimited
+  StreamSubscription? _consentSub;
 
   static const Color _bg = Color(0xFFF7F8F3);
   static const Color _headingColor = Color(0xFF1B3A4B);
@@ -44,6 +48,17 @@ class _ContactsPageState extends State<ContactsPage> {
     super.initState();
     loadContacts();
     _checkSubStatus();
+    _consentSub = NotificationService.consentStream.stream.listen((event) {
+      if (mounted) {
+        _applyConsentUpdate(event);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _consentSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkSubStatus() async {
@@ -56,16 +71,219 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   void _showUpgradePrompt() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Free trial allows only 1 contact. Upgrade to add more!"),
-        duration: Duration(seconds: 2),
-      ),
-    );
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+      MaterialPageRoute(
+        builder: (_) => const SubscriptionPage(
+          initialToastMessage:
+              "Please upgrade your plan to add a second contact",
+        ),
+      ),
     ).then((_) => _checkSubStatus());
+  }
+
+  String _getConsentStatusLabel(dynamic status) {
+    final s = (status ?? 'pending').toString().toLowerCase();
+    if (s == 'accepted') return 'Accepted';
+    if (s == 'declined') return 'Declined';
+    return 'Pending';
+  }
+
+  Color _getConsentStatusColor(dynamic status) {
+    final s = (status ?? 'pending').toString().toLowerCase();
+    if (s == 'accepted') return const Color(0xFF0CB4AB);
+    if (s == 'declined') return const Color(0xFFEE6A59);
+    return const Color(0xFFF5B13E);
+  }
+
+  void _applyConsentUpdate(Map<String, dynamic> event) {
+    final status = (event['status'] ?? 'pending').toString().toLowerCase();
+    final contactName = (event['contactName'] ?? '').toString().toLowerCase();
+    final identifier = (event['identifier'] ?? '').toString();
+
+    setState(() {
+      if (manualContact1 != null) {
+        final name1 = (manualContact1?["name"] ?? "").toString().toLowerCase();
+        final phone1 = (manualContact1?["phone"] ?? "").toString();
+        if (name1 == contactName ||
+            (phone1.isNotEmpty && identifier.contains(phone1)) ||
+            (identifier.isNotEmpty && phone1.contains(identifier))) {
+          manualContact1?["consentStatus"] = status;
+          isContact1Enabled = (status == "accepted");
+        }
+      }
+      if (manualContact2 != null) {
+        final name2 = (manualContact2?["name"] ?? "").toString().toLowerCase();
+        final phone2 = (manualContact2?["phone"] ?? "").toString();
+        if (name2 == contactName ||
+            (phone2.isNotEmpty && identifier.contains(phone2)) ||
+            (identifier.isNotEmpty && phone2.contains(identifier))) {
+          manualContact2?["consentStatus"] = status;
+          isContact2Enabled = (status == "accepted");
+        }
+      }
+    });
+    sendContactsToApi();
+  }
+
+  Future<void> _sendConsentSmsRequest(Map<String, dynamic> contact) async {
+    try {
+      final userName = await LocalStorage.getUserName();
+      final nameDisplay = userName.isNotEmpty ? userName : "User";
+      final contactPhone =
+          "${contact["countryCode"] ?? ""}${contact["phone"] ?? ""}";
+      final contactName = contact["name"] ?? "there";
+
+      print("\n---------------- CONSENT SMS REQUEST (PDF STEP 3) ----------------");
+      print("To: $contactPhone ($contactName)");
+      print("Message:\nSOLO Consent Request\n$nameDisplay has added you as an emergency contact on the SOLO safety app. If they miss a check-in or trigger an SOS, you may receive an alert with their location.\nReply YES to accept or NO to decline.");
+      print("------------------------------------------------------------------\n");
+
+      final token = await TokenStorage.getToken();
+      final url = Uri.parse("${ApiConfig.baseUrl}/contacts/consent-request");
+      await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          if (token != null)
+            "Authorization": token.startsWith("Bearer ") ? token : "Bearer $token",
+        },
+        body: jsonEncode({
+          "contactName": contactName,
+          "phone": contact["phone"],
+          "countryCode": contact["countryCode"],
+          "userName": nameDisplay,
+        }),
+      ).timeout(const Duration(seconds: 4), onTimeout: () {
+        return http.Response('{"status":"queued"}', 200);
+      });
+    } catch (e) {
+      debugPrint("Consent SMS trigger logged: $e");
+    }
+  }
+
+  Future<void> _updateConsentStatusManually(int index, String newStatus) async {
+    final contact = index == 1 ? manualContact1 : manualContact2;
+    if (contact == null) return;
+    final name = contact["name"] ?? "Contact $index";
+
+    setState(() {
+      if (index == 1) {
+        manualContact1?["consentStatus"] = newStatus;
+        isContact1Enabled = (newStatus == "accepted");
+      } else {
+        manualContact2?["consentStatus"] = newStatus;
+        isContact2Enabled = (newStatus == "accepted");
+      }
+    });
+
+    await LocalStorage.updateContactConsentStatus(
+        index: index, status: newStatus);
+    await sendContactsToApi();
+
+    if (newStatus == "accepted") {
+      await NotificationService.showConsentUpdateNotification(
+        contactName: name,
+        isAccepted: true,
+      );
+    } else if (newStatus == "declined") {
+      await NotificationService.showConsentUpdateNotification(
+        contactName: name,
+        isAccepted: false,
+      );
+    }
+  }
+
+  void _showConsentSimulationSheet(int index) {
+    final contact = index == 1 ? manualContact1 : manualContact2;
+    if (contact == null) return;
+    final name = contact["name"] ?? "Contact $index";
+    final currentStatus = _getConsentStatusLabel(contact["consentStatus"]);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Consent Status: $name",
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF002C3E),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Current: $currentStatus\nSelect an SMS reply to simulate the PDF flow & push notification:",
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: Color(0xFF5A6C7D),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.check_circle, color: Color(0xFF0CB4AB)),
+                title: const Text(
+                  "Reply 'YES' (Accepted)",
+                  style: TextStyle(
+                      fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                    "Status becomes Accepted, toggle turns ON, push notification sent"),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _updateConsentStatusManually(index, "accepted");
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.cancel, color: Color(0xFFEE6A59)),
+                title: const Text(
+                  "Reply 'NO' (Declined)",
+                  style: TextStyle(
+                      fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                    "Status becomes Declined, toggle stays inactive, push notification sent"),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _updateConsentStatusManually(index, "declined");
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading:
+                    const Icon(Icons.hourglass_empty, color: Color(0xFFF5B13E)),
+                title: const Text(
+                  "Reset to 'Pending'",
+                  style: TextStyle(
+                      fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                    "SMS sent, waiting for reply (no notification sent)"),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _updateConsentStatusManually(index, "pending");
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   int getCurrentContacts() {
@@ -79,8 +297,10 @@ class _ContactsPageState extends State<ContactsPage> {
     final status = await Permission.contacts.request();
     if (!status.isGranted) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Contacts permission denied")),
+        SoloToast.show(
+          context,
+          "Please allow access to your contacts to continue",
+          isDark: false,
         );
       }
       return;
@@ -138,8 +358,10 @@ class _ContactsPageState extends State<ContactsPage> {
 
       if (phone.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Selected contact has no valid phone number")),
+          SoloToast.show(
+            context,
+            "Selected contact has no valid phone number",
+            isDark: false,
           );
         }
         return;
@@ -149,23 +371,27 @@ class _ContactsPageState extends State<ContactsPage> {
         "name": full.displayName.isEmpty ? "Unknown" : full.displayName,
         "countryCode": countryCode,
         "phone": phone,
+        "consentStatus": "pending",
       };
 
       setState(() {
         if (index == 1) {
           manualContact1 = contactData;
-          isContact1Enabled = true;
+          isContact1Enabled = false; // Pending -> toggle inactive per PDF
         } else {
           manualContact2 = contactData;
-          isContact2Enabled = true;
+          isContact2Enabled = false; // Pending -> toggle inactive per PDF
         }
       });
 
       await sendContactsToApi();
+      await _sendConsentSmsRequest(contactData);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Something went wrong while picking the contact")),
+        SoloToast.show(
+          context,
+          "Something went wrong while picking the contact",
+          isDark: false,
         );
       }
     }
@@ -258,16 +484,24 @@ class _ContactsPageState extends State<ContactsPage> {
                         onPressed: () async {
                           final rawDigits = phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
                           if (rawDigits.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Enter a valid phone number")),
+                            SoloToast.show(
+                              context,
+                              "Enter a valid phone number",
+                              isDark: false,
                             );
                             return;
                           }
+
+                          final existingPhone = existing["phone"] ?? "";
+                          final existingStatus = existing["consentStatus"] ?? "pending";
+                          final bool phoneChanged = existingPhone != rawDigits;
+                          final newStatus = phoneChanged ? "pending" : existingStatus;
 
                           final updated = {
                             "name": nameCtrl.text.trim(),
                             "countryCode": selectedCountryCode,
                             "phone": rawDigits,
+                            "consentStatus": newStatus,
                           };
 
                           Navigator.of(dialogContext).pop();
@@ -275,12 +509,17 @@ class _ContactsPageState extends State<ContactsPage> {
                           setState(() {
                             if (index == 1) {
                               manualContact1 = updated;
+                              if (phoneChanged) isContact1Enabled = false;
                             } else {
                               manualContact2 = updated;
+                              if (phoneChanged) isContact2Enabled = false;
                             }
                           });
 
                           await sendContactsToApi();
+                          if (phoneChanged) {
+                            await _sendConsentSmsRequest(updated);
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _numCircle,
@@ -326,24 +565,28 @@ class _ContactsPageState extends State<ContactsPage> {
 
     final locationData = await LocationService.getCurrentLocationData();
 
-    final List<Map<String, dynamic>> contacts = [];
-    if (isContact1Enabled && manualContact1 != null) {
-      contacts.add(manualContact1!);
+    final List<Map<String, dynamic>> allContacts = [];
+    if (manualContact1 != null) {
+      final c1 = Map<String, dynamic>.from(manualContact1!);
+      c1["enabled"] = isContact1Enabled.toString();
+      allContacts.add(c1);
     }
-    if (isContact2Enabled && manualContact2 != null && !isContact2Locked) {
-      contacts.add(manualContact2!);
+    if (manualContact2 != null && !isContact2Locked) {
+      final c2 = Map<String, dynamic>.from(manualContact2!);
+      c2["enabled"] = isContact2Enabled.toString();
+      allContacts.add(c2);
     }
 
     await LocalStorage.saveContacts(
-      contacts.map((e) => e.map((k, v) => MapEntry(k, v.toString()))).toList(),
+      allContacts.map((e) => e.map((k, v) => MapEntry(k, v.toString()))).toList(),
     );
 
-    if (contacts.isEmpty) return true;
+    if (allContacts.isEmpty) return true;
 
     final url = Uri.parse("${ApiConfig.baseUrl}/contacts");
     bool allSucceeded = true;
 
-    for (final contact in contacts) {
+    for (final contact in allContacts) {
       try {
         String rawPhone = contact["phone"] ?? "";
         String cleanDigits = rawPhone.replaceAll(RegExp(r'\D'), '');
@@ -359,6 +602,8 @@ class _ContactsPageState extends State<ContactsPage> {
           "name": contact["name"],
           "phone": cleanDigits,
           "countryCode": countryCode,
+          "consentStatus": contact["consentStatus"] ?? "pending",
+          "isEnabled": contact["enabled"] == "true",
           if (locationData != null) ...{
             "latitude": locationData["latitude"],
             "longitude": locationData["longitude"],
@@ -368,14 +613,16 @@ class _ContactsPageState extends State<ContactsPage> {
         });
 
         print("[API REQUEST] POST $url");
-        print("[API BODY PAYLOAD WITH LOCATION]: $body");
+        print("[API BODY PAYLOAD WITH LOCATION & CONSENT]: $body");
 
         final response = await http.post(
           url,
           headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            if (token != null) "Authorization": token.startsWith("Bearer ") ? token : "Bearer $token",
+            if (token != null)
+              "Authorization":
+                  token.startsWith("Bearer ") ? token : "Bearer $token",
           },
           body: body,
         );
@@ -402,11 +649,21 @@ class _ContactsPageState extends State<ContactsPage> {
       setState(() {
         if (data.length >= 1) {
           manualContact1 = Map<String, dynamic>.from(data[0]);
-          isContact1Enabled = true;
+          final status1 = (manualContact1?["consentStatus"] ?? "pending")
+              .toString()
+              .toLowerCase();
+          final storedEnabled1 = manualContact1?["enabled"];
+          isContact1Enabled =
+              (status1 == "accepted") && (storedEnabled1 != "false");
         }
         if (data.length >= 2) {
           manualContact2 = Map<String, dynamic>.from(data[1]);
-          isContact2Enabled = true;
+          final status2 = (manualContact2?["consentStatus"] ?? "pending")
+              .toString()
+              .toLowerCase();
+          final storedEnabled2 = manualContact2?["enabled"];
+          isContact2Enabled =
+              (status2 == "accepted") && (storedEnabled2 != "false");
         }
       });
     }
@@ -426,53 +683,73 @@ class _ContactsPageState extends State<ContactsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Let Loved\nOnes Know\nYou're Okay",
+                      "Let your loved\nOnes know\nYou’re Okay",
                       style: TextStyle(
                         color: Color(0xFF002C3E),
                         fontSize: 44,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0,
                         height: 1.1,
+                      ),
+                    ),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        double screenWidth = MediaQuery.of(context).size.width;
 
-                      ),
+                        return SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start, // Left alignment fix rakhne ke liye
+                            children: [
+                              const SizedBox(height: 16),
+                              Text(
+                                "You can add the people who care about you. If you\nmiss a scheduled check-in, I'll alert them after 2\nhours with your last known location. You can\nupdate your contacts anytime.",
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: const Color(0xFF5A6C7D),
+                                  fontSize: screenWidth < 360 ? 13 : 14, // Chote phone ke liye font thoda adjust
+                                  height: 20 / 14,
+                                  letterSpacing: 0,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Contact Section
+                              const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                              _contactRow(index: 1),
+                              const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                              _contactRow(index: 2),
+                              const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+
+                              const SizedBox(height: 24),
+
+                              // Useful Tip SVG - Aspect ratio maintain rakhne ke liye
+                              SvgPicture.asset(
+                                'assets/svg/usefultip.svg',
+                                width: 111,
+                                height: 37,
+                                fit: BoxFit.contain,
+                              ),
+                              const SizedBox(height: 12),
+
+                              Text(
+                                "Let your contacts know they're added as\nemergency contacts so they'll recognize alerts\nfrom your SOLO app.",
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: _subtitleColor, // Apka defined color variable
+                                  fontSize: screenWidth < 360 ? 13 : 14,
+                                  fontWeight: FontWeight.w400,
+                                  height: 20 / 14,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      "You can add the people who care about you. If you\n miss a scheduled check-in, I'll alert them after 2\n hours with your last known location. You can\n update your contacts anytime.",
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: Color(0xFF5A6C7D),
-                        fontSize: 14,
-                        height: 20 / 14,
-                        letterSpacing: 0,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
-                    _contactRow(index: 1),
-                    const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
-                    _contactRow(index: 2),
-                    const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
-                    const SizedBox(height: 24),
-                    SvgPicture.asset(
-                      'assets/svg/usefultip.svg',
-                      width: 111,
-                      height: 37,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      "Let your contacts know they're added as\n emergency contacts so they'll recognize alerts\n from your SOLO app.",
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: _subtitleColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        height: 20 / 14,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -503,7 +780,9 @@ class _ContactsPageState extends State<ContactsPage> {
                             "Next",
                             style: TextStyle(
                               fontFamily: 'Inter',
-                              color: canProceed ? _headingColor : _headingColor.withValues(alpha: 0.3),
+                              color: canProceed
+                                  ? const Color(0xFF5A6C7D)
+                                  : const Color(0xFF5A6C7D).withValues(alpha: 0.3),
                               fontSize: 20,
                               fontWeight: FontWeight.w400,
                             ),
@@ -530,12 +809,24 @@ class _ContactsPageState extends State<ContactsPage> {
     final data = index == 1 ? manualContact1 : manualContact2;
     final enabled = index == 1 ? isContact1Enabled : isContact2Enabled;
     final hasContact = data != null;
-    final isLocked = (index == 2 && isContact2Locked);
+    final isTrial = isContact2Locked;
+
+    // For monthly and yearly subscribers, both contact slots should appear active at first glance (PDF 2 page 7 item 7)
+    // For trial users, only slot 1 is active (slot 2 dimmed)
+    final double rowOpacity = (index == 2 && isTrial) ? 0.45 : 1.0;
+    final consentStatus =
+        (data?["consentStatus"] ?? "pending").toString().toLowerCase();
+    final isAccepted = consentStatus == "accepted";
+    final isPending = consentStatus == "pending";
+    final isDeclined = consentStatus == "declined";
 
     return Opacity(
-      opacity: isLocked ? 0.45 : 1.0,
+      opacity: rowOpacity,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: EdgeInsets.only(
+          top: 14,
+          bottom: hasContact ? 16 : 14,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -561,10 +852,23 @@ class _ContactsPageState extends State<ContactsPage> {
             const SizedBox(width: 16),
             Expanded(
               child: GestureDetector(
-                onTap: isLocked
-                    ? _showUpgradePrompt
-                    : (hasContact ? () => editContact(index) : () => pickContact(index)),
                 behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (index == 2 && isTrial) {
+                    _showUpgradePrompt();
+                    return;
+                  }
+                  if (!hasContact) {
+                    if (index == 2 && manualContact1 == null) {
+                      SoloToast.show(
+                          context, "Please add Contact 1 first", isDark: false);
+                      return;
+                    }
+                    pickContact(index);
+                  }
+                },
+                onLongPress:
+                    hasContact ? () => _showConsentSimulationSheet(index) : null,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -582,15 +886,35 @@ class _ContactsPageState extends State<ContactsPage> {
                       hasContact ? (data["name"] ?? "") : "No contact added yet",
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        color: hasContact ? const Color(0xFF002C3E) : const Color(0xFF8A99A6),
+                        color: hasContact
+                            ? const Color(0xFF002C3E)
+                            : const Color(0xFF8A99A6),
                         fontSize: 14,
-                        fontWeight: hasContact ? FontWeight.w500 : FontWeight.w400,
+                        fontWeight:
+                            hasContact ? FontWeight.w500 : FontWeight.w400,
                         height: 20 / 14,
                         letterSpacing: 0,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (hasContact) ...[
+                      const SizedBox(height: 2),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _showConsentSimulationSheet(index),
+                        child: Text(
+                          _getConsentStatusLabel(data["consentStatus"]),
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: _getConsentStatusColor(data["consentStatus"]),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -598,9 +922,16 @@ class _ContactsPageState extends State<ContactsPage> {
             const SizedBox(width: 12),
             GestureDetector(
               onTap: () async {
-                if (isLocked) {
-                  _showUpgradePrompt();
-                  return;
+                if (index == 2) {
+                  if (isTrial) {
+                    _showUpgradePrompt();
+                    return;
+                  }
+                  if (manualContact1 == null) {
+                    SoloToast.show(
+                        context, "Please add Contact 1 first", isDark: false);
+                    return;
+                  }
                 }
 
                 if (hasContact) {
@@ -618,8 +949,9 @@ class _ContactsPageState extends State<ContactsPage> {
                   await pickContact(index);
                 }
               },
-              child: isLocked
-                  ? SvgPicture.asset('assets/svg/plus.svg', width: 28, height: 28)
+              child: (index == 2 && isTrial)
+                  ? SvgPicture.asset('assets/svg/plus.svg',
+                      width: 28, height: 28)
                   : hasContact
                       ? Container(
                           width: 28,
@@ -628,23 +960,54 @@ class _ContactsPageState extends State<ContactsPage> {
                             color: Color(0xFF002C3E),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.remove, color: Colors.white, size: 16),
+                          child: Center(
+                            child: Container(
+                              width: 12,
+                              height: 1.8,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F5),
+                                borderRadius: BorderRadius.circular(1),
+                              ),
+                            ),
+                          ),
                         )
-                      : SvgPicture.asset('assets/svg/plus.svg', width: 28, height: 28),
+                      : SvgPicture.asset('assets/svg/plus.svg',
+                          width: 28, height: 28),
             ),
             const SizedBox(width: 14),
             customSwitch(
-              value: enabled && !isLocked,
+              value: hasContact &&
+                  enabled &&
+                  isAccepted &&
+                  (index == 1 || !isTrial),
               onChanged: (value) async {
-                if (isLocked) {
+                if (index == 2 && isTrial) {
                   _showUpgradePrompt();
                   return;
                 }
 
                 if (!hasContact) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please add a contact first")),
-                  );
+                  if (index == 2 && manualContact1 == null) {
+                    SoloToast.show(
+                        context, "Please add Contact 1 first", isDark: false);
+                  } else {
+                    SoloToast.show(
+                        context, "Please add a contact first", isDark: false);
+                  }
+                  return;
+                }
+
+                // Inactive when Pending or Declined per PDF Page 6
+                if (isPending) {
+                  SoloToast.show(
+                      context, "Waiting for contact's consent via SMS",
+                      isDark: false);
+                  return;
+                }
+                if (isDeclined) {
+                  SoloToast.show(
+                      context, "Contact has declined to receive SMS alerts",
+                      isDark: false);
                   return;
                 }
 

@@ -7,6 +7,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:alarm/alarm.dart';
 
+import 'package:solo_app/core/storage/token_storage.dart';
+
 import 'app.dart';
 import 'loginWithNumber/auth_bloc.dart';
 
@@ -53,6 +55,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  String? token;
+  bool pendingCheckout = false;
+
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -61,6 +66,9 @@ void main() async {
     // We call this but don't strictly await it to block the app from starting
     // if the OS is slow to respond to permission requests.
     requestPermissions();
+
+    token = await TokenStorage.getToken();
+    pendingCheckout = await TokenStorage.getPendingCheckout();
   } catch (e) {
     debugPrint("Startup Error: $e");
   }
@@ -72,7 +80,10 @@ void main() async {
           create: (context) => AuthBloc(),
         ),
       ],
-      child: const SoloApp(),
+      child: SoloApp(
+        initialToken: token,
+        pendingCheckout: pendingCheckout,
+      ),
     ),
   );
 }

@@ -41,13 +41,13 @@ class AboutUsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      "Let’s get\nto know SOLO",
+                      "Let's get to know SOLO",
                       style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Inter',
+                        fontSize: 36,
+                        fontWeight: FontWeight.w600,
                         color: Color(0xFF002C3E),
-                        height: 1.15,
-                        letterSpacing: -0.3,
+                        height: 1.1,
                       ),
                     ),
                     const SizedBox(height: 20),

@@ -1,4 +1,4 @@
-import 'dart:async'; // Required for Timer
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,11 +6,14 @@ import '../core/storage/token_storage.dart';
 import '../core/utils/app_size.dart';
 import '../home/checkin/local_storage.dart';
 import '../home/home_page.dart';
+import '../core/widgets/solo_toast.dart';
 import 'stripe_api.dart';
 import 'subscription_api.dart';
 
 class SubscriptionPage extends StatefulWidget {
-  const SubscriptionPage({super.key});
+  final String? initialToastMessage;
+
+  const SubscriptionPage({super.key, this.initialToastMessage});
 
   @override
   State<SubscriptionPage> createState() => _SubscriptionPageState();
@@ -23,27 +26,27 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   final List<Map<String, dynamic>> _plans = [
     {
       "id": "monthly",
-      "svgAsset": "assets/svg/mothly.svg",
+      "svgAsset": "assets/svg/Monthly - card.svg",
       "priceId": "price_1TZ8zgH682jITs1wzNptVVi0",
     },
     {
       "id": "trial",
-      "svgAsset": "assets/svg/free_trial.svg",
+      "svgAsset": "assets/svg/Trial - card.svg",
       "priceId": "price_1TZ8zgH682jITs1wzNptVVi0",
     },
     {
       "id": "yearly",
-      "svgAsset": "assets/svg/year.svg",
+      "svgAsset": "assets/svg/Yearly - card.svg",
       "priceId": "price_1TZ97RH682jITs1w0gc0XrBX",
     },
     {
       "id": "credit_3",
-      "svgAsset": "assets/svg/3_alert.svg",
+      "svgAsset": "assets/svg/Topup 3 - card.svg",
       "priceId": "price_1TZ993H682jITs1wc1kGxKlC",
     },
     {
       "id": "credit_5",
-      "svgAsset": "assets/svg/5_alert.svg",
+      "svgAsset": "assets/svg/Topup 5 - card.svg",
       "priceId": "price_1TZ9AaH682jITs1wrJafUO7C",
     },
   ];
@@ -81,6 +84,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         });
       }
     });
+
+    if (widget.initialToastMessage != null &&
+        widget.initialToastMessage!.isNotEmpty) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) {
+          SoloToast.show(
+            context,
+            widget.initialToastMessage!,
+            isDark: true,
+          );
+        }
+      });
+    }
   }
 
   Future<void> _loadPromoState() async {
@@ -136,21 +152,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     if (planId == "trial") {
       if (_subscriptionStatus >= 1) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("You have already used the Free Trial.")),
-        );
+        SoloToast.show(context, "You have already used the Free Trial.", isDark: true);
         return;
       }
     }
 
     if ((planId == "monthly" && _subscriptionStatus == 2) ||
         (planId == "yearly" && _subscriptionStatus == 3)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                "You are already on the ${planId == 'monthly' ? 'Monthly' : 'Yearly'} plan.")),
-      );
+      SoloToast.show(context, "You are already on the ${planId == 'monthly' ? 'Monthly' : 'Yearly'} plan.", isDark: true);
       return;
     }
 
@@ -180,22 +189,18 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Could not open payment page: $e")),
-          );
+          SoloToast.show(context, "Could not open payment page: $e", isDark: true);
         }
       }
     } else {
       final errorMsg = StripeApi.lastErrorMessage;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              errorMsg != null && errorMsg.isNotEmpty
-                  ? errorMsg
-                  : "Failed to initiate payment session. Please try again.",
-            ),
-          ),
+        SoloToast.show(
+          context,
+          errorMsg != null && errorMsg.isNotEmpty
+              ? errorMsg
+              : "Failed to initiate payment session. Please try again.",
+          isDark: true,
         );
       }
     }
@@ -224,11 +229,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   Future<void> _openManagePortal() async {
     if (_subscriptionStatus < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please select a plan first to start subscription."),
-        ),
-      );
+      SoloToast.show(context, "Please select a plan first to start subscription.", isDark: true);
       return;
     }
 
@@ -245,22 +246,18 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         await _loadPromoState();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Could not open subscription portal: $e")),
-          );
+          SoloToast.show(context, "Could not open subscription portal: $e", isDark: true);
         }
       }
     } else {
       if (mounted) {
         final errorMsg = StripeApi.lastErrorMessage;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              errorMsg != null && errorMsg.isNotEmpty
-                  ? errorMsg
-                  : "Failed to open subscription portal. Please try again.",
-            ),
-          ),
+        SoloToast.show(
+          context,
+          errorMsg != null && errorMsg.isNotEmpty
+              ? errorMsg
+              : "Failed to open subscription portal. Please try again.",
+          isDark: true,
         );
       }
     }
@@ -629,24 +626,24 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 padding: EdgeInsets.symmetric(
                                     horizontal: AppSize.w(4)),
                                 child: Text(
-                                  "Keep Your\nCheck-ins\nActive",
+                                  "Keep your\nCheck-ins\nActive",
                                   style: TextStyle(
                                     color: const Color(0xFF78BCC4),
-                                    fontSize: AppSize.sp(36),
+                                    fontSize: AppSize.sp(44),
                                     height: 1.1,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                              SizedBox(height: AppSize.h(10)),
+                              SizedBox(height: AppSize.h(24)),
                               Padding(
                                 padding: EdgeInsets.symmetric(
                                     horizontal: AppSize.w(4)),
                                 child: Text(
-                                  "Subscribe so I can look out for\n you every day",
+                                  "Subscribe so I can look out for\nyou every day",
                                   style: TextStyle(
                                     color: const Color(0xFFD1D9E0),
-                                    fontSize: AppSize.sp(16),
+                                    fontSize: AppSize.sp(22),
                                     fontWeight: FontWeight.w400,
                                   ),
                                 ),
@@ -821,8 +818,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                     child: Text(
                                       disclaimerText,
                                       style: TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: AppSize.sp(10),
+                                          color: Color(0xFFA8B6C2),                                        fontSize: AppSize.sp(12),
+                                        fontWeight: FontWeight.w400
                                       ),
                                     ),
                                   );
@@ -848,9 +845,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                   dynamicHeadingTitle,
                                   style: TextStyle(
                                     color: const Color(0xFF78BCC4),
-                                    fontSize: AppSize.sp(22),
+                                    fontSize: AppSize.sp(26),
                                     fontWeight: FontWeight.w600,
                                   ),
+
                                 ),
                               ),
                               SizedBox(height: AppSize.h(8)),
@@ -912,7 +910,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                           0xFFA8B6C2),
                                                       fontSize: AppSize.sp(32),
                                                       fontWeight:
-                                                          FontWeight.w700,
+                                                          FontWeight.w600,
                                                       height: 1.05,
                                                     ),
                                                   ),
@@ -927,7 +925,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                     style: TextStyle(
                                                       color: const Color(
                                                           0xFFA8B6C2),
-                                                      fontSize: AppSize.sp(16),
+                                                      fontSize: AppSize.sp(18),
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
@@ -1202,7 +1200,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ),
                   SizedBox(height: AppSize.h(20)),
                   const Text(
-                    "To top up alert credits,\nplease subscribe to a\nMonthly or Yearly plan.",
+                    "To top up alert credits\nplease subscribe to a\nMonthly or Yearly plan.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
@@ -1237,7 +1235,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                         );
                       },
                       child: const Text(
-                        "Get It",
+                        "Got It",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

@@ -11,6 +11,7 @@ import 'package:solo_app/home/checkin/checkin_api.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/core/utils/solo_sounds.dart';
+import 'package:solo_app/core/widgets/solo_toast.dart';
 
 class CheckinScreen extends StatefulWidget {
   final String userName;
@@ -150,8 +151,10 @@ class _CheckinScreenState extends State<CheckinScreen> {
     debugPrint("👉 [CheckinScreen] onCheckin() tapped | current state=$state");
     if (state == "waiting") {
       debugPrint("⚠️ [CheckinScreen] onCheckin() blocked -> still in 'waiting' state (too early)");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Too early to check in!")),
+      SoloToast.show(
+        context,
+        "Too early to check in!",
+        isDark: true,
       );
       return;
     }

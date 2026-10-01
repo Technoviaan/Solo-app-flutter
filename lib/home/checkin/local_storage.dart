@@ -29,6 +29,40 @@ class LocalStorage {
         .toList();
   }
 
+  /// ================= UPDATE CONTACT CONSENT STATUS =================
+  static Future<void> updateContactConsentStatus({
+    required int index,
+    required String status,
+  }) async {
+    final contacts = await getContacts();
+    if (index - 1 >= 0 && index - 1 < contacts.length) {
+      contacts[index - 1]["consentStatus"] = status;
+      await saveContacts(contacts);
+    }
+  }
+
+  static Future<bool> updateContactConsentByMatch({
+    required String identifier,
+    required String status,
+  }) async {
+    final contacts = await getContacts();
+    bool updated = false;
+    for (int i = 0; i < contacts.length; i++) {
+      final phone = contacts[i]["phone"] ?? "";
+      final name = contacts[i]["name"] ?? "";
+      if ((phone.isNotEmpty && (phone.contains(identifier) || identifier.contains(phone))) ||
+          (name.isNotEmpty && name.toLowerCase() == identifier.toLowerCase())) {
+        contacts[i]["consentStatus"] = status;
+        updated = true;
+        break;
+      }
+    }
+    if (updated) {
+      await saveContacts(contacts);
+    }
+    return updated;
+  }
+
   /// ================= SAVE SCHEDULE =================
   static Future<void> saveSchedule(String time) async {
     final prefs = await SharedPreferences.getInstance();

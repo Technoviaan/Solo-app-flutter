@@ -12,7 +12,6 @@ import 'package:solo_app/home/terms_of_use_page.dart';
 import 'package:solo_app/loginWithNumber/user_email_api.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
 import '../core/utils/app_size.dart';
-import 'package:solo_app/loginWithNumber/login_page.dart';
 
 class RegistrationEmailPage extends StatefulWidget {
   const RegistrationEmailPage({super.key});
@@ -156,7 +155,6 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     AppSize.init(context);
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
-    // Button ab tabhi active hoga jab text box me kuch likha ho
     final isFormValid = emailController.text.trim().isNotEmpty;
 
     final screenHeight = MediaQuery.of(context).size.height;
@@ -164,10 +162,8 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
 
     final titleFontSize = isSmallScreen ? AppSize.sp(30) : AppSize.sp(40);
 
-    // Top spacing ko aur kam kar diya hai taaki text bilkul upar se start ho
     final topSpacing = isSmallScreen ? AppSize.h(24) : AppSize.h(30);
 
-    // Responsive mascot size to prevent bottom clipping
     final mascotSize = isSmallScreen ? 280.0 : 300.0;
 
     return Scaffold(
@@ -197,18 +193,22 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                         padding: EdgeInsets.only(
                           left: AppSize.w(24),
                         ),
-                        child: Text(
-                          "Let's keep \nyou connected \nand cared for",
-                          style: TextStyle(
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF002C3E),
-                            height: 1.15,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Let’s keep\nyou connected\nand cared for",
+                            
+                            textAlign: TextAlign.left,
+                            style: TextStyle(
+                              fontSize: AppSize.sp(44),
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF002C3E),
+                              height: 1.1,
+                              letterSpacing: 0,
+                            ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: AppSize.h(20)),
-
+                      ),                      SizedBox(height: AppSize.h(20)),
                       // Email Error
                       SizedBox(
                         height: AppSize.h(20),
@@ -424,16 +424,17 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                 AnimatedDefaultTextStyle(
                                   duration: const Duration(milliseconds: 200),
                                   style: TextStyle(
+                                    fontFamily: 'Inter',
                                     color: isFormValid
-                                        ? const Color(0xFF8A99A6)
-                                        : const Color(0xFF8A99A6)
-                                        .withValues(alpha: 0.2),
+                                        ? const Color(0xFF5A6C7D)
+                                        : const Color(0xFF5A6C7D)
+                                        .withValues(alpha: 0.3),
                                     fontSize: AppSize.sp(20),
                                     fontWeight: FontWeight.w400,
                                   ),
                                   child: const Text("Continue"),
                                 ),
-                                SizedBox(width: AppSize.w(18)),
+                                SizedBox(width: AppSize.w(14)),
                                 GestureDetector(
                                   onTap: (loading || !isFormValid)
                                       ? null

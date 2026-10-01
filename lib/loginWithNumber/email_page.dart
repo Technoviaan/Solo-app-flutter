@@ -105,22 +105,18 @@ class _EmailPageState extends State<EmailPage> {
     } else {
       timeGreeting = "Evening";
     }
-    return "$timeGreeting,\nwelcome back \nto Solo";
+    return "$timeGreeting,\nwelcome back \nto SOLO";
   }
 
-  // Sirf aur sirf @gmail.com check karne ke liye strict validation
   bool isValidEmail(String email) {
     final value = email.trim().toLowerCase();
 
-    // Check if it ends strictly with @gmail.com and has something before @
     if (!value.endsWith('@gmail.com')) return false;
 
-    // Ensure there is a valid username part before @gmail.com
     final parts = value.split('@');
     if (parts.length != 2) return false;
 
     final username = parts[0];
-    // Username must not be empty and should follow basic email rules
     final usernameRegex = RegExp(r'^[\w.+-]+$');
     if (username.isEmpty || !usernameRegex.hasMatch(username)) return false;
 
@@ -239,7 +235,21 @@ class _EmailPageState extends State<EmailPage> {
     } else {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const LoginPage(),
+          transitionDuration: const Duration(milliseconds: 300),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOut,
+              ),
+              child: child,
+            );
+          },
+        ),
       );
     }
   }
@@ -544,9 +554,11 @@ class _EmailPageState extends State<EmailPage> {
                       SizedBox(height: AppSize.h(10)),
                       Align(
                         alignment: Alignment.bottomLeft,
-                        child: FractionalTranslation(
-                          translation: const Offset(-0.25, 0),
-                          child: AnimatedSoloEmailButton(size: mascotSize),
+                        child: ClipRect(
+                          child: FractionalTranslation(
+                            translation: const Offset(-0.25, 0),
+                            child: AnimatedSoloEmailButton(size: mascotSize),
+                          ),
                         ),
                       ),
                     ],
@@ -613,7 +625,7 @@ class _EmailPageState extends State<EmailPage> {
                         ),
                         child: const Text("Continue"),
                       ),
-                      SizedBox(width: AppSize.w(18)),
+                      SizedBox(width: AppSize.w(14)),
                       GestureDetector(
                         onTap: (loading || !isFormValid)
                             ? null

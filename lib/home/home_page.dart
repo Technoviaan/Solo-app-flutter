@@ -5,7 +5,6 @@ import 'package:solo_app/home/more_page.dart';
 import 'package:solo_app/home/profile/profile_api.dart';
 import 'package:solo_app/home/shedule/schedule_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
-import 'package:solo_app/widgets/solo_eye.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:solo_app/main.dart';
@@ -141,132 +140,131 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9F5),
-      body: Column(
-        children: [
-          Expanded(
-            flex: 6,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(0, 56.h, 28.w, 24.h),
-              decoration: const BoxDecoration(
-                color: Color(0xFF002C3E),
-                borderRadius: BorderRadius.only(
-                  bottomRight: Radius.circular(90),
+      body:SafeArea(
+        top: false,
+        bottom: true,
+        child: Column(
+          children: [
+            Expanded(
+              flex: 67,
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(0, 52.h, 28.w, 28.h),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF002C3E),
+                  borderRadius: BorderRadius.only(
+                    bottomRight: Radius.circular(90),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Transform.translate(
+                        offset: Offset(310.w * (80 / 940.0), 0),
+                        child: const SoloLogoAnimated(width: 260),
+                      ),
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: EdgeInsets.only(left: 28.w, bottom: 8.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName.isNotEmpty ? "$_greeting,\n$userName" : "$_greeting,",
+                            style: TextStyle(
+                              color: const Color(0xFF78BCC4),
+                              fontSize: 44.sp,
+                              fontWeight: FontWeight.w600,
+                              height: 1.12,
+                            ),
+                          ),
+                          SizedBox(height: 6.h),
+                          Text(
+                            "How can we\nsupport you\ntoday?",
+                            style: TextStyle(
+                              color: const Color(0xFF78BCC4),
+                              fontSize: 44.sp,
+                              fontWeight: FontWeight.w600,
+                              height: 1.12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Transform.translate(
-                      offset: Offset(310.w * (80 / 840.0), 0),
-                      child: const SoloLogoAnimated(width: 260)
-                    ),
-
-
-
-                  ),
-                  const Spacer(),
-                  Padding(
-                    padding: EdgeInsets.only(left: 28.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            Expanded(
+              flex: 33,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          userName.isNotEmpty ? "$_greeting,\n$userName" : "$_greeting,",
-                          style: TextStyle(
-                            color: const Color(0xFF78BCC4),
-                            fontSize: 36.sp,
-                            fontWeight: FontWeight.w600,
-                            height: 1.1,
-                          ),
+                        svgActionCard(
+                          svgPath: 'assets/svg/shedule.svg',
+                          label: 'Schedule',
+                          color: const Color(0xFF04BADE),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const SchedulePage()),
+                            );
+                          },
                         ),
-                        SizedBox(height: 6.h),
-                        Text(
-                          "How can we\nsupport you\ntoday?",
-                          style: TextStyle(
-                            color: const Color(0xFF78BCC4),
-                            fontSize: 36.sp,
-                            fontWeight: FontWeight.w600,
-                            height: 1.1,
-                          ),
+                        svgActionCard(
+                          svgPath: 'assets/svg/contacs.svg',
+                          label: 'Contacts',
+                          color: const Color(0xFFE86854),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ContactsPage()),
+                            );
+                          },
                         ),
-                        SizedBox(height: 8.h),
                       ],
                     ),
-                  ),
-                ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        imageActionCard(
+                          imagePath: 'assets/images/subcription.png',
+                          label: 'Subscription',
+                          color: const Color(0xFF00C9C8),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+                            );
+                          },
+                        ),
+                        svgActionCard(
+                          svgPath: 'assets/svg/mores.svg',
+                          label: 'More',
+                          color: const Color(0xFFF5B13E),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const MorePage()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Expanded(
-            flex: 4,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      svgActionCard(
-                        svgPath: 'assets/svg/shedule.svg',
-                        label: 'Schedule',
-                        color: const Color(0xFF04BADE),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SchedulePage()),
-                          );
-                        },
-                      ),
-                      svgActionCard(
-                        svgPath: 'assets/svg/contacs.svg',
-                        label: 'Contacts',
-                        color: const Color(0xFFE86854),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ContactsPage()),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 14.h),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      imageActionCard(
-                        imagePath: 'assets/images/subcription.png',
-                        label: 'Subscription',
-                        color: const Color(0xFF00C9C8),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SubscriptionPage()),
-                          );
-                        },
-                      ),
-                      svgActionCard(
-                        svgPath: 'assets/svg/mores.svg',
-                        label: 'More',
-                        color: const Color(0xFFF5B13E),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const MorePage()),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -281,17 +279,10 @@ class _HomePageState extends State<HomePage> {
       onTap: onTap,
       child: Container(
         width: 155.w,
-        height: 98.h,
+        height: 92.h,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -301,9 +292,10 @@ class _HomePageState extends State<HomePage> {
             Text(
               label,
               style: TextStyle(
+                fontFamily: 'Inter',
                 color: Colors.white,
                 fontSize: 15.sp,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -322,17 +314,10 @@ class _HomePageState extends State<HomePage> {
       onTap: onTap,
       child: Container(
         width: 155.w,
-        height: 98.h,
+        height: 92.h,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -352,9 +337,10 @@ class _HomePageState extends State<HomePage> {
             Text(
               label,
               style: TextStyle(
+                fontFamily: 'Inter',
                 color: Colors.white,
                 fontSize: 15.sp,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
