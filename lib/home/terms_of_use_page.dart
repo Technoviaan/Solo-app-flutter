@@ -15,30 +15,38 @@ class TermsOfUsePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSize.w(24), vertical: AppSize.h(10)),
-              child: const SoloLogo(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 24, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SoloLogo(),
+                  SizedBox(height: 24),
+                  Text(
+                    "Terms of Use",
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF002C3E),
+                      height: 1.0,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                ],
+              ),
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: AppSize.h(20)),
-                    Text(
-                      "Terms of Use",
-                      style: TextStyle(
-                        fontSize: AppSize.sp(20),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF002C3E),
-                      ),
-                    ),
-                    SizedBox(height: AppSize.h(20)),
                     
                     termItem(
                       "1. How does SOLO help me as a check‑in buddy?",
-                      "SOLO is your friendly daily check‑in companion — like a friend looking out for you. It checks in on you at your preferred scheduled times.\n\nIf you miss the 2‑hour check‑in period, SOLO alerts your trusted contacts with your location, with reminders every 30 minutes in between.\n\nThis gives both you and your loved ones peace of mind knowing you’re okay each day — especially helpful if you’re staying or travelling on your own.",
+                      "SOLO is your friendly daily check‑in companion — like a friend looking out for you. It checks in on you at your preferred scheduled times.\n\nIf you miss the 2‑hour check‑in period, SOLO alerts your trusted contacts with your location, with reminders every 30 minutes in between.\n\nThis gives both you and your loved ones peace of mind knowing you're okay each day — especially helpful if you're staying or travelling on your own.",
                     ),
                     termItem(
                       "2. How do check‑ins work?",
@@ -46,7 +54,7 @@ class TermsOfUsePage extends StatelessWidget {
                     ),
                     termItem(
                       "3. What happens if I miss my scheduled check‑in?",
-                      "If you miss the check‑in, the big friendly button screen stays for 2 minutes then dismisses. SOLO will immediately send you a gentle push notification — just tap it to return and check in.\n\nThe check‑in screen also pops up again every 30 minutes as a reminder. An alert to your contacts is only sent if you haven’t checked in within 2 hours of the scheduled time.",
+                      "If you miss the check‑in, the big friendly button screen stays for 2 minutes then dismisses. SOLO will immediately send you a gentle push notification — just tap it to return and check in.\n\nThe check‑in screen also pops up again every 30 minutes as a reminder. An alert to your contacts is only sent if you haven't checked in within 2 hours of the scheduled time.",
                     ),
                     termItem(
                       "4. How does SOS work?",
@@ -58,7 +66,7 @@ class TermsOfUsePage extends StatelessWidget {
                     ),
                     termItem(
                       "6. How are my contacts alerted?",
-                      "Once you’ve added up to 2 trusted contacts, SOLO sends them an SMS alert along with a map link showing your last known location if you miss tapping the check‑in button after 2 hours, or if you trigger the SOS button.\n\nSMS works even without Wi‑Fi or mobile data, so alerts are delivered directly to their phones.",
+                      "Once you've added up to 2 trusted contacts, SOLO sends them an SMS alert along with a map link showing your last known location if you miss tapping the check‑in button after 2 hours, or if you trigger the SOS button.\n\nSMS works even without Wi‑Fi or mobile data, so alerts are delivered directly to their phones.",
                     ),
                     termItem(
                       "7. Can I change my check‑in times?",
@@ -70,7 +78,7 @@ class TermsOfUsePage extends StatelessWidget {
                     ),
                     termItem(
                       "9. How do I cancel my subscription?",
-                      "To cancel or change your plan, please visit your device’s app store settings. Your check‑ins will continue until your current subscription expires.",
+                      "To cancel or change your plan, please visit your device's app store settings. Your check‑ins will continue until your current subscription expires.",
                     ),
                     
                     SizedBox(height: AppSize.h(40)),

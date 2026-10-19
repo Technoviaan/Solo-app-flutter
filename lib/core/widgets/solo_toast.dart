@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SoloToast {
   static OverlayEntry? _currentEntry;
@@ -153,10 +154,9 @@ class _ToastAnimationWidgetState extends State<_ToastAnimationWidget>
               child: Text(
                 widget.message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFFF5F5F5),
-                  fontSize: 16,
+                style: GoogleFonts.inter(
+                  color: const Color(0xFFF5F5F5),
+                  fontSize: 13,
                   fontWeight: FontWeight.w500,
                   height: 1.25,
                 ),

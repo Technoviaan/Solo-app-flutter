@@ -37,7 +37,7 @@ class NoCreditsPage extends StatelessWidget {
               const SizedBox(height: 10),
 
               const Text(
-                "You need credits to trigger alerts.\nPlease purchase a plan.",
+                "You need credits to trigger alerts. Please purchase a plan.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white70),
               ),

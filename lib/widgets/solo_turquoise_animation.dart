@@ -21,13 +21,17 @@ class SoloButtonController {
   }
 
   /// Pupils slide from wherever they currently are straight to the
-  /// bottom-left, as if looking down at a field being typed into.
+  /// look-down position (Offset(-55, 127)), as if looking down at a field being typed into.
   void lookDown() => _state?._lookDown();
 
   /// Pupils return to front, then the idle wander resumes — skipping
   /// whichever direction was interrupted so it's never repeated
   /// immediately.
   void resume() => _state?._resume();
+
+  // Public aliases matching JS API directly
+  void soloButtonLookDown() => lookDown();
+  void soloButtonResume() => resume();
 
   void dispose() {
     _state = null;
@@ -39,7 +43,10 @@ class SoloTurquoiseAnimation extends StatefulWidget {
   final double? height;
   final double? size;
   final bool isHappy;
+  final bool isSad;
+  final bool isYellow;
   final bool isRed;
+  final bool enablePulse;
   final bool lookUpRight;
   final VoidCallback? onTap;
 
@@ -54,7 +61,10 @@ class SoloTurquoiseAnimation extends StatefulWidget {
     this.height,
     this.size,
     this.isHappy = false,
+    this.isSad = false,
+    this.isYellow = false,
     this.isRed = false,
+    this.enablePulse = false,
     this.lookUpRight = false,
     this.onTap,
     this.controller,
@@ -78,6 +88,22 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
     <path d="M448.54,648.32c214.3-328,652.92-421.16,981.89-209.55-5.51-3.82-11.07-7.59-16.72-11.28-329.45-215.24-771-122.66-986.24,206.78-215.24,329.44-122.66,771,206.78,986.24,1.44.94,2.9,1.83,4.34,2.76-315.79-219.08-401.6-651.16-190.05-974.95Z" fill="#1ac7be"/>
     <path d="M1537.3,529.61c225.65,233.87,268.48,600.52,83.2,884.12-215.24,329.44-656.8,422.02-986.24,206.78-39.13-25.56-74.86-54.35-107.19-85.72,36.48,37.81,77.73,72.16,123.57,102.11,329.44,215.24,771,122.66,986.24-206.78,189.68-290.32,140.27-667.66-99.58-900.5Z" fill="#046a64"/>
     <path d="M180.22,1064.3c0-491.96,398.81-890.78,890.78-890.78,210.17,0,403.31,72.83,555.65,194.57-158.61-145.81-370.22-234.87-602.66-234.87-491.96,0-890.78,398.82-890.78,890.78,0,281.79,130.88,532.98,335.13,696.2-177.1-162.81-288.12-396.38-288.12-655.91Z" fill="#067e78"/>
+  </g>
+</svg>
+''';
+
+  static const String _buttonSvgYellow = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="100%" height="100%">
+  <g id="Shadow">
+    <circle cx="1082.85" cy="1082.87" r="890.78" fill="#002c3e" opacity=".25"/>
+  </g>
+  <g id="Button">
+    <circle cx="1023.98" cy="1024" r="890.78" fill="#d89c1f"/>
+    <path d="M1914.76,1024c0-43.11-3.13-85.49-9.05-126.96l-390.33-390.33-1008.16,1008.16,391.03,391.03c41.08,5.81,83.05,8.88,125.73,8.88,491.96,0,890.78-398.82,890.78-890.78Z" fill="#bd8325"/>
+    <circle cx="1023.98" cy="1024" r="712.54" fill="#e0ab2a"/>
+    <path d="M448.54,648.32c214.3-328,652.92-421.16,981.89-209.55-5.51-3.82-11.07-7.59-16.72-11.28-329.45-215.24-771-122.66-986.24,206.78-215.24,329.44-122.66,771,206.78,986.24,1.44.94,2.9,1.83,4.34,2.76-315.79-219.08-401.6-651.16-190.05-974.95Z" fill="#e5bb42"/>
+    <path d="M1537.3,529.61c225.65,233.87,268.48,600.52,83.2,884.12-215.24,329.44-656.8,422.02-986.24,206.78-39.13-25.56-74.86-54.35-107.19-85.72,36.48,37.81,77.73,72.16,123.57,102.11,329.44,215.24,771,122.66,986.24-206.78,189.68-290.32,140.27-667.66-99.58-900.5Z" fill="#956418"/>
+    <path d="M180.22,1064.3c0-491.96,398.81-890.78,890.78-890.78,210.17,0,403.31,72.83,555.65,194.57-158.61-145.81-370.22-234.87-602.66-234.87-491.96,0-890.78,398.82-890.78,890.78,0,281.79,130.88,532.98,335.13,696.2-177.1-162.81-288.12-396.38-288.12-655.91Z" fill="#ba7d21"/>
   </g>
 </svg>
 ''';
@@ -107,53 +133,96 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
 </svg>
 ''';
 
-  // ---------------------------------------------------------------------
-  // 8-direction idle wander (same offsets/order as the original SMIL
-  // keyframes: left, right, up, down, up-left, up-right, down-left,
-  // down-right). Pupils always return to front between looks; a blink
-  // fires on every 4th return.
-  // ---------------------------------------------------------------------
-  static const List<Offset> _directions = [
-    Offset(-139, 0),
-    Offset(139, 0),
-    Offset(0, -139),
-    Offset(0, 139),
-    Offset(-98, -98),
-    Offset(98, -98),
-    Offset(-98, 98),
-    Offset(98, 98),
+  static const String _sadLidsSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="100%" height="100%">
+  <g id="Lids-sad">
+    <path d="M767.74,1041.89c-55.16,0-108.7-24.21-145.1-67.82-11.44-13.71-9.61-34.1,4.1-45.54,13.71-11.44,34.1-9.6,45.54,4.1,31.32,37.52,81.94,53.2,128.96,39.96,31.9-8.98,58.39-29.85,74.6-58.76,16.21-28.91,20.18-62.39,11.2-94.29-4.84-17.19,5.17-35.04,22.36-39.89,17.19-4.83,35.05,5.17,39.89,22.36,13.66,48.53,7.61,99.47-17.04,143.44-24.65,43.97-64.95,75.72-113.48,89.38-16.85,4.75-34.02,7.05-51.03,7.05Z" fill="#7a2c23"/>
+    <path d="M1280.26,1041.89c55.16,0,108.7-24.21,145.1-67.82,11.44-13.71,9.61-34.1,-4.1-45.54-13.71-11.44-34.1-9.6-45.54,4.1-31.32,37.52-81.94,53.2-128.96,39.96-31.9-8.98-58.39-29.85-74.6-58.76-16.21-28.91-20.18-62.39-11.2-94.29,4.84-17.19,-5.17-35.04-22.36-39.89-17.19-4.83-35.05,5.17-39.89,22.36-13.66,48.53-7.61,99.47,17.04,143.44,24.65,43.97,64.95,75.72,113.48,89.38,16.85,4.75,34.02,7.05,51.03,7.05Z" fill="#7a2c23"/>
+  </g>
+</svg>
+''';
+
+  // --- Spec from Animated SOLO Button - Onboarding JS ---
+  static const int _moveMs = 840;          // pace per move — matches all other SOLO buttons
+  static const int _blinkMs = 252;         // blink duration — matches all other SOLO buttons
+  static const int _frontHoldMs = 588;    // front hold before each blink
+  static const double _lookDownX = -55;       // look-down position
+  static const double _lookDownY = 127;
+  static const Offset _lookDownOffset = Offset(_lookDownX, _lookDownY);
+
+  // Wander sequence — front between every direction, 4 blinks per loop
+  static const List<_AnimStep> _seq = [
+    _AnimStep(0, 0),
+    _AnimStep(-139, 0),
+    _AnimStep(0, 0),
+    _AnimStep(139, 0),
+    _AnimStep(0, 0, blink: true),
+    _AnimStep(0, -139),
+    _AnimStep(0, 0),
+    _AnimStep(0, 139),
+    _AnimStep(0, 0, blink: true),
+    _AnimStep(-98, -98),
+    _AnimStep(0, 0),
+    _AnimStep(98, -98),
+    _AnimStep(0, 0, blink: true),
+    _AnimStep(-98, 98),
+    _AnimStep(0, 0),
+    _AnimStep(98, 98),
+    _AnimStep(0, 0, blink: true),
   ];
 
-  // "Look down at the field" = bottom-left, same offset as that direction.
-  static const Offset _lookDownOffset = Offset(-98, 98);
-
-  static const Duration _moveDuration = Duration(milliseconds: 500);
-  static const Duration _holdAtDirection = Duration(milliseconds: 500);
-  static const Duration _holdAtFront = Duration(milliseconds: 700);
-  static const Duration _blinkHalf = Duration(milliseconds: 110);
+  // Red horizontal scan sequence matching SEQ_RED
+  static const List<_AnimStep> _seqRed = [
+    _AnimStep(-139, 0),
+    _AnimStep(0, 0),
+    _AnimStep(139, 0),
+    _AnimStep(0, 0, blink: true),
+    _AnimStep(-139, 0),
+    _AnimStep(0, 0),
+    _AnimStep(139, 0),
+    _AnimStep(0, 0, blink: true),
+  ];
 
   late final AnimationController _moveCtrl;
   late final AnimationController _blinkCtrl;
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
 
   Offset _pupilOffset = Offset.zero;
   double _blinkFactor = 1.0; // 1 = fully open, 0 = fully closed
 
-  int _dirIndex = 0;
-  int _returnCount = 0;
+  int _idx = 0;
   int _gen = 0; // bumped on every external interruption (lookDown/resume)
   bool _lookingDown = false;
 
   @override
   void initState() {
     super.initState();
-    _moveCtrl = AnimationController(vsync: this, duration: _moveDuration);
-    _blinkCtrl = AnimationController(vsync: this, duration: _blinkHalf * 2);
+    _moveCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _moveMs),
+    );
+    _blinkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _blinkMs),
+    );
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 875),
+    );
+    _pulseAnim = Tween<double>(begin: 1.0, end: 1.018).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+    if (widget.enablePulse) {
+      _pulseCtrl.repeat(reverse: true);
+    }
+
     widget.controller?._attach(this);
 
     if (widget.lookUpRight) {
       _pupilOffset = const Offset(98, -98);
-    } else if (!widget.isHappy) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _runIdleLoop(_gen));
+    } else if (!widget.isHappy && !widget.isSad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _wander(_gen));
     }
   }
 
@@ -164,6 +233,31 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
       oldWidget.controller?._detach(this);
       widget.controller?._attach(this);
     }
+
+    if (oldWidget.enablePulse != widget.enablePulse) {
+      if (widget.enablePulse) {
+        _pulseCtrl.repeat(reverse: true);
+      } else {
+        _pulseCtrl.stop();
+        _pulseCtrl.reset();
+      }
+    }
+
+    if (oldWidget.isRed != widget.isRed ||
+        oldWidget.isYellow != widget.isYellow ||
+        oldWidget.isSad != widget.isSad ||
+        oldWidget.isHappy != widget.isHappy) {
+      _gen++;
+      if (!widget.isHappy && !widget.isSad) {
+        _idx = 0;
+        final myGen = _gen;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && myGen == _gen) {
+            _wander(myGen);
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -171,6 +265,7 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
     widget.controller?._detach(this);
     _moveCtrl.dispose();
     _blinkCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -188,7 +283,9 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
 
     _moveCtrl.addListener(listener);
     _moveCtrl.reset();
-    await _moveCtrl.forward();
+    try {
+      await _moveCtrl.forward();
+    } catch (_) {}
     _moveCtrl.removeListener(listener);
 
     if (mounted && myGen == _gen) {
@@ -202,76 +299,87 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
     void listener() {
       if (!mounted || myGen != _gen) return;
       final double t = _blinkCtrl.value;
-      final double factor = t <= 0.5 ? 1.0 - (t / 0.5) : (t - 0.5) / 0.5;
-      setState(() => _blinkFactor = factor);
+      final double openness = t < 0.5 ? (1.0 - t / 0.5) : ((t - 0.5) / 0.5);
+      setState(() => _blinkFactor = openness);
     }
 
     _blinkCtrl.addListener(listener);
     _blinkCtrl.reset();
-    await _blinkCtrl.forward();
+    try {
+      await _blinkCtrl.forward();
+    } catch (_) {}
     _blinkCtrl.removeListener(listener);
 
-    if (mounted && myGen == _gen) setState(() => _blinkFactor = 1.0);
+    if (mounted && myGen == _gen) {
+      setState(() => _blinkFactor = 1.0);
+    }
   }
 
-  /// Idle (automatic, no external calls needed): wanders through the 8
-  /// directions forever, returning to front between looks, blinking on
-  /// every 4th return.
-  Future<void> _runIdleLoop(int myGen) async {
-    while (mounted && myGen == _gen) {
-      await _animateTo(_directions[_dirIndex], myGen);
-      if (!mounted || myGen != _gen) return;
+  /// Wander loop matching the JS spec:
+  /// glides smoothly through sequence, holds 588ms in front before each blink,
+  /// blinks for 252ms, then continues.
+  Future<void> _wander(int myGen) async {
+    while (mounted &&
+        myGen == _gen &&
+        !_lookingDown &&
+        !widget.isHappy &&
+        !widget.isSad) {
+      final activeList = widget.isRed ? _seqRed : _seq;
+      final step = activeList[_idx % activeList.length];
+      await _animateTo(step.offset, myGen);
+      if (!mounted || myGen != _gen || _lookingDown || widget.isHappy || widget.isSad) return;
 
-      await Future.delayed(_holdAtDirection);
-      if (!mounted || myGen != _gen) return;
+      if (step.blink) {
+        await Future.delayed(const Duration(milliseconds: _frontHoldMs));
+        if (!mounted || myGen != _gen || _lookingDown || widget.isHappy || widget.isSad) return;
 
-      await _animateTo(Offset.zero, myGen);
-      if (!mounted || myGen != _gen) return;
-
-      _returnCount++;
-      if (_returnCount % 4 == 0) {
         await _playBlink(myGen);
-        if (!mounted || myGen != _gen) return;
+        if (!mounted || myGen != _gen || _lookingDown || widget.isHappy || widget.isSad) return;
       }
 
-      _dirIndex = (_dirIndex + 1) % _directions.length;
-      await Future.delayed(_holdAtFront);
+      _idx = (_idx + 1) % activeList.length;
     }
   }
 
   void _lookDown() {
-    if (widget.isHappy || widget.lookUpRight) return;
+    if (widget.isHappy || widget.isSad || widget.lookUpRight) return;
+    if (_lookingDown) return;
+    _lookingDown = true;
     _gen++;
     final myGen = _gen;
-    _lookingDown = true;
     _animateTo(_lookDownOffset, myGen);
   }
 
   Future<void> _resume() async {
-    if (widget.isHappy || widget.lookUpRight || !_lookingDown) return;
-    _lookingDown = false;
+    if (widget.isHappy || widget.isSad || widget.lookUpRight || !_lookingDown) return;
     _gen++;
     final myGen = _gen;
 
-    // Pupils return to front first.
     await _animateTo(Offset.zero, myGen);
-    if (myGen != _gen) return;
+    if (!mounted || myGen != _gen) return;
 
-    _returnCount++;
-    if (_returnCount % 4 == 0) {
-      await _playBlink(myGen);
-      if (myGen != _gen) return;
+    _lookingDown = false;
+    final activeList = widget.isRed ? _seqRed : _seq;
+    // Skip the interrupted direction and any front positions (matches JS spec)
+    _idx = (_idx + 1) % activeList.length;
+    int safety = 0;
+    while (safety < 20 && activeList[_idx].x == 0 && activeList[_idx].y == 0) {
+      _idx = (_idx + 1) % activeList.length;
+      safety++;
     }
-
-    // Skip the interrupted direction so it's never repeated immediately.
-    _dirIndex = (_dirIndex + 1) % _directions.length;
-    _runIdleLoop(myGen);
+    _wander(myGen);
   }
 
   @override
   Widget build(BuildContext context) {
     final double targetWidth = widget.size ?? widget.width ?? 195.13;
     final double targetHeight = widget.size ?? widget.height ?? 195.13;
+
+    final String svgString = widget.isRed
+        ? _buttonSvgRed
+        : widget.isYellow
+            ? _buttonSvgYellow
+            : _buttonSvgBase;
 
     Widget mascot = SizedBox(
       width: targetWidth,
@@ -280,12 +388,12 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
         fit: StackFit.expand,
         children: [
           SvgPicture.string(
-            widget.isRed ? _buttonSvgRed : _buttonSvgBase,
+            svgString,
             width: targetWidth,
             height: targetHeight,
             fit: BoxFit.contain,
           ),
-          if (!widget.isHappy)
+          if (!widget.isHappy && !widget.isSad)
             Positioned.fill(
               child: CustomPaint(
                 painter: _SoloEyesPainter(
@@ -301,15 +409,37 @@ class _SoloTurquoiseAnimationState extends State<SoloTurquoiseAnimation>
               height: targetHeight,
               fit: BoxFit.contain,
             ),
+          if (widget.isSad)
+            SvgPicture.string(
+              _sadLidsSvg,
+              width: targetWidth,
+              height: targetHeight,
+              fit: BoxFit.contain,
+            ),
         ],
       ),
     );
+
+    if (widget.enablePulse) {
+      mascot = ScaleTransition(
+        scale: _pulseAnim,
+        child: mascot,
+      );
+    }
 
     if (widget.onTap != null) {
       return GestureDetector(onTap: widget.onTap, child: mascot);
     }
     return mascot;
   }
+}
+
+class _AnimStep {
+  final double x;
+  final double y;
+  final bool blink;
+  const _AnimStep(this.x, this.y, {this.blink = false});
+  Offset get offset => Offset(x, y);
 }
 
 /// Alias for ease of use

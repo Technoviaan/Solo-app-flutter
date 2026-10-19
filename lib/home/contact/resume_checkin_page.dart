@@ -8,7 +8,7 @@ import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/home_page.dart';
 import 'package:solo_app/home/shedule/schedule_page.dart';
-import 'package:solo_app/widgets/solo_turquoise_animation.dart';
+import 'package:solo_app/widgets/solo_resume_button.dart';
 import 'package:solo_app/core/widgets/solo_toast.dart';
 
 class ResumeCheckinPage extends StatefulWidget {
@@ -18,8 +18,7 @@ class ResumeCheckinPage extends StatefulWidget {
   State<ResumeCheckinPage> createState() => _ResumeCheckinPageState();
 }
 
-class _ResumeCheckinPageState extends State<ResumeCheckinPage>
-    with SingleTickerProviderStateMixin {
+class _ResumeCheckinPageState extends State<ResumeCheckinPage> {
   String _userName = "";
   String _greeting = "";
   bool _isResumed =
@@ -28,30 +27,31 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
   DateTime? _nextCheckinTime;
   DateTime? _previousCheckinTime;
 
-  late AnimationController _pulseCtrl;
-  late Animation<double> _pulseAnim;
+  final SoloResumeButtonController _resumeBtnCtrl =
+      SoloResumeButtonController();
 
   @override
   void initState() {
     super.initState();
+    LocalStorage.userNameNotifier.addListener(_onUserNameChanged);
     _setGreeting();
     _loadUser();
     _loadNextTime();
     _loadPreviousCheckinTime();
+  }
 
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat(reverse: true);
-
-    _pulseAnim = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
-    );
+  void _onUserNameChanged() {
+    if (mounted && LocalStorage.userNameNotifier.value.isNotEmpty) {
+      setState(() {
+        _userName = LocalStorage.userNameNotifier.value;
+      });
+    }
   }
 
   @override
   void dispose() {
-    _pulseCtrl.dispose();
+    LocalStorage.userNameNotifier.removeListener(_onUserNameChanged);
+    _resumeBtnCtrl.dispose();
     super.dispose();
   }
 
@@ -118,6 +118,8 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
   Future<void> _onResumeTapped() async {
     if (_isResumed || _isDismissing) return;
 
+    _resumeBtnCtrl.triggerResume();
+
     await _playSound();
 
     setState(() {
@@ -127,8 +129,8 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
 
     await _resumeCheckinFlow();
 
-    // After action and confirmation, dismiss seamlessly into HomePage
-    Timer(const Duration(milliseconds: 2500), () {
+    // Happy eyes hold. Screen auto-dismisses after 5s (handled by app)
+    Timer(const Duration(milliseconds: 5000), () {
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -218,26 +220,18 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
               final availableHeight = constraints.maxHeight;
 
               // Responsive scaling for single-screen fit across different device heights
-              final double headlineFontSize;
-              final double headlineLineHeight;
               final double mascotSize;
               final double verticalGap;
 
               if (availableHeight < 680) {
-                headlineFontSize = 32.0;
-                headlineLineHeight = 1.1;
-                mascotSize = 150.0;
+                mascotSize = 175.0;
                 verticalGap = 8.0;
               } else if (availableHeight < 760) {
-                headlineFontSize = 36.0;
-                headlineLineHeight = 1.1;
-                mascotSize = 180.0;
-                verticalGap = 12.0;
+                mascotSize = 215.0;
+                verticalGap = 10.0;
               } else {
-                headlineFontSize = 40.0;
-                headlineLineHeight = 1.1;
-                mascotSize = 210.0;
-                verticalGap = 14.0;
+                mascotSize = 245.0;
+                verticalGap = 12.0;
               }
 
               return Column(
@@ -280,43 +274,40 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                                 ],
                                 LayoutBuilder(
                                   builder: (context, constraints) {
-                                    double screenWidth = MediaQuery.of(context).size.width;
 
-                                    // Screen ke size ke hisaab se font size aur vertical spacing ko dynamic banana
-                                    // (Aap apne existing variables 'headlineFontSize' aur 'verticalGap' ki jagah inko use kar sakte hain)
-                                    double dynamicFontSize = screenWidth < 360 ? 28 : (headlineFontSize ?? 34);
-                                    double dynamicGap = screenWidth < 360 ? 12 : (verticalGap ?? 16);
+                                    double screenWidth = MediaQuery.of(context).size.width;
+                                    double dynamicFontSize = screenWidth < 360 ? 36 : 44;
+
 
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start, // Left alignment hamesha fix rakhne ke liye
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         RichText(
                                           text: TextSpan(
                                             style: TextStyle(
-                                              color: const Color(0xFF002C3E),
                                               fontSize: dynamicFontSize,
                                               fontWeight: FontWeight.w500,
+                                              color: const Color(0xFF002C3E),
                                               letterSpacing: 0,
-                                              height: headlineLineHeight ?? 1.2,
+                                              height: 1.1,
                                             ),
                                             children: [
                                               TextSpan(
                                                 text: _userName.isNotEmpty
-                                                    ? "$_greeting\n$_userName,\nready to\nresume your\ncheck-ins?"
-                                                    : "$_greeting,\nready to\nresume your\ncheck-ins?",
+                                                    ? "$_greeting\n$_userName,\nready to resume your check-ins?"
+                                                    : "$_greeting,\nready to resume your check-ins?",
                                               ),
                                             ],
                                           ),
                                         ),
-                                        SizedBox(height: dynamicGap),
+                                        const SizedBox(height: 12),
                                         Text(
-                                          "I paused your check-ins after alerting your contacts\nearlier, as I was concerned. Let's restart when\nyou're ready.",
+                                          "I paused your check-ins after alerting your contacts earlier, as I was concerned. Let’s restart when you’re ready.",
                                           style: TextStyle(
                                             fontFamily: 'Inter',
                                             color: const Color(0xFF5A6C7D),
                                             fontWeight: FontWeight.w400,
-                                            // Chote phones par subtitle bhi thoda adjust ho sake
                                             fontSize: screenWidth < 360 ? 13 : 14,
                                             height: 1.45,
                                             letterSpacing: 0,
@@ -334,39 +325,29 @@ class _ResumeCheckinPageState extends State<ResumeCheckinPage>
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  ScaleTransition(
-                                    scale: _pulseAnim,
-                                    child: GestureDetector(
-                                      onTap: _onResumeTapped,
-                                      child: SoloMascotAnimation(
-                                        size: mascotSize,
-                                        isRed: !_isResumed,
-                                        lookUpRight: _isResumed,
-                                      ),
+                                  SoloResumeButton(
+                                    size: mascotSize,
+                                    controller: _resumeBtnCtrl,
+                                    onResumed: _onResumeTapped,
+                                  ),
+                                  SizedBox(height: verticalGap + 2),
+
+                                  // "Tap to Resume" / "You're All Set." (Untappable per client UX fix)
+                                  Text(
+                                    _isResumed
+                                        ? "You’re All Set."
+                                        : "Tap to Resume",
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      color: _isResumed
+                                          ? const Color(0xFF8A99A6)
+                                          : const Color(0xFF5A6C7D),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
                                     ),
                                   ),
                                   SizedBox(height: verticalGap),
-
-                                  // "Tap to Resume" / "You're All Set"
-                                  GestureDetector(
-                                    onTap: _onResumeTapped,
-                                    behavior: HitTestBehavior.opaque,
-                                    child: Text(
-                                      _isResumed
-                                          ? "You're All Set"
-                                          : "Tap to Resume",
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        color: _isResumed
-                                            ? const Color(0xFF8A99A6)
-                                            : const Color(0xFF5A6C7D),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: verticalGap + 2),
 
                                   // "Edit Schedule First"
                                   Opacity(

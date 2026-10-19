@@ -40,20 +40,20 @@ class _MorePageState extends State<MorePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: AppSize.h(12)),
+                const SizedBox(height: 24),
 
                 // ── SOLO logo ──
                 const SoloLogo(),
 
-                SizedBox(height: AppSize.h(28)),
+                const SizedBox(height: 24),
 
                 /// ACCOUNT SETTINGS
                 sectionTitle("Account Settings"),
                 settingsBox([
                   settingTile(
                     "Profile",
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ProfilePage(),
@@ -190,10 +190,12 @@ class _MorePageState extends State<MorePage> {
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 19,
+          fontFamily: 'Inter',
+          fontSize: 20,
           fontWeight: FontWeight.w600,
           color: Color(0xFF002C3E),
-          letterSpacing: -0.2,
+          height: 1.0,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -260,53 +262,59 @@ class _MorePageState extends State<MorePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
           ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(
-                      'assets/svg/signout.svg',
-                      width: 38,
-                      height: 38,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      "Sign Out",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF002C3E),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/svg/signout.svg',
+                        width: 38,
+                        height: 38,
                       ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Sign Out",
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF002C3E),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    "Are you sure you would like to sign out?",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF002C3E),
+                      height: 1.35,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  "Are you sure you would like\nto sign out?",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF002C3E),
-                    height: 1.3,
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "You'll need to sign in again to use SOLO.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF8A99A6),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "You'll need to sign in again to use SOLO.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF8A99A6),
+                      height: 1.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
                 Row(
                   children: [
                     Expanded(
@@ -375,9 +383,10 @@ class _MorePageState extends State<MorePage> {
               ],
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 
   /// DELETE ACCOUNT DIALOG
@@ -391,54 +400,59 @@ class _MorePageState extends State<MorePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
           ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(
-                      'assets/svg/delete.svg',
-                      width: 38,
-                      height: 38,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      "Delete Account",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF002C3E),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/svg/delete.svg',
+                        width: 38,
+                        height: 38,
                       ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Delete Account",
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF002C3E),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    "All your data will be erased permanently. This cannot be undone.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF002C3E),
+                      height: 1.35,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  "All your data will be erased\npermanently. This cannot be\nundone.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF002C3E),
-                    height: 1.3,
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "Your subscription must be canceled separately\nin your app store settings.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF8A99A6),
-                    height: 1.4,
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Your subscription must be canceled separately in your app store settings.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF8A99A6),
+                      height: 1.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
                 Row(
                   children: [
                     Expanded(
@@ -530,8 +544,9 @@ class _MorePageState extends State<MorePage> {
               ],
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 }

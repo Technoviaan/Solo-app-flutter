@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:solo_app/core/storage/token_storage.dart';
@@ -127,6 +128,8 @@ class LocalStorage {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_voiceKey) ?? "Male";
   }
+
+  static ValueNotifier<String> get userNameNotifier => TokenStorage.userNameNotifier;
 
   static Future<void> saveUserName(String name) async {
     await TokenStorage.saveUserName(name);

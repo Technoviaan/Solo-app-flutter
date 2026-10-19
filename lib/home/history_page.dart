@@ -5,6 +5,7 @@ import 'package:solo_app/home/notification/alert_history_page.dart';
 import 'package:solo_app/home/notification/checkin_history_page.dart';
 import 'package:solo_app/home/notification/history_store.dart';
 import 'package:solo_app/home/notification/notification_api.dart';
+import 'package:solo_app/core/widgets/solo_toast.dart';
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -21,24 +22,27 @@ class HistoryPage extends StatelessWidget {
       backgroundColor: _bg,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── SOLO logo ──
               const SoloLogo(),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               // ── "History" heading ──
               const Text(
                 'History',
                 style: TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: _navy,
+                  height: 1.0,
+                  letterSpacing: 0,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
               // ── Menu items ──
               _historyTile(
@@ -123,59 +127,64 @@ class HistoryPage extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
           ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── Icon + "Clear History" title in one row ──
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(
-                      'assets/svg/dustbin.svg',
-                      width: 38,
-                      height: 38,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      "Clear History",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF002C3E),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Icon + "Clear History" title in one row ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/svg/dustbin.svg',
+                        width: 38,
+                        height: 38,
                       ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Clear History",
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF002C3E),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // ── Main warning text ──
+                  const Text(
+                    "Are you sure you want to clear your history?",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF002C3E),
+                      height: 1.35,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-
-                // ── Main warning text ──
-                const Text(
-                  "Are you sure you want\nto clear your history?",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF002C3E),
-                    height: 1.3,
                   ),
-                ),
-                const SizedBox(height: 8),
+                  const SizedBox(height: 10),
 
-                // ── Sub-caption ──
-                const Text(
-                  "Your past check-ins and alerts will be\npermanently deleted.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF8A99A6),
-                    height: 1.4,
+                  // ── Sub-caption ──
+                  const Text(
+                    "Your past check-ins and alerts will be permanently deleted.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF8A99A6),
+                      height: 1.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
                 // ── Buttons ──
                 Row(
@@ -228,10 +237,10 @@ class HistoryPage extends StatelessWidget {
                             await NotificationApi.clearCheckinHistory();
                             await HistoryStore.clearAll();
                             if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('History cleared'),
-                              ),
+                            SoloToast.show(
+                              context,
+                              'History cleared',
+                              isDark: false,
                             );
                           },
                           child: const Text(
@@ -249,8 +258,9 @@ class HistoryPage extends StatelessWidget {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 }

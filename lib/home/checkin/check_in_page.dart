@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:alarm/alarm.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/notification/history_store.dart';
 import 'package:solo_app/home/notification/notification_api.dart';
@@ -12,6 +12,8 @@ import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/core/utils/solo_sounds.dart';
 import 'package:solo_app/core/widgets/solo_toast.dart';
+import 'package:solo_app/widgets/solo_turquoise_animation.dart';
+import 'package:solo_app/widgets/sos_radar_button.dart';
 
 class CheckinScreen extends StatefulWidget {
   final String userName;
@@ -45,11 +47,33 @@ class _CheckinScreenState extends State<CheckinScreen> {
   int sosSeconds = 20;
   Timer? sosTimer;
 
+  int _radarPulseCount = 0;
+  Timer? _radarSoundTimer;
+  AudioPlayer? _radarAudioPlayer;
+  AudioPlayer? _cuePlayer;
+  final Set<int> _playedPhases = {};
+
   @override
   void initState() {
     super.initState();
 
     NotificationService.isCheckinScreenActive = true;
+
+    // Silence only the currently ringing alarm (e.g. Phase 1 checkin alarm)
+    // so background audio doesn't clash, but keep future reminder alarms alive!
+    unawaited(() async {
+      try {
+        await Alarm.stop(1000);
+        final alarms = await Alarm.getAlarms();
+        for (final a in alarms) {
+          if (await Alarm.isRinging(a.id)) {
+            await Alarm.stop(a.id);
+          }
+        }
+      } catch (e) {
+        debugPrint("⚠️ Error stopping ringing alarm: $e");
+      }
+    }());
 
     // Enable immersive full screen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
@@ -60,31 +84,59 @@ class _CheckinScreenState extends State<CheckinScreen> {
     ]);
 
     _calculateRemainingTime();
+    _initPhasePlaybackOnStartup();
     startTimer();
+  }
 
-    if (state != "waiting") {
-      _playEffect(SoloSounds.screenTakeoverNotification);
+  void _initPhasePlaybackOnStartup() {
+    if (state == "waiting") return;
+
+    final elapsedSeconds = totalSeconds - remainingSeconds;
+    final t2 = (totalSeconds * 0.25).round();
+    final t3 = (totalSeconds * 0.50).round();
+    final t4 = (totalSeconds * 0.75).round();
+    final warningWindow = widget.testWindowSeconds != null ? 10 : 120;
+    final t5 = totalSeconds - warningWindow;
+
+    // Suppress past phases if user entered the screen late (e.g. opened at 1:25 PM after 1:04 PM)
+    if (elapsedSeconds >= 15) _playedPhases.add(1);
+    if (elapsedSeconds >= t2) _playedPhases.add(2);
+    if (elapsedSeconds >= t3) _playedPhases.add(3);
+    if (elapsedSeconds >= t4) _playedPhases.add(4);
+    if (elapsedSeconds >= t5) _playedPhases.add(5);
+
+    // ONLY play the takeover chime + Phase 1 voice if we are within the first 15 seconds of takeover!
+    if (elapsedSeconds < 15 && !_playedPhases.contains(1)) {
+      _playedPhases.add(1);
+      _playCue(
+        effectAsset: SoloSounds.screenTakeoverNotification,
+        voiceAssetFor: (voice) => SoloSounds.phaseReminder(voice, 1),
+      );
     }
   }
 
-  Future<void> _playEffect(String assetPath) async {
-    try {
-      final player = AudioPlayer();
-      await player.play(AssetSource(assetPath.replaceFirst('assets/', '')));
-    } catch (e) {
-      debugPrint("⚠️ [CheckinScreen] Error playing effect $assetPath: $e");
-    }
-  }
 
-  Future<void> _playCue({String? effectAsset, required String Function(String voice) voiceAssetFor}) async {
+  Future<void> _playCue({
+    String? effectAsset,
+    required String Function(String voice) voiceAssetFor,
+  }) async {
     try {
+      _cuePlayer ??= AudioPlayer();
+      await _cuePlayer?.stop();
+      await _cuePlayer?.setReleaseMode(ReleaseMode.stop);
+
       if (effectAsset != null) {
-        await _playEffect(effectAsset);
+        await _cuePlayer?.play(AssetSource(effectAsset.replaceFirst('assets/', '')));
+        // Allow chime notification sound to complete cleanly before voice speaks
+        await Future.delayed(const Duration(milliseconds: 1400));
       }
+
       final voice = await LocalStorage.getVoice();
-      if (voice != "None") {
-        await Future.delayed(const Duration(milliseconds: 450));
-        await _playEffect(voiceAssetFor(voice));
+      if (voice != "None" && mounted) {
+        await _cuePlayer?.stop();
+        await _cuePlayer?.play(
+          AssetSource(voiceAssetFor(voice).replaceFirst('assets/', '')),
+        );
       }
     } catch (e) {
       debugPrint("⚠️ [CheckinScreen] Error playing SOLO voice cue: $e");
@@ -121,6 +173,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
         } else {
           remainingSeconds = deadline.difference(now).inSeconds;
           _updateStateByTime();
+          _checkPhaseTriggers();
 
           if (remainingSeconds % 10 == 0) {
             debugPrint("⏱️ [CheckinScreen] state=$state | remainingSeconds=$remainingSeconds | now=$now");
@@ -138,9 +191,73 @@ class _CheckinScreenState extends State<CheckinScreen> {
     });
   }
 
+  void _checkPhaseTriggers() {
+    if (state == "confirmed" || state == "alert" || isSOSPending) return;
+
+    final elapsedSeconds = totalSeconds - remainingSeconds;
+    final t2 = (totalSeconds * 0.25).round();
+    final t3 = (totalSeconds * 0.50).round();
+    final t4 = (totalSeconds * 0.75).round();
+    final warningWindow = widget.testWindowSeconds != null ? 10 : 120;
+    final t5 = totalSeconds - warningWindow;
+
+    // Phase 2: 25% past scheduled time (+15m in 1hr, +30m in 2hr)
+    if (elapsedSeconds >= t2 && !_playedPhases.contains(2)) {
+      _playedPhases.add(2);
+      debugPrint("🎙️ [CheckinScreen] Playing Phase 2 Voice Reminder (elapsed=$elapsedSeconds s)");
+      Alarm.isRinging(1100).then((isAlarmRinging) {
+        if (!isAlarmRinging && mounted) {
+          unawaited(_playCue(
+            voiceAssetFor: (voice) => SoloSounds.phaseReminder(voice, 2),
+          ));
+        }
+      });
+    }
+
+    // Phase 3: 50% past scheduled time (+30m in 1hr, +60m in 2hr)
+    if (elapsedSeconds >= t3 && !_playedPhases.contains(3)) {
+      _playedPhases.add(3);
+      debugPrint("🎙️ [CheckinScreen] Playing Phase 3 Voice Reminder (elapsed=$elapsedSeconds s)");
+      Alarm.isRinging(1101).then((isAlarmRinging) {
+        if (!isAlarmRinging && mounted) {
+          unawaited(_playCue(
+            voiceAssetFor: (voice) => SoloSounds.phaseReminder(voice, 3),
+          ));
+        }
+      });
+    }
+
+    // Phase 4: 75% past scheduled time (+45m in 1hr, +90m in 2hr)
+    if (elapsedSeconds >= t4 && !_playedPhases.contains(4)) {
+      _playedPhases.add(4);
+      debugPrint("🎙️ [CheckinScreen] Playing Phase 4 Voice Reminder (elapsed=$elapsedSeconds s)");
+      Alarm.isRinging(1102).then((isAlarmRinging) {
+        if (!isAlarmRinging && mounted) {
+          unawaited(_playCue(
+            voiceAssetFor: (voice) => SoloSounds.phaseReminder(voice, 4),
+          ));
+        }
+      });
+    }
+
+    // Phase 5: Final Warning (2 Mins Before Alert: +58m in 1hr, +118m in 2hr)
+    if (elapsedSeconds >= t5 && !_playedPhases.contains(5)) {
+      _playedPhases.add(5);
+      debugPrint("🎙️ [CheckinScreen] Playing Phase 5 Final Warning Voice Reminder (remaining=$remainingSeconds s)");
+      Alarm.isRinging(1103).then((isAlarmRinging) {
+        if (!isAlarmRinging && mounted) {
+          unawaited(_playCue(
+            voiceAssetFor: (voice) => SoloSounds.phaseFinalWarning(voice),
+          ));
+        }
+      });
+    }
+  }
+
   void _updateStateByTime() {
     if (state == "alert" && !isSOSPending) return;
-    if (remainingSeconds <= 300) {
+    final warningWindow = widget.testWindowSeconds != null ? 10 : 120;
+    if (remainingSeconds <= warningWindow) {
       state = "warning";
     } else {
       state = "normal";
@@ -213,47 +330,105 @@ class _CheckinScreenState extends State<CheckinScreen> {
     );
     debugPrint("⚠️ [CheckinScreen] triggerAlert() FINISHED");
 
-    unawaited(_playCue(
-      voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
-    ));
+    if (!_playedPhases.contains(6)) {
+      _playedPhases.add(6);
+      Alarm.isRinging(1200).then((isAlarmRinging) {
+        if (!isAlarmRinging && mounted) {
+          unawaited(_playCue(
+            voiceAssetFor: (voice) => SoloSounds.phaseAlertSent(voice),
+          ));
+        }
+      });
+    }
     unawaited(NotificationService.showPausedNotification());
+  }
+
+  void _startRadarSoundLoop() {
+    _stopRadarSoundLoop();
+    _radarPulseCount = 1;
+    _playRadarPing();
+    _radarSoundTimer = Timer.periodic(const Duration(milliseconds: 2550), (t) {
+      if (!mounted || !isSOSPending || _radarPulseCount >= 8) {
+        t.cancel();
+        return;
+      }
+      _radarPulseCount++;
+      _playRadarPing();
+    });
+  }
+
+  Future<void> _playRadarPing() async {
+    try {
+      _radarAudioPlayer ??= AudioPlayer();
+      await _radarAudioPlayer?.play(
+        AssetSource(SoloSounds.sosButtonTapped.replaceFirst('assets/', '')),
+      );
+    } catch (e) {
+      debugPrint("⚠️ [CheckinScreen] Error playing radar ping: $e");
+    }
+  }
+
+  void _stopRadarSoundLoop() {
+    _radarSoundTimer?.cancel();
+    _radarSoundTimer = null;
+    _radarPulseCount = 0;
+    try {
+      _radarAudioPlayer?.stop();
+      _radarAudioPlayer?.dispose();
+    } catch (_) {}
+    _radarAudioPlayer = null;
   }
 
   void onSOS() {
     debugPrint("🔴 [CheckinScreen] onSOS() tapped | isSOSPending(before)=$isSOSPending | sosSeconds=$sosSeconds");
+    if (state == "alert" && !isSOSPending) {
+      // Button inactive after alert sent
+      return;
+    }
+
     if (!isSOSPending) {
       debugPrint("🕐 [CheckinScreen] SOS 1st tap -> starting 20s confirm countdown");
       setState(() {
         isSOSPending = true;
-        state = "alert";
+        sosSeconds = 20;
       });
+      _startRadarSoundLoop();
       unawaited(_playCue(
-        effectAsset: SoloSounds.sosButtonTapped,
         voiceAssetFor: (voice) => SoloSounds.sosTappedOnce(voice),
       ));
 
+      sosTimer?.cancel();
       sosTimer = Timer.periodic(const Duration(seconds: 1), (t) {
         if (!mounted) return;
-        setState(() {
-          sosSeconds--;
-        });
+        if (sosSeconds > 0) {
+          setState(() {
+            sosSeconds--;
+          });
+        }
         debugPrint("⏳ [CheckinScreen] SOS countdown: $sosSeconds s left");
 
         if (sosSeconds <= 0) {
           t.cancel();
-          debugPrint("⌛ [CheckinScreen] SOS countdown expired with NO 2nd tap -> resetSOS()");
-          resetSOS();
+          debugPrint("⌛ [CheckinScreen] SOS countdown expired with NO 2nd tap -> holding 1s then resetSOS()");
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            if (mounted && isSOSPending) {
+              resetSOS();
+            }
+          });
         }
       });
     } else {
       debugPrint("🔴 [CheckinScreen] SOS 2nd tap within 20s -> cancelling timer, calling triggerSosAlert()");
       sosTimer?.cancel();
+      _stopRadarSoundLoop();
       triggerSosAlert();
     }
   }
 
   Future<void> triggerSosAlert() async {
     debugPrint("🚨 [CheckinScreen] triggerSosAlert() STARTED");
+    timer?.cancel();
+    _stopRadarSoundLoop();
     final contacts = await LocalStorage.getContacts();
     final contactNames = contacts
         .map((e) => e["name"] ?? "")
@@ -284,6 +459,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
   void resetSOS() {
     debugPrint("↩️ [CheckinScreen] resetSOS() called | state before=$state");
+    _stopRadarSoundLoop();
     if (!mounted) return;
     setState(() {
       isSOSPending = false;
@@ -298,12 +474,15 @@ class _CheckinScreenState extends State<CheckinScreen> {
       return "Check-in confirmed\nGlad you're OK";
     }
     if (state == "alert" && !isSOSPending) {
-      return "Your contacts have been alerted\nIf you’re safe, please let them know";
+      return "Your contacts have been alerted\nIf you're safe, please let them know";
     }
     if (isSOSPending) {
       return "Tap SOS again to confirm";
     }
-    return "Hi ${widget.userName}, tap to check-in!";
+    final displayName = LocalStorage.userNameNotifier.value.isNotEmpty
+        ? LocalStorage.userNameNotifier.value
+        : (widget.userName.isNotEmpty ? widget.userName : "User");
+    return "Hi $displayName, tap to check-in!";
   }
 
   String _formatAmPm(DateTime time) => time.hour >= 12 ? "PM" : "AM";
@@ -317,28 +496,6 @@ class _CheckinScreenState extends State<CheckinScreen> {
   double getProgress() {
     if (state == "waiting" || state == "confirmed") return 1.0;
     return (remainingSeconds / totalSeconds).clamp(0.0, 1.0);
-  }
-
-  String getSvg() {
-    if (isSOSPending) return "assets/svg/redd.svg";
-    if (state == "confirmed") return "assets/images/Green.svg";
-    if (state == "waiting") return "assets/images/Green.svg";
-    if (state == "alert" || remainingSeconds <= 0) return "assets/svg/alert.svg";
-
-    final elapsed = totalSeconds - remainingSeconds;
-    final progress = elapsed / totalSeconds;
-
-    if (remainingSeconds <= 120) {
-      return "assets/svg/-2min.svg";
-    } else if (progress >= 0.75) {
-      return "assets/svg/75%1.svg";
-    } else if (progress >= 0.50) {
-      return "assets/svg/50%1.svg";
-    } else if (progress >= 0.25) {
-      return "assets/svg/25%1.svg";
-    }
-
-    return "assets/images/Green.svg";
   }
 
   String _getFormattedDate() {
@@ -360,6 +517,8 @@ class _CheckinScreenState extends State<CheckinScreen> {
     ]);
     timer?.cancel();
     sosTimer?.cancel();
+    _stopRadarSoundLoop();
+    _cuePlayer?.dispose();
     super.dispose();
   }
 
@@ -368,336 +527,211 @@ class _CheckinScreenState extends State<CheckinScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF002C3E),
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 18.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Today, ${_getFormattedDate()}",
-                style: TextStyle(
-                  color: const Color(0xFF68A8AF),
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 8.h),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _formatTimeOnly(widget.scheduledTime),
-                    style: TextStyle(
-                      color: const Color(0xFFB5D43C),
-                      fontSize: 64.sp,
-                      fontWeight: FontWeight.w500,
-                      height: 0.95,
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(left: 4.w, bottom: 12.h),
-                    child: Text(
-                      _formatAmPm(widget.scheduledTime),
-                      style: TextStyle(
-                        color: const Color(0xFFB5D43C),
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                "Next Scheduled Check-in",
-                style: TextStyle(
-                  color: const Color(0xFF68A8AF),
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.w400,
-                  height: 0.95,
-                ),
-              ),
-
-              SizedBox(height: 100.h),
-
-              /// CIRCLE + BUTTON
-              Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      height: 308.w,
-                      width: 308.w,
-                      child: CircularProgressIndicator(
-                        value: getProgress(),
-                        strokeWidth: 6.w,
-                        strokeCap: StrokeCap.round,
-                        backgroundColor: const Color(0xFF2D6F81),
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFF78AEBE)),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: onCheckin,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        height: 258.w,
-                        width: 259.w,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.transparent,
-                        ),
-                        child: SvgPicture.asset(
-                          getSvg(),
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 18.h),
-
-              /// TEXT
-              Center(
-                child: Text(
-                  _getStatusText(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFFD1D9E0),
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-
-              /// TIMER & SOS BUTTON
-              const Spacer(),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          "Alert In",
+                          "Today, ${_getFormattedDate()}",
                           style: TextStyle(
-                            color: const Color(0xFF6DA0AF),
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF68A8AF),
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        SizedBox(height: 2.h),
+                        SizedBox(height: 6.h),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              "${remainingSeconds ~/ 3600}",
+                              _formatTimeOnly(widget.scheduledTime),
                               style: TextStyle(
-                                color: const Color(0xFF6DA0AF),
-                                fontSize: 24.sp,
+                                color: const Color(0xFFB5D43C),
+                                fontSize: 58.sp,
                                 fontWeight: FontWeight.w500,
+                                height: 0.95,
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsets.only(bottom: 6.h, left: 4.w),
+                              padding: EdgeInsets.only(left: 4.w, bottom: 8.h),
                               child: Text(
-                                "HR",
+                                _formatAmPm(widget.scheduledTime),
                                 style: TextStyle(
-                                  color: const Color(0xFF6DA0AF),
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFFB5D43C),
+                                  fontSize: 22.sp,
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
                             ),
-                            SizedBox(width: 8.w),
-                            Text(
-                              "${(remainingSeconds % 3600) ~/ 60}".padLeft(2, '0'),
-                              style: TextStyle(
-                                color: const Color(0xFF6DA0AF),
-                                fontSize: 24.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(bottom: 6.h, left: 4.w),
-                              child: Text(
-                                "MIN",
-                                style: TextStyle(
-                                  color: const Color(0xFF6DA0AF),
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w500,
+                          ],
+                        ),
+                        Text(
+                          "Next Scheduled Check-in",
+                          style: TextStyle(
+                            color: const Color(0xFF68A8AF),
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w400,
+                            height: 0.95,
+                          ),
+                        ),
+
+                        const Spacer(flex: 2),
+
+                        /// CIRCLE + BUTTON
+                        Center(
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                height: 280.w,
+                                width: 280.w,
+                                child: CircularProgressIndicator(
+                                  value: getProgress(),
+                                  strokeWidth: 6.w,
+                                  strokeCap: StrokeCap.round,
+                                  backgroundColor: const Color(0xFF2D6F81),
+                                  valueColor: const AlwaysStoppedAnimation(Color(0xFF78AEBE)),
                                 ),
                               ),
+                              SoloTurquoiseAnimation(
+                                size: 236.w,
+                                enablePulse: true,
+                                isHappy: state == "confirmed",
+                                isSad: state == "alert" && !isSOSPending,
+                                isRed: isSOSPending || state == "alert",
+                                isYellow: state == "warning" && !isSOSPending,
+                                onTap: onCheckin,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: 14.h),
+
+                        /// TEXT
+                        Center(
+                          child: Text(
+                            _getStatusText(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: const Color(0xFFD1D9E0),
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w500,
                             ),
-                            SizedBox(width: 8.w),
-                            Text(
-                              "${remainingSeconds % 60}".padLeft(2, '0'),
-                              style: TextStyle(
-                                color: const Color(0xFF6DA0AF),
-                                fontSize: 24.sp,
-                                fontWeight: FontWeight.w500,
+                          ),
+                        ),
+
+                        /// TIMER & SOS BUTTON
+                        const Spacer(flex: 3),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "Alert In",
+                                    style: TextStyle(
+                                      color: const Color(0xFF6DA0AF),
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2.h),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        "${remainingSeconds ~/ 3600}",
+                                        style: TextStyle(
+                                          color: const Color(0xFF6DA0AF),
+                                          fontSize: 24.sp,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: EdgeInsets.only(bottom: 6.h, left: 4.w),
+                                        child: Text(
+                                          "HR",
+                                          style: TextStyle(
+                                            color: const Color(0xFF6DA0AF),
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Text(
+                                        "${(remainingSeconds % 3600) ~/ 60}".padLeft(2, '0'),
+                                        style: TextStyle(
+                                          color: const Color(0xFF6DA0AF),
+                                          fontSize: 24.sp,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: EdgeInsets.only(bottom: 6.h, left: 4.w),
+                                        child: Text(
+                                          "MIN",
+                                          style: TextStyle(
+                                            color: const Color(0xFF6DA0AF),
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Text(
+                                        "${remainingSeconds % 60}".padLeft(2, '0'),
+                                        style: TextStyle(
+                                          color: const Color(0xFF6DA0AF),
+                                          fontSize: 24.sp,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: EdgeInsets.only(bottom: 6.h, left: 4.w),
+                                        child: Text(
+                                          "SEC",
+                                          style: TextStyle(
+                                            color: const Color(0xFF6DA0AF),
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                            Padding(
-                              padding: EdgeInsets.only(bottom: 6.h, left: 4.w),
-                              child: Text(
-                                "SEC",
-                                style: TextStyle(
-                                  color: const Color(0xFF6DA0AF),
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                            SosRadarButton(
+                              active: isSOSPending,
+                              seconds: sosSeconds,
+                              confirmed: state == "alert" && !isSOSPending,
+                              onTap: onSOS,
+                              size: 104.w,
                             ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: onSOS,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 90.w,
-                          height: 40.h,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8695C),
-                            borderRadius: BorderRadius.circular(30.w),
-                          ),
-                          alignment: Alignment.center,
-                          child: isSOSPending
-                              ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "S",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22.sp,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              SizedBox(width: 3.w),
-                              Container(
-                                width: 26.w,
-                                height: 26.w,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  "$sosSeconds",
-                                  style: TextStyle(
-                                    color: const Color(0xFF002C3E),
-                                    fontSize: 13.sp,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 3.w),
-                              Text(
-                                "S",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22.sp,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          )
-                              : SvgPicture.asset(
-                            "assets/svg/sos.svg",
-                            width: 60.w,
-                          ),
-                        ),
-                        if (isSOSPending)
-                          Positioned(
-                            top: -10.h,
-                            left: -4.w,
-                            child: _SosSignalWave(
-                              active: isSOSPending,
-                              color: const Color(0xFFE8695C),
-                              size: 22.w,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ],
-          ),
+            );
+          },
         ),
-      ),
-    );
-  }
-}
-
-class _SosSignalWave extends StatefulWidget {
-  final bool active;
-  final Color color;
-  final double size;
-
-  const _SosSignalWave({
-    required this.active,
-    required this.color,
-    this.size = 22,
-  });
-
-  @override
-  State<_SosSignalWave> createState() => _SosSignalWaveState();
-}
-
-class _SosSignalWaveState extends State<_SosSignalWave>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    if (widget.active) _controller.repeat(reverse: true);
-  }
-
-  @override
-  void didUpdateWidget(covariant _SosSignalWave oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.active && !_controller.isAnimating) {
-      _controller.repeat(reverse: true);
-    } else if (!widget.active) {
-      _controller.stop();
-      _controller.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: widget.active
-          ? Tween<double>(begin: 0.45, end: 1.0).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      )
-          : const AlwaysStoppedAnimation(0.4),
-      child: SvgPicture.asset(
-        "assets/svg/wifi.svg",
-        width: widget.size,
-        height: widget.size * 0.75,
-        colorFilter: ColorFilter.mode(widget.color, BlendMode.srcIn),
       ),
     );
   }

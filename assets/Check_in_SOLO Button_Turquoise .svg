@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="100%" height="100%">
+  <!--
+    SOLO check-in button — turquoise
+    • Idle eye wander + blinks run automatically and loop forever (no code needed).
+    • To trigger happy eyes on successful check-in, add class "is-happy" to this SVG.
+      Pupils snap to center in 0.15s, then happy eyes appear and stay.
+      Screen auto-dismisses after 5s, so no need to revert to idle.
+    • Shadow uses mix-blend-mode: multiply — SVG should be inlined in the DOM,
+      not used via <img>. If inlining isn't possible, remove the
+      "#Shadow { mix-blend-mode: multiply; }" rule for a flat 25% shadow fallback.
+  -->
+  <defs>
+    <clipPath id="eyeLeftClip"><circle cx="767.44" cy="853.15" r="188.61"/></clipPath>
+    <clipPath id="eyeRightClip"><circle cx="1280.09" cy="853.15" r="188.61"/></clipPath>
+
+    <clipPath id="blinkClip">
+      <rect x="578.83" y="664.54" width="889.87" height="377.22">
+        <animate attributeName="y"
+          values="664.54; 664.54; 853.15; 664.54; 664.54; 853.15; 664.54; 664.54; 853.15; 664.54; 664.54; 853.15; 664.54; 664.54"
+          keyTimes="0; 0.231; 0.24; 0.249; 0.471; 0.48; 0.489; 0.711; 0.72; 0.729; 0.951; 0.96; 0.969; 1"
+          dur="14s" repeatCount="indefinite"/>
+        <animate attributeName="height"
+          values="377.22; 377.22; 0; 377.22; 377.22; 0; 377.22; 377.22; 0; 377.22; 377.22; 0; 377.22; 377.22"
+          keyTimes="0; 0.231; 0.24; 0.249; 0.471; 0.48; 0.489; 0.711; 0.72; 0.729; 0.951; 0.96; 0.969; 1"
+          dur="14s" repeatCount="indefinite"/>
+      </rect>
+    </clipPath>
+  </defs>
+
+  <style>
+    #Shadow { mix-blend-mode: multiply; }
+    #Lids-happy { opacity: 0; }
+
+    .is-happy #pupil-left,
+    .is-happy #pupil-right {
+      transform: translate(0px, 0px);
+      transition: transform 0.15s ease-out;
+    }
+    .is-happy #Eyes       { animation: none; opacity: 0; transition: opacity 0s 0.15s; }
+    .is-happy #Lids-happy { animation: none; opacity: 1; transition: opacity 0s 0.15s; }
+  </style>
+
+  <g id="Shadow">
+    <circle cx="1082.85" cy="1082.87" r="890.78" fill="#002c3e" opacity=".25"/>
+  </g>
+  <g id="Button">
+    <circle cx="1023.98" cy="1024" r="890.78" fill="#0aa298"/>
+    <path d="M1914.76,1024c0-43.11-3.13-85.49-9.05-126.96l-390.33-390.33-1008.16,1008.16,391.03,391.03c41.08,5.81,83.05,8.88,125.73,8.88,491.96,0,890.78-398.82,890.78-890.78Z" fill="#0a8980"/>
+    <circle cx="1023.98" cy="1024" r="712.54" fill="#0cb4ab"/>
+    <path d="M448.54,648.32c214.3-328,652.92-421.16,981.89-209.55-5.51-3.82-11.07-7.59-16.72-11.28-329.45-215.24-771-122.66-986.24,206.78-215.24,329.44-122.66,771,206.78,986.24,1.44.94,2.9,1.83,4.34,2.76-315.79-219.08-401.6-651.16-190.05-974.95Z" fill="#1ac7be"/>
+    <path d="M1537.3,529.61c225.65,233.87,268.48,600.52,83.2,884.12-215.24,329.44-656.8,422.02-986.24,206.78-39.13-25.56-74.86-54.35-107.19-85.72,36.48,37.81,77.73,72.16,123.57,102.11,329.44,215.24,771,122.66,986.24-206.78,189.68-290.32,140.27-667.66-99.58-900.5Z" fill="#046a64"/>
+    <path d="M180.22,1064.3c0-491.96,398.81-890.78,890.78-890.78,210.17,0,403.31,72.83,555.65,194.57-158.61-145.81-370.22-234.87-602.66-234.87-491.96,0-890.78,398.82-890.78,890.78,0,281.79,130.88,532.98,335.13,696.2-177.1-162.81-288.12-396.38-288.12-655.91Z" fill="#067e78"/>
+  </g>
+
+  <g id="Eyes" clip-path="url(#blinkClip)">
+    <circle cx="767.44" cy="853.15" r="188.61" fill="#f5f5f5"/>
+    <circle cx="1280.09" cy="853.15" r="188.61" fill="#f5f5f5"/>
+
+    <g clip-path="url(#eyeLeftClip)">
+      <circle id="pupil-left" cx="767.44" cy="853.15" r="125.1" fill="#000000">
+        <animateTransform attributeName="transform" type="translate"
+          values="0,0; -139,0; 0,0; 139,0; 0,0; 0,-139; 0,0; 0,139; 0,0; -98,-98; 0,0; 98,-98; 0,0; -98,98; 0,0; 98,98; 0,0; 0,0"
+          keyTimes="0; 0.06; 0.12; 0.18; 0.24; 0.30; 0.36; 0.42; 0.48; 0.54; 0.60; 0.66; 0.72; 0.78; 0.84; 0.90; 0.96; 1"
+          dur="14s" calcMode="spline"
+          keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"
+          repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <g clip-path="url(#eyeRightClip)">
+      <circle id="pupil-right" cx="1280.09" cy="853.15" r="125.1" fill="#000000">
+        <animateTransform attributeName="transform" type="translate"
+          values="0,0; -139,0; 0,0; 139,0; 0,0; 0,-139; 0,0; 0,139; 0,0; -98,-98; 0,0; 98,-98; 0,0; -98,98; 0,0; 98,98; 0,0; 0,0"
+          keyTimes="0; 0.06; 0.12; 0.18; 0.24; 0.30; 0.36; 0.42; 0.48; 0.54; 0.60; 0.66; 0.72; 0.78; 0.84; 0.90; 0.96; 1"
+          dur="14s" calcMode="spline"
+          keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"
+          repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <g id="Lids-happy">
+    <path d="M923.44,931.64c-18.04,0-32.67-14.63-32.67-32.67v-46.39c0-67.95-55.28-123.23-123.23-123.23s-123.23,55.28-123.23,123.23v46.39c0,18.04-14.63,32.67-32.67,32.67s-32.67-14.63-32.67-32.67v-46.39c0-103.98,84.59-188.57,188.57-188.57s188.57,84.59,188.57,188.57v46.39c0,18.04-14.63,32.67-32.67,32.67Z" fill="#024c48"/>
+    <path d="M1436,931.64c-18.04,0-32.67-14.63-32.67-32.67v-46.39c0-67.95-55.28-123.23-123.23-123.23s-123.23,55.28-123.23,123.23v46.39c0,18.04-14.63,32.67-32.67,32.67s-32.67-14.63-32.67-32.67v-46.39c0-103.98,84.59-188.57,188.57-188.57s188.57,84.59,188.57,188.57v46.39c0,18.04-14.63,32.67-32.67,32.67Z" fill="#024c48"/>
+  </g>
+</svg>

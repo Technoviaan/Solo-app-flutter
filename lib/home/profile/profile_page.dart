@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:solo_app/core/widgets/solo_logo.dart';
+import 'package:solo_app/core/widgets/solo_toast.dart';
 import 'profile_api.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 
@@ -58,6 +59,15 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> loadProfile() async {
+    // 1. Check local saved profile image
+    final localPath = await TokenStorage.getLocalProfileImagePath();
+    if (localPath != null && localPath.isNotEmpty) {
+      final localFile = File(localPath);
+      if (localFile.existsSync()) {
+        selectedImage = localFile;
+      }
+    }
+
     final data = await ProfileApi.getProfile();
     final userMap = data != null ? (data['user'] ?? data) : null;
     
@@ -92,19 +102,22 @@ class _ProfilePageState extends State<ProfilePage> {
         _savedName = localName;
       }
     }
-    setState(() => loading = false);
+    if (mounted) {
+      setState(() => loading = false);
+    }
   }
 
   Future<void> pickImage() async {
-    if (!isEditing) {
-      setState(() => isEditing = true);
-    }
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
     );
     if (picked != null) {
-      setState(() => selectedImage = File(picked.path));
+      final localFile = File(picked.path);
+      if (localFile.existsSync()) {
+        setState(() => selectedImage = localFile);
+        await TokenStorage.saveLocalProfileImagePath(picked.path);
+      }
     }
   }
 
@@ -115,7 +128,6 @@ class _ProfilePageState extends State<ProfilePage> {
       phoneController.text = _savedPhone;
       ageController.text = _savedAge;
       gender = _savedGender;
-      selectedImage = null;
       isEditing = false;
     });
   }
@@ -123,14 +135,13 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> saveProfile() async {
     final email = emailController.text.trim();
     if (!RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid email')),
-      );
+      SoloToast.show(context, 'Enter a valid email');
       return;
     }
     setState(() => saving = true);
+    final trimmedName = nameController.text.trim();
     final success = await ProfileApi.updateProfile(
-      name: nameController.text,
+      name: trimmedName,
       email: email,
       phone: phoneController.text,
       gender: gender,
@@ -139,21 +150,21 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     setState(() => saving = false);
     if (success) {
-      _savedName = nameController.text;
+      _savedName = trimmedName;
       _savedEmail = email;
       _savedPhone = phoneController.text;
       _savedAge = ageController.text;
       _savedGender = gender;
       setState(() {
         isEditing = false;
-        selectedImage = null; // Reset local image so server image shows
       });
-      await TokenStorage.saveUserName(nameController.text);
+      if (selectedImage != null) {
+        await TokenStorage.saveLocalProfileImagePath(selectedImage!.path);
+      }
+      await TokenStorage.saveUserName(trimmedName);
       await loadProfile(); // Reload fresh data from API
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile Updated Successfully')),
-        );
+        SoloToast.show(context, 'Profile updated');
       }
     }
   }
@@ -171,29 +182,22 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: _bg,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
           children: [
             // ── SOLO logo ──
-            const Padding(
-              padding: EdgeInsets.only(right: 245),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: SoloLogo(height: 28, width: 101),
-              ),
-            ),
-            const SizedBox(height: 20),
+            const SoloLogo(),
+            const SizedBox(height: 24),
 
-            // ── Timed-based Headline ──
-            Text(
-              nameController.text.isNotEmpty
-                  ? '$_greeting, ${nameController.text}'
-                  : '$_greeting, User',
-              style: const TextStyle(
+            // ── Header (My Profile) ──
+            const Text(
+              "My Profile",
+              style: TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 32,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: _text,
-                height: 1.1,
+                color: Color(0xFF002C3E),
+                height: 1.0,
+                letterSpacing: 0,
               ),
             ),
             const SizedBox(height: 20),
@@ -215,24 +219,32 @@ class _ProfilePageState extends State<ProfilePage> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: _teal, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              spreadRadius: 2,
-                            ),
-                          ],
                         ),
                         child: ClipOval(
-                          child: selectedImage != null
+                          child: (selectedImage != null && selectedImage!.existsSync())
                               ? Image.file(selectedImage!, fit: BoxFit.cover)
-                              : profileImageUrl != null
-                                  ? Image.network(profileImageUrl!,
-                                      fit: BoxFit.cover)
+                              : (profileImageUrl != null && profileImageUrl!.isNotEmpty)
+                                  ? Image.network(
+                                      profileImageUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: Colors.grey.shade200,
+                                          child: const Icon(
+                                            Icons.person,
+                                            size: 40,
+                                            color: Colors.grey,
+                                          ),
+                                        );
+                                      },
+                                    )
                                   : Container(
                                       color: Colors.grey.shade200,
-                                      child: const Icon(Icons.person,
-                                          size: 40, color: Colors.grey),
+                                      child: const Icon(
+                                        Icons.person,
+                                        size: 40,
+                                        color: Colors.grey,
+                                      ),
                                     ),
                         ),
                       ),
@@ -241,21 +253,18 @@ class _ProfilePageState extends State<ProfilePage> {
                         bottom: 0,
                         right: 0,
                         child: Container(
-                          width: 30,
-                          height: 30,
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: _divider, width: 1),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 6,
-                              ),
-                            ],
+                            border: Border.all(color: _navy, width: 1.5),
                           ),
-                          child: const Icon(Icons.camera_alt_outlined,
-                              size: 16, color: _navy),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            size: 16,
+                            color: _navy,
+                          ),
                         ),
                       ),
                     ],
@@ -270,14 +279,17 @@ class _ProfilePageState extends State<ProfilePage> {
               listenable: nameController,
               builder: (context, child) {
                 final displayName = nameController.text.trim().isEmpty ? 'User' : nameController.text.trim();
+                final double screenWidth = MediaQuery.of(context).size.width;
+                final double titleFontSize = screenWidth < 360 ? 36 : 44;
+
                 return Text(
                   '$_greeting,\n$displayName',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                  style: TextStyle(
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.w600,
                     color: _navy,
-                    height: 1.15,
-                    letterSpacing: -0.3,
+                    height: 1.1,
+                    letterSpacing: 0,
                   ),
                 );
               },
@@ -417,12 +429,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: SizedBox(
                     height: 46,
                     child: OutlinedButton(
-                      onPressed: isEditing ? cancelEditing : null,
+                      onPressed: (isEditing || selectedImage != null) ? cancelEditing : null,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _navy,
                         disabledForegroundColor: _label.withValues(alpha: 0.5),
                         side: BorderSide(
-                          color: isEditing ? _navy : _label.withValues(alpha: 0.4),
+                          color: (isEditing || selectedImage != null) ? _navy : _label.withValues(alpha: 0.4),
                           width: 1.5,
                         ),
                         shape: RoundedRectangleBorder(
@@ -447,9 +459,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: SizedBox(
                     height: 46,
                     child: ElevatedButton(
-                      onPressed: isEditing
+                      onPressed: (isEditing || selectedImage != null)
                           ? (saving ? null : saveProfile)
-                          : () => setState(() => isEditing = true),
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _navy,
                         foregroundColor: Colors.white,

@@ -324,39 +324,47 @@ class _ContactUsPageState extends State<ContactUsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSize.w(20), vertical: AppSize.h(10)),
-              child: const SoloLogo(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 24, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SoloLogo(),
+                  SizedBox(height: 24),
+                  Text(
+                    "Contact Us",
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF002C3E),
+                      height: 1.0,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                ],
+              ),
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: AppSize.w(24)),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: AppSize.h(15)),
                     Text(
-                      "Contact Us",
+                      "How can\nwe help you\ntoday?",
                       style: TextStyle(
-                        fontSize: AppSize.sp(16),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF002C3E),
-                      ),
-                    ),
-                    SizedBox(height: AppSize.h(10)),
-                    Text(
-                      "How can we help you today?",
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: AppSize.sp(36),
+                        fontSize: MediaQuery.of(context).size.width < 360 ? 36 : 44,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF002C3E),
                         height: 1.1,
+                        letterSpacing: 0,
                       ),
                     ),
                     SizedBox(height: AppSize.h(10)),
                     const Text(
-                      "We're here to listen. Tell us what you need below and we’ll get back to you soon.",
+                      "We’re here to listen. Tell us what you need below and we’ll get back to you soon.",
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,

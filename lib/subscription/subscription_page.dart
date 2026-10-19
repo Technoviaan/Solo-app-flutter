@@ -19,7 +19,8 @@ class SubscriptionPage extends StatefulWidget {
   State<SubscriptionPage> createState() => _SubscriptionPageState();
 }
 
-class _SubscriptionPageState extends State<SubscriptionPage> {
+class _SubscriptionPageState extends State<SubscriptionPage>
+    with WidgetsBindingObserver {
   late PageController _pageController;
   double _currentPage = 1.0;
 
@@ -67,6 +68,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPromoState();
 
     const int startFactor = 1000;
@@ -96,6 +98,40 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           );
         }
       });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncSubscriptionOnResume();
+    }
+  }
+
+  Future<void> _syncSubscriptionOnResume() async {
+    try {
+      final wasPending = await TokenStorage.getPendingCheckout();
+      if (wasPending) {
+        if (mounted) setState(() => _isLoading = true);
+        for (int i = 0; i < 3; i++) {
+          await SubscriptionApi.getSubscriptionStatus();
+          final status = await TokenStorage.getSubscriptionStatus();
+          if (status >= 2) {
+            await TokenStorage.savePendingCheckout(false);
+            break;
+          }
+          if (i < 2) await Future.delayed(const Duration(seconds: 1));
+        }
+        if (mounted) setState(() => _isLoading = false);
+      } else {
+        await SubscriptionApi.getSubscriptionStatus();
+      }
+      if (mounted) {
+        await _loadPromoState();
+      }
+    } catch (e) {
+      debugPrint("Error syncing subscription on resume: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -497,6 +533,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _promoController.dispose();
     super.dispose();
@@ -548,31 +585,34 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
 
     String planLabel = "1 free credit to start";
-    String? renewalText;
 
     if (_activePromoPlan != null) {
       badgeLabel = _activePromoPlan!;
-      planLabel = _activePromoPlan!;
       if (_promoActivationTime != null) {
         if (_activePromoPlan == "1 Month Free Access") {
           final exp = _promoActivationTime!.add(const Duration(days: 30));
-          renewalText = "Next renewal ${_formatDate(exp)}";
+          planLabel = "Next renewal ${_formatDate(exp)}";
         } else if (_activePromoPlan == "1 Year Free Access") {
           final exp = _promoActivationTime!.add(const Duration(days: 365));
-          renewalText = "Next renewal ${_formatDate(exp)}";
+          planLabel = "Next renewal ${_formatDate(exp)}";
         } else if (_activePromoPlan == "Unlimited Free Access") {
-          renewalText = "No Expiry";
+          planLabel = "No Expiry";
         }
       }
     } else if (_subscriptionStatus == 1) {
       badgeLabel = "Trial Plan";
-      planLabel = "Free Trial Plan";
+      final exp = DateTime.now().add(const Duration(days: 7));
+      planLabel = "Next renewal ${_formatDate(exp)}";
     } else if (_subscriptionStatus == 2) {
       badgeLabel = "Monthly Plan";
-      planLabel = "Monthly Subscription";
+      final exp = DateTime.now().add(const Duration(days: 30));
+      planLabel = "Next renewal ${_formatDate(exp)}";
     } else if (_subscriptionStatus == 3) {
       badgeLabel = "Yearly Plan";
-      planLabel = "Yearly Subscription";
+      final exp = DateTime.now().add(const Duration(days: 365));
+      planLabel = "Next renewal ${_formatDate(exp)}";
+    } else {
+      planLabel = "1 free credit to start";
     }
 
     final String mainDisplayValue = "$_credits";
@@ -626,7 +666,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 padding: EdgeInsets.symmetric(
                                     horizontal: AppSize.w(4)),
                                 child: Text(
-                                  "Keep your\nCheck-ins\nActive",
+                                  "Keep your\ncheck-ins\nactive",
                                   style: TextStyle(
                                     color: const Color(0xFF78BCC4),
                                     fontSize: AppSize.sp(44),
@@ -640,11 +680,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 padding: EdgeInsets.symmetric(
                                     horizontal: AppSize.w(4)),
                                 child: Text(
-                                  "Subscribe so I can look out for\nyou every day",
+                                  "Subscribe so I can look out for you every day",
                                   style: TextStyle(
                                     color: const Color(0xFFD1D9E0),
-                                    fontSize: AppSize.sp(22),
+                                    fontSize: AppSize.sp(20),
                                     fontWeight: FontWeight.w400,
+                                    height: 0.0,
                                   ),
                                 ),
                               ),
@@ -687,7 +728,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                     horizontal: AppSize.w(4)),
                                 child: Row(
                                   mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  MainAxisAlignment.spaceBetween,
                                   children: [
                                     GestureDetector(
                                       onTap: () {
@@ -780,7 +821,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                             );
                                           } else {
                                             final planId =
-                                                plan["id"].toString();
+                                            plan["id"].toString();
                                             if (planId.startsWith("credit_")) {
                                               if (_subscriptionStatus != 2 &&
                                                   _subscriptionStatus != 3 &&
@@ -802,14 +843,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                   String disclaimerText;
                                   if (activePlanId == "trial") {
                                     disclaimerText =
-                                        "Start your 7-day free trial. Auto-renews after trial until cancelled. Cancel anytime in your App Store settings.";
+                                    "Start your 7-day free trial. Auto-renews after trial until cancelled. Cancel anytime in your App Store settings.";
                                   } else if (activePlanId == "monthly" ||
                                       activePlanId == "yearly") {
                                     disclaimerText =
-                                        "Purchase confirms auto-renewal and agreement to Terms. Cancel anytime in your App Store settings.";
+                                    "Purchase confirms auto-renewal and agreement to Terms. Cancel anytime in your App Store settings.";
                                   } else {
                                     disclaimerText =
-                                        "One-time purchase of alert credits. No auto-renewal. By purchasing, you agree to our Terms.";
+                                    "One-time purchase of alert credits. No auto-renewal. By purchasing, you agree to our Terms.";
                                   }
 
                                   return Padding(
@@ -819,7 +860,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                       disclaimerText,
                                       style: TextStyle(
                                           color: Color(0xFFA8B6C2),                                        fontSize: AppSize.sp(12),
-                                        fontWeight: FontWeight.w400
+                                          fontWeight: FontWeight.w400
                                       ),
                                     ),
                                   );
@@ -861,7 +902,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                     badgeLabel,
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: AppSize.sp(11),
+                                      fontSize: AppSize.sp(16),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -888,21 +929,21 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                     child: IntrinsicHeight(
                                       child: Row(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.center,
+                                        CrossAxisAlignment.center,
                                         children: [
                                           Expanded(
                                             flex: 6,
                                             child: Column(
                                               crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                              CrossAxisAlignment.start,
                                               mainAxisAlignment:
-                                                  MainAxisAlignment.center,
+                                              MainAxisAlignment.center,
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   alignment:
-                                                      Alignment.centerLeft,
+                                                  Alignment.centerLeft,
                                                   child: Text(
                                                     displayHeaderTitle,
                                                     style: TextStyle(
@@ -910,7 +951,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                           0xFFA8B6C2),
                                                       fontSize: AppSize.sp(32),
                                                       fontWeight:
-                                                          FontWeight.w600,
+                                                      FontWeight.w600,
                                                       height: 1.05,
                                                     ),
                                                   ),
@@ -919,7 +960,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                 FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   alignment:
-                                                      Alignment.centerLeft,
+                                                  Alignment.centerLeft,
                                                   child: Text(
                                                     displaySubtitle,
                                                     style: TextStyle(
@@ -927,7 +968,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                           0xFFA8B6C2),
                                                       fontSize: AppSize.sp(18),
                                                       fontWeight:
-                                                          FontWeight.w600,
+                                                      FontWeight.w600,
                                                     ),
                                                   ),
                                                 ),
@@ -935,39 +976,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                 FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   alignment:
-                                                      Alignment.centerLeft,
+                                                  Alignment.centerLeft,
                                                   child: Text(
                                                     planLabel,
                                                     style: TextStyle(
                                                       color: const Color(
                                                           0xFFA8B6C2),
                                                       fontSize:
-                                                          AppSize.sp(11.5),
+                                                      AppSize.sp(12),
                                                       fontWeight:
-                                                          FontWeight.w500,
+                                                      FontWeight.w500,
                                                     ),
                                                   ),
                                                 ),
-                                                if (renewalText != null) ...[
-                                                  SizedBox(
-                                                      height: AppSize.h(2)),
-                                                  FittedBox(
-                                                    fit: BoxFit.scaleDown,
-                                                    alignment:
-                                                        Alignment.centerLeft,
-                                                    child: Text(
-                                                      renewalText,
-                                                      style: TextStyle(
-                                                        color: const Color(
-                                                            0xff89BCC8),
-                                                        fontSize:
-                                                            AppSize.sp(11),
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
                                               ],
                                             ),
                                           ),
@@ -987,7 +1008,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                                   textAlign: TextAlign.center,
                                                   style: TextStyle(
                                                     color:
-                                                        const Color(0xFFA8B6C2),
+                                                    const Color(0xFFA8B6C2),
                                                     fontSize: dynamicFontSize,
                                                     fontWeight: FontWeight.w600,
                                                     height: 1.0,
@@ -1092,23 +1113,23 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                   : () => _handleBottomActionTap(activePlan),
                               child: shouldDisableClick
                                   ? Container(
-                                      width: 54,
-                                      height: 54,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF4A5A6A),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.arrow_forward,
-                                        color: Color(0xFF8A99A6),
-                                        size: 28,
-                                      ),
-                                    )
+                                width: 54,
+                                height: 54,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF4A5A6A),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward,
+                                  color: Color(0xFF8A99A6),
+                                  size: 28,
+                                ),
+                              )
                                   : SvgPicture.asset(
-                                      "assets/svg/nextbutton.svg",
-                                      width: 54,
-                                      height: 54,
-                                    ),
+                                "assets/svg/nextbutton.svg",
+                                width: 54,
+                                height: 54,
+                              ),
                             ),
                           ],
                         ),
@@ -1200,7 +1221,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ),
                   SizedBox(height: AppSize.h(20)),
                   const Text(
-                    "To top up alert credits\nplease subscribe to a\nMonthly or Yearly plan.",
+                    "To top up alert credits please subscribe to a Monthly or Yearly plan.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,

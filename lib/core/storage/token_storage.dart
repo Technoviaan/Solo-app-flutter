@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -157,14 +158,35 @@ class TokenStorage {
     return prefs.getString(_languageKey);
   }
 
+  // ================= USER NAME =================
+  static final ValueNotifier<String> userNameNotifier = ValueNotifier<String>("");
+
   static Future<void> saveUserName(String name) async {
     final prefs = await _getPrefs;
     await prefs.setString("user_name", name);
+    if (userNameNotifier.value != name) {
+      userNameNotifier.value = name;
+    }
   }
 
   static Future<String> getUserName() async {
     final prefs = await _getPrefs;
-    return prefs.getString("user_name") ?? "User";
+    final name = prefs.getString("user_name") ?? "User";
+    if (userNameNotifier.value.isEmpty || userNameNotifier.value != name) {
+      userNameNotifier.value = name;
+    }
+    return name;
+  }
+
+  // ================= LOCAL PROFILE IMAGE =================
+  static Future<void> saveLocalProfileImagePath(String path) async {
+    final prefs = await _getPrefs;
+    await prefs.setString("local_profile_image_path", path);
+  }
+
+  static Future<String?> getLocalProfileImagePath() async {
+    final prefs = await _getPrefs;
+    return prefs.getString("local_profile_image_path");
   }
 
   // ================= CLEAR =================
@@ -173,5 +195,6 @@ class TokenStorage {
     await _secureStorage.deleteAll();
     final prefs = await _getPrefs;
     await prefs.clear();
+    userNameNotifier.value = "";
   }
 }

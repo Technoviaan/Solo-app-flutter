@@ -35,20 +35,14 @@ class HistoryStore {
     final items = prefs.getStringList(_alertsKey) ?? <String>[];
     final at = DateTime.now().toIso8601String();
 
-    if (contacts.isEmpty) {
-      items.insert(0, jsonEncode({"createdAt": at, "type": type, "contact": "—"}));
-    } else {
-      for (final contact in contacts) {
-        items.insert(
-          0,
-          jsonEncode({
-            "createdAt": at,
-            "type": type,
-            "contact": contact,
-          }),
-        );
-      }
-    }
+    items.insert(
+      0,
+      jsonEncode({
+        "createdAt": at,
+        "type": type,
+        "contacts": contacts,
+      }),
+    );
     await prefs.setStringList(_alertsKey, items);
   }
 

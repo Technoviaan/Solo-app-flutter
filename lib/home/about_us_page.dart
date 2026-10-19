@@ -3,9 +3,7 @@ import 'package:solo_app/core/widgets/solo_logo.dart';
 import 'package:solo_app/home/privacy_policy_page.dart';
 import 'package:solo_app/home/terms_of_use_page.dart';
 import '../core/utils/app_size.dart';
-// TODO: Apne project ke actual path ke hisaab se pages import kar lena
-// import 'privacy_policy_page.dart';
-// import 'terms_of_use_page.dart';
+
 
 class AboutUsPage extends StatelessWidget {
   const AboutUsPage({super.key});
@@ -18,42 +16,52 @@ class AboutUsPage extends StatelessWidget {
       backgroundColor: const Color(0xFFF7F8F3),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 24, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SoloLogo(),
+                  SizedBox(height: 24),
+                  Text(
+                    "About Us",
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF002C3E),
+                      height: 1.0,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                ],
+              ),
+            ),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: SoloLogo(),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      "About Us",
+                    Text(
+                      "Let’s get to know SOLO",
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: MediaQuery.of(context).size.width < 360 ? 36 : 44,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF002C3E),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      "Let's get to know SOLO",
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 36,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF002C3E),
+                        color: const Color(0xFF002C3E),
                         height: 1.1,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 20),
                     const Text(
                       "SOLO was designed with a simple, caring intention: to ensure that people who live or travel alone are never truly alone.\n\nIn today’s world, many of us spend time alone — sometimes by choice, sometimes by circumstance — and can feel isolated. Yet a quiet worry remains: “If something happened, how long would it take for anyone to know?”\n\nSOLO is for those who live alone, travel solo, work remotely, or simply want the reassurance that someone is looking out for them. It’s not just an app — it’s your daily check-in buddy. Built with a minimalist, user-focused design free of ads and distractions, SOLO is here to give you and your loved ones the quiet assurance of knowing all is okay.",
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 13,
                         color: Color(0xFF002C3E),
                         height: 1.5,
@@ -167,8 +175,9 @@ class AboutUsPage extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          "SOLO © 2026 Social Rebels™ Design. All rights reserved.",
+          "SOLO © 2026 Social Rebels™ Design.\nAll rights reserved.",
           style: TextStyle(
+            fontFamily: 'Inter',
             color: Color(0xFF8A99A6),
             fontSize: 11,
             fontWeight: FontWeight.w400,

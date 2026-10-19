@@ -24,10 +24,25 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    TokenStorage.userNameNotifier.addListener(_onUserNameChanged);
     loadUser();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAllPermissions();
     });
+  }
+
+  void _onUserNameChanged() {
+    if (mounted && TokenStorage.userNameNotifier.value.isNotEmpty) {
+      setState(() {
+        userName = TokenStorage.userNameNotifier.value;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    TokenStorage.userNameNotifier.removeListener(_onUserNameChanged);
+    super.dispose();
   }
 
   Future<void> _checkAllPermissions() async {
@@ -250,11 +265,12 @@ class _HomePageState extends State<HomePage> {
                           svgPath: 'assets/svg/mores.svg',
                           label: 'More',
                           color: const Color(0xFFF5B13E),
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const MorePage()),
                             );
+                            loadUser();
                           },
                         ),
                       ],

@@ -1,6 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:solo_app/core/storage/token_storage.dart';
 import 'package:solo_app/home/checkin/checkin_api.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
@@ -11,152 +12,64 @@ import 'package:solo_app/subscription/subscription_api.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
 import 'package:solo_app/core/utils/solo_sounds.dart';
 import 'package:solo_app/core/widgets/solo_toast.dart';
+import 'package:solo_app/home/checkin/notification_service.dart';
 
-// =============================================================================
-// SOUND WAVE ICON  (exact port of "Animated Sound Wave Icon - Voice Sample.svg")
-// -----------------------------------------------------------------------------
-// The SVG uses SMIL <animate> (y + height per bar). flutter_svg cannot play
-// SMIL and WebView rendering was unreliable, so the same keyframes, keyTimes,
-// durations and easing (keySplines 0.42 0 0.58 1 == Curves.easeInOut) are
-// drawn natively with a CustomPainter. Coordinates are in the SVG's
-// 2048 x 2048 viewBox and scaled to whatever size the widget gets.
-// =============================================================================
 
-class _WaveBar {
-  final double x;
-  final List<double> ys;
-  final List<double> heights;
-  final List<double> keyTimes;
-  final double durSeconds;
+const String _waveHtml = r'''
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  svg { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<svg id="Icon_Box" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="100%" height="100%">
+  <rect x="38.83" y="38.83" width="1970.34" height="1970.34" rx="397.74" ry="397.74" fill="#e86854"/>
+  <g id="bar1">
+    <rect x="467.84" width="135.58" rx="67.79" ry="67.79" fill="#f5f5f5">
+      <animate attributeName="y" values="624.00; 774.00; 574.00; 674.00; 624.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.32s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+      <animate attributeName="height" values="800.00; 500.00; 900.00; 700.00; 800.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.32s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+    </rect>
+  </g>
+  <g id="bar2">
+    <rect x="712.03" width="135.58" rx="67.79" ry="67.79" fill="#f5f5f5">
+      <animate attributeName="y" values="724.00; 674.00; 794.00; 724.00" keyTimes="0; 0.33; 0.66; 1" dur="1.14s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+      <animate attributeName="height" values="600.00; 700.00; 460.00; 600.00" keyTimes="0; 0.33; 0.66; 1" dur="1.14s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+    </rect>
+  </g>
+  <g id="bar3">
+    <rect x="956.21" width="135.58" rx="67.79" ry="67.79" fill="#f5f5f5">
+      <animate attributeName="y" values="874.00; 624.00; 374.00; 624.00; 874.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.50s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+      <animate attributeName="height" values="300.00; 800.00; 1300.00; 800.00; 300.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.50s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+    </rect>
+  </g>
+  <g id="bar4">
+    <rect x="1200.39" width="135.58" rx="67.79" ry="67.79" fill="#f5f5f5">
+      <animate attributeName="y" values="754.00; 674.00; 794.00; 674.00; 754.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.26s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+      <animate attributeName="height" values="540.00; 700.00; 460.00; 700.00; 540.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.26s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+    </rect>
+  </g>
+  <g id="bar5">
+    <rect x="1444.58" width="135.58" rx="67.79" ry="67.79" fill="#f5f5f5">
+      <animate attributeName="y" values="674.00; 774.00; 624.00; 814.00; 674.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.38s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+      <animate attributeName="height" values="700.00; 500.00; 800.00; 420.00; 700.00" keyTimes="0; 0.25; 0.5; 0.75; 1" dur="1.38s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
+    </rect>
+  </g>
+</svg>
+</body>
+</html>
+''';
 
-  const _WaveBar({
-    required this.x,
-    required this.ys,
-    required this.heights,
-    required this.keyTimes,
-    required this.durSeconds,
-  });
-}
-
-const List<_WaveBar> _waveBars = [
-  // bar1
-  _WaveBar(
-    x: 467.84,
-    ys: [624, 774, 574, 674, 624],
-    heights: [800, 500, 900, 700, 800],
-    keyTimes: [0, 0.25, 0.5, 0.75, 1],
-    durSeconds: 1.32,
-  ),
-  // bar2
-  _WaveBar(
-    x: 712.03,
-    ys: [724, 674, 794, 724],
-    heights: [600, 700, 460, 600],
-    keyTimes: [0, 0.33, 0.66, 1],
-    durSeconds: 1.14,
-  ),
-  // bar3 (tallest)
-  _WaveBar(
-    x: 956.21,
-    ys: [874, 624, 374, 624, 874],
-    heights: [300, 800, 1300, 800, 300],
-    keyTimes: [0, 0.25, 0.5, 0.75, 1],
-    durSeconds: 1.50,
-  ),
-  // bar4
-  _WaveBar(
-    x: 1200.39,
-    ys: [754, 674, 794, 674, 754],
-    heights: [540, 700, 460, 700, 540],
-    keyTimes: [0, 0.25, 0.5, 0.75, 1],
-    durSeconds: 1.26,
-  ),
-  // bar5
-  _WaveBar(
-    x: 1444.58,
-    ys: [674, 774, 624, 814, 674],
-    heights: [700, 500, 800, 420, 700],
-    keyTimes: [0, 0.25, 0.5, 0.75, 1],
-    durSeconds: 1.38,
-  ),
-];
-
-class _SoundWavePainter extends CustomPainter {
-  /// Elapsed animation time in seconds (only advances while audio is playing).
-  final double seconds;
-
-  const _SoundWavePainter(this.seconds);
-
-  static const double _viewBox = 2048;
-  static const double _barWidth = 135.58;
-  static const double _barRadius = 67.79;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.save();
-    canvas.scale(size.width / _viewBox, size.height / _viewBox);
-
-    // Background: rounded square (#e86854)
-    final bgPaint = Paint()
-      ..color = const Color(0xFFE86854)
-      ..isAntiAlias = true;
-    canvas.drawRRect(
-      RRect.fromLTRBR(
-        38.83,
-        38.83,
-        38.83 + 1970.34,
-        38.83 + 1970.34,
-        const Radius.circular(397.74),
-      ),
-      bgPaint,
-    );
-
-    // Bars (#f5f5f5)
-    final barPaint = Paint()
-      ..color = const Color(0xFFF5F5F5)
-      ..isAntiAlias = true;
-
-    for (final bar in _waveBars) {
-      final t = (seconds % bar.durSeconds) / bar.durSeconds;
-
-      // find current segment
-      int seg = bar.keyTimes.length - 2;
-      for (int i = 0; i < bar.keyTimes.length - 1; i++) {
-        if (t >= bar.keyTimes[i] && t < bar.keyTimes[i + 1]) {
-          seg = i;
-          break;
-        }
-      }
-
-      final segStart = bar.keyTimes[seg];
-      final segEnd = bar.keyTimes[seg + 1];
-      final local = ((t - segStart) / (segEnd - segStart)).clamp(0.0, 1.0);
-      // keySplines="0.42 0 0.58 1"  ==  Curves.easeInOut
-      final eased = Curves.easeInOut.transform(local);
-
-      final y = bar.ys[seg] + (bar.ys[seg + 1] - bar.ys[seg]) * eased;
-      final h = bar.heights[seg] +
-          (bar.heights[seg + 1] - bar.heights[seg]) * eased;
-
-      canvas.drawRRect(
-        RRect.fromLTRBR(
-          bar.x,
-          y,
-          bar.x + _barWidth,
-          y + h,
-          const Radius.circular(_barRadius),
-        ),
-        barPaint,
-      );
-    }
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _SoundWavePainter oldDelegate) =>
-      oldDelegate.seconds != seconds;
-}
+// JS commands
+const String _jsWavePlay =
+    "document.querySelector('svg').unpauseAnimations();";
+const String _jsWavePause =
+    "document.querySelector('svg').pauseAnimations();";
+const String _jsWaveReset =
+    "var s=document.querySelector('svg');s.setCurrentTime(0);s.pauseAnimations();";
 
 // =============================================================================
 // SCHEDULE PAGE
@@ -170,7 +83,7 @@ class SchedulePage extends StatefulWidget {
 }
 
 class _SchedulePageState extends State<SchedulePage>
-    with SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver {
   List<TimeOfDay?> checkins = [null, null];
   List<bool> enabled = [false, false];
 
@@ -185,15 +98,8 @@ class _SchedulePageState extends State<SchedulePage>
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
 
-  /// Wave is visible only while audio is playing or paused (frozen).
-  /// It is hidden (idle icon shown) when audio is stopped / completed.
-  bool _showWave = false;
 
-  /// One long-running controller used purely as a clock.
-  /// value * _waveClockSeconds = elapsed animation seconds.
-  /// stop() freezes it exactly where it is (no reset, no snap).
-  static const double _waveClockSeconds = 3600;
-  late final AnimationController _waveController;
+  late final WebViewController _waveWeb;
 
   // Check if trial user
   bool get isTrialUser => subscriptionStatus <= 1;
@@ -201,13 +107,24 @@ class _SchedulePageState extends State<SchedulePage>
   @override
   void initState() {
     super.initState();
+    TokenStorage.userNameNotifier.addListener(_onUserNameChanged);
+    if (TokenStorage.userNameNotifier.value.isNotEmpty) {
+      userName = TokenStorage.userNameNotifier.value;
+    }
+    WidgetsBinding.instance.addObserver(this);
     loadData();
     loadSchedule();
 
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3600),
-    );
+    _waveWeb = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          // Load hote hi animation pause kar do (idle icon ke neeche chhupa hai)
+          onPageFinished: (_) => _waveWeb.runJavaScript(_jsWaveReset),
+        ),
+      )
+      ..loadHtmlString(_waveHtml);
 
     _audioPlayer.onPlayerStateChanged.listen((state) {
       if (!mounted) return;
@@ -217,40 +134,92 @@ class _SchedulePageState extends State<SchedulePage>
 
       setState(() {
         _isPlaying = playing;
-        _showWave = playing || paused;
       });
 
       if (playing) {
-        // continues from the frozen position if it was paused
-        _waveController.forward();
+        _waveWeb.runJavaScript(_jsWavePlay);
       } else if (paused) {
-        // Freeze bars where they are (no reset, no snap)
-        _waveController.stop();
+        _waveWeb.runJavaScript(_jsWavePause);
       } else {
-        // stopped / completed -> hide and reset to start
-        _waveController.stop();
-        _waveController.value = 0;
+        _waveWeb.runJavaScript(_jsWaveReset);
       }
+    });
+
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() {
+        _isPlaying = false;
+      });
+      _waveWeb.runJavaScript(_jsWaveReset);
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      loadData();
+    }
+  }
+
   Future<void> loadData() async {
-    await SubscriptionApi.getSubscriptionStatus();
+    try {
+      final wasPending = await TokenStorage.getPendingCheckout();
+      if (wasPending) {
+        for (int i = 0; i < 3; i++) {
+          await SubscriptionApi.getSubscriptionStatus();
+          final status = await TokenStorage.getSubscriptionStatus();
+          if (status >= 2) {
+            await TokenStorage.savePendingCheckout(false);
+            break;
+          }
+          if (i < 2) await Future.delayed(const Duration(seconds: 1));
+        }
+      } else {
+        await SubscriptionApi.getSubscriptionStatus();
+      }
 
-    subscriptionStatus = await TokenStorage.getSubscriptionStatus();
-    maxCheckins = await TokenStorage.getMaxCheckins();
-    credits = await TokenStorage.getCredits();
-    final voice = await LocalStorage.getVoice();
+      final freshStatus = await TokenStorage.getSubscriptionStatus();
+      final freshMax = await TokenStorage.getMaxCheckins();
+      final freshCredits = await TokenStorage.getCredits();
+      final voice = await LocalStorage.getVoice();
 
-    final profile = await ProfileApi.getProfile();
-    if (profile != null) {
-      final userMap = profile["user"] ?? profile;
-      userName = userMap["name"] ?? "User";
+      if (mounted) {
+        setState(() {
+          subscriptionStatus = freshStatus;
+          maxCheckins = freshMax;
+          credits = freshCredits;
+          selectedVoice = voice;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading subscription in SchedulePage: $e");
     }
 
-    if (mounted) {
+    try {
+      final localName = await TokenStorage.getUserName();
+      if (mounted && localName.isNotEmpty && localName != "User") {
+        setState(() {
+          userName = localName;
+        });
+      }
+      final profile = await ProfileApi.getProfile();
+      if (profile != null && mounted) {
+        final userMap = profile["user"] ?? profile;
+        if (userMap["name"] != null && userMap["name"].toString().isNotEmpty) {
+          final nameFromApi = userMap["name"].toString();
+          setState(() {
+            userName = nameFromApi;
+          });
+          await TokenStorage.saveUserName(nameFromApi);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _onUserNameChanged() {
+    if (mounted && TokenStorage.userNameNotifier.value.isNotEmpty) {
       setState(() {
-        selectedVoice = voice;
+        userName = TokenStorage.userNameNotifier.value;
       });
     }
   }
@@ -340,7 +309,7 @@ class _SchedulePageState extends State<SchedulePage>
                             const SizedBox(width: 10),
                             const Expanded(
                               child: Text(
-                                "Set Check-in Time",
+                                "Set Time",
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.w600,
@@ -372,15 +341,15 @@ class _SchedulePageState extends State<SchedulePage>
                                 children: [
                                   Container(
                                     height: 1,
-                                    margin:
-                                    const EdgeInsets.symmetric(horizontal: 12),
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 12),
                                     color: const Color(0x808A99A6),
                                   ),
                                   const SizedBox(height: 44),
                                   Container(
                                     height: 1,
-                                    margin:
-                                    const EdgeInsets.symmetric(horizontal: 12),
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 12),
                                     color: const Color(0x808A99A6),
                                   ),
                                 ],
@@ -419,7 +388,8 @@ class _SchedulePageState extends State<SchedulePage>
                                       isHour: true,
                                     ),
                                     const Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 4),
+                                      padding:
+                                      EdgeInsets.symmetric(horizontal: 4),
                                       child: Text(
                                         " : ",
                                         style: TextStyle(
@@ -450,7 +420,8 @@ class _SchedulePageState extends State<SchedulePage>
                                       height: 200,
                                       child: ListWheelScrollView(
                                         itemExtent: 44,
-                                        physics: const FixedExtentScrollPhysics(),
+                                        physics:
+                                        const FixedExtentScrollPhysics(),
                                         controller: periodController,
                                         onSelectedItemChanged: (i) {
                                           setModalState(() {
@@ -460,9 +431,11 @@ class _SchedulePageState extends State<SchedulePage>
                                         },
                                         children: [
                                           _periodText("AM",
-                                              isSelected: selectedPeriodIndex == 0),
+                                              isSelected:
+                                              selectedPeriodIndex == 0),
                                           _periodText("PM",
-                                              isSelected: selectedPeriodIndex == 1),
+                                              isSelected:
+                                              selectedPeriodIndex == 1),
                                         ],
                                       ),
                                     ),
@@ -556,6 +529,7 @@ class _SchedulePageState extends State<SchedulePage>
       },
     );
   }
+
   Widget _timeColumn({
     required int count,
     required int selectedIndex,
@@ -624,26 +598,142 @@ class _SchedulePageState extends State<SchedulePage>
     return "$hour:$minute $period";
   }
 
-  /// ================= VOICE ICON (ANIMATED SVG WAVE) =================
-  Widget _buildVoiceIcon() {
-    const double size = 72;
-
-    if (!_showWave) {
-      return const SizedBox(width: size, height: size, child: _IdleWaveIcon());
-    }
-
+  /// ================= VOICE ICON (ANIMATED SVG WAVE - WEBVIEW) =================
+  Widget _buildVoiceIcon({double size = 76}) {
     return SizedBox(
       width: size,
       height: size,
-      child: AnimatedBuilder(
-        animation: _waveController,
-        builder: (context, _) {
-          return CustomPaint(
-            painter: _SoundWavePainter(
-              _waveController.value * _waveClockSeconds,
+      child: IgnorePointer(
+        child: WebViewWidget(controller: _waveWeb),
+      ),
+    );
+  }
+
+  /// ================= VOICE SECTION (FIGMA + RESPONSIVE) =================
+  Widget _buildVoiceSection() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double voiceIconSize = screenWidth < 360 ? 56 : 64;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _buildVoiceIcon(size: voiceIconSize),
+            const SizedBox(width: 12),
+            Expanded(
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      text: "Voice ",
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: Color(0xFF5A6C7D),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: "(Optional)",
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: Color(0xFF5A6C7D),
+                            fontWeight: FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    "Choose a voice for\nyour check-in reminder",
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: Color(0xFF5A6C7D),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        },
+            const SizedBox(width: 8),
+            _voicePlayButton(),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            _voiceOption("Male", 14),
+            const SizedBox(width: 24),
+            _voiceOption("Female", 14),
+            const SizedBox(width: 24),
+            _voiceOption("None", 14),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _voiceOption(String value, double fontSize) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => selectedVoice = value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            customRadioString(
+              value,
+              selectedVoice,
+              (val) => setState(() => selectedVoice = val!),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              value,
+              maxLines: 1,
+              softWrap: false,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: const Color(0xFF5A6C7D),
+                fontSize: fontSize,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _voicePlayButton() {
+    final bool disabled = selectedVoice == "None";
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _playVoice,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: disabled ? const Color(0xFFD1DBE0) : const Color(0xFFE8705B),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(
+            _isPlaying ? Icons.pause : Icons.play_arrow,
+            color: Colors.white,
+            size: 18,
+          ),
+        ),
       ),
     );
   }
@@ -679,44 +769,81 @@ class _SchedulePageState extends State<SchedulePage>
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Check-in Time",
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
-                      color: Color(0xFF5A6C7D),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: isInactive
+                    ? goToSubscription
+                    : () => pickTime(index),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Check-in Time",
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                        color: Color(0xFF5A6C7D),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    formatTime(checkins[index]),
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: checkins[index] != null
-                          ? const Color(0xFF002C3E)
-                          : const Color(0xFF8A99A6),
-                      fontSize: checkins[index] != null ? 17 : 14,
-                      fontWeight: checkins[index] != null
-                          ? FontWeight.w500
-                          : FontWeight.w400,
+                    const SizedBox(height: 2),
+                    Text(
+                      formatTime(checkins[index]),
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: checkins[index] != null
+                            ? const Color(0xFF002C3E)
+                            : const Color(0xFF8A99A6),
+                        fontSize: checkins[index] != null ? 17 : 14,
+                        fontWeight: checkins[index] != null
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             GestureDetector(
-              onTap: isInactive ? goToSubscription : () => pickTime(index),
-              child: SvgPicture.asset(
-                'assets/svg/plus.svg',
-                width: 28,
-                height: 28,
-              ),
+              onTap: isInactive
+                  ? goToSubscription
+                  : () {
+                      if (checkins[index] != null) {
+                        // Minus tapped – remove the time
+                        setState(() {
+                          checkins[index] = null;
+                          enabled[index] = false;
+                        });
+                      } else {
+                        pickTime(index);
+                      }
+                    },
+              child: checkins[index] != null
+                  ? Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF002C3E),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 12,
+                          height: 1.8,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F5F5),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ),
+                    )
+                  : SvgPicture.asset(
+                      'assets/svg/plus.svg',
+                      width: 28,
+                      height: 28,
+                    ),
             ),
             const SizedBox(width: 8),
             customSwitch(
@@ -768,13 +895,13 @@ class _SchedulePageState extends State<SchedulePage>
                     children: [
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          // Screen width ke hisaab se responsive font sizes calculate karna
-                          double screenWidth = MediaQuery.of(context).size.width;
+                          double screenWidth =
+                              MediaQuery.of(context).size.width;
 
                           double titleFontSize = screenWidth < 360 ? 36 : 44;
 
                           return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start, // Left alignment fix rakhne ke liye
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
@@ -789,10 +916,9 @@ class _SchedulePageState extends State<SchedulePage>
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                "Schedule up to 2 preferred check-in times daily.\nI'll be there to check on you, and you can change\nor pause reminders anytime.",
+                                "Schedule up to 2 preferred check-in times daily. I’ll be there to check on you, and you can change or pause reminders anytime.",
                                 style: TextStyle(
                                   fontFamily: 'Inter',
-                                  // Font size ko bhi screen ke mutabiq thoda flexible rakh sakte hain
                                   fontSize: screenWidth < 360 ? 13 : 14,
                                   color: const Color(0xFF5A6C7D),
                                   height: 1.45,
@@ -856,122 +982,9 @@ class _SchedulePageState extends State<SchedulePage>
                           height: 1, thickness: 1, color: Color(0x808A99A6)),
                       const SizedBox(height: 16),
 
-                      // VOICE SELECTION SECTION
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Animated sound wave icon (SVG animation, native)
-                          _buildVoiceIcon(),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                RichText(
-                                  text: const TextSpan(
-                                    text: "Voice ",
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      color: Color(0xFF5A6C7D),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: "(Optional)",
-                                        style: TextStyle(
-                                          fontFamily: 'Inter',
-                                          color: Color(0xFF5A6C7D),
-                                          fontWeight: FontWeight.normal,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                const Text(
-                                  "Choose a voice for your check-in reminder",
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    color: Color(0xFF5A6C7D),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.2,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    customRadioString(
-                                      "Male",
-                                      selectedVoice,
-                                          (val) =>
-                                          setState(() => selectedVoice = val!),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Text("Male",
-                                        style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            color: Color(0xFF5A6C7D),
-                                            fontSize: 12)),
-                                    const SizedBox(width: 10),
-                                    customRadioString(
-                                      "Female",
-                                      selectedVoice,
-                                          (val) =>
-                                          setState(() => selectedVoice = val!),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Text("Female",
-                                        style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            color: Color(0xFF5A6C7D),
-                                            fontSize: 12)),
-                                    const SizedBox(width: 10),
-                                    customRadioString(
-                                      "None",
-                                      selectedVoice,
-                                          (val) =>
-                                          setState(() => selectedVoice = val!),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Text("None",
-                                        style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            color: Color(0xFF5A6C7D),
-                                            fontSize: 12)),
-                                    const Spacer(),
-                                    GestureDetector(
-                                      onTap: _playVoice,
-                                      child: Container(
-                                        width: 22,
-                                        height: 22,
-                                        decoration: BoxDecoration(
-                                          color: selectedVoice == "None"
-                                              ? const Color(0xFFD1DBE0)
-                                              : const Color(0xFFE8705B),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Center(
-                                          child: Icon(
-                                            _isPlaying
-                                                ? Icons.pause
-                                                : Icons.play_arrow,
-                                            color: Colors.white,
-                                            size: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      // VOICE SELECTION SECTION (Figma design, responsive)
+                      _buildVoiceSection(),
+
                       const SizedBox(height: 16),
                       const Divider(
                           height: 1, thickness: 1, color: Color(0x808A99A6)),
@@ -1010,7 +1023,7 @@ class _SchedulePageState extends State<SchedulePage>
                         if (activeTimes.isEmpty) {
                           SoloToast.show(
                             context,
-                            "Please select and enable at least one check-in time",
+                            "Please set at least one check-in time",
                             isDark: false,
                           );
                           return;
@@ -1026,7 +1039,13 @@ class _SchedulePageState extends State<SchedulePage>
                           await LocalStorage.saveAlertWindowHours(
                               selectedAlertHour);
                           await LocalStorage.saveVoice(selectedVoice);
-                          await LocalStorage.saveUserName(userName);
+                          final latestUserName =
+                          TokenStorage.userNameNotifier.value.isNotEmpty
+                              ? TokenStorage.userNameNotifier.value
+                              : (userName.isNotEmpty
+                              ? userName
+                              : await TokenStorage.getUserName());
+                          await LocalStorage.saveUserName(latestUserName);
 
                           final List<String> formattedTimes =
                           activeTimes.map((t) {
@@ -1034,7 +1053,16 @@ class _SchedulePageState extends State<SchedulePage>
                           }).toList();
                           await CheckinApi.saveCheckinTimes(formattedTimes);
 
-                          if (!mounted) return;
+                          final dueTime =
+                          await NotificationService.resolveNextDueTime();
+                          if (dueTime != null) {
+                            await NotificationService.scheduleMissedCheckinFlow(
+                              dueTime: dueTime,
+                              alertWindowHours: selectedAlertHour,
+                            );
+                          }
+
+                          if (!context.mounted) return;
 
                           Navigator.push(
                             context,
@@ -1043,7 +1071,7 @@ class _SchedulePageState extends State<SchedulePage>
                             ),
                           );
                         } catch (e) {
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                                 content: Text("Error saving schedule: $e")),
@@ -1181,26 +1209,49 @@ class _SchedulePageState extends State<SchedulePage>
     );
   }
 
-  void goToSubscription() {
-    Navigator.push(
+  Future<void> goToSubscription() async {
+    SoloToast.show(
+      context,
+      "Please upgrade your plan to add a second check-in time",
+      isDark: false,
+    );
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => const SubscriptionPage(
-          initialToastMessage: "Please upgrade your plan to add a second check-in time",
+          initialToastMessage:
+          "Please upgrade your plan to add a second check-in time",
         ),
       ),
     );
+    if (mounted) {
+      await loadData();
+    }
   }
 
   Future<void> loadSchedule() async {
+    final hours = await LocalStorage.getAlertWindowHours();
+    final minutes = await LocalStorage.getScheduleMinutes();
     final saved = await LocalStorage.getSchedule();
-    if (saved != null) {
-      DateTime time = DateTime.parse(saved);
-      setState(() {
+
+    if (!mounted) return;
+    setState(() {
+      selectedAlertHour = hours;
+      if (minutes.isNotEmpty) {
+        checkins[0] =
+            TimeOfDay(hour: minutes[0] ~/ 60, minute: minutes[0] % 60);
+        enabled[0] = true;
+        if (minutes.length > 1) {
+          checkins[1] =
+              TimeOfDay(hour: minutes[1] ~/ 60, minute: minutes[1] % 60);
+          enabled[1] = true;
+        }
+      } else if (saved != null) {
+        DateTime time = DateTime.parse(saved);
         checkins[0] = TimeOfDay(hour: time.hour, minute: time.minute);
         enabled[0] = true;
-      });
-    }
+      }
+    });
   }
 
   void _playVoice() async {
@@ -1229,42 +1280,9 @@ class _SchedulePageState extends State<SchedulePage>
 
   @override
   void dispose() {
-    _waveController.dispose();
+    TokenStorage.userNameNotifier.removeListener(_onUserNameChanged);
+    WidgetsBinding.instance.removeObserver(this);
     _audioPlayer.dispose();
     super.dispose();
-  }
-}
-
-/// Static icon shown when the voice sample is not playing.
-class _IdleWaveIcon extends StatelessWidget {
-  const _IdleWaveIcon();
-
-  static const List<double> _baseHeights = [10.0, 18.0, 30.0, 18.0, 10.0];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8705B),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: List.generate(5, (i) {
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2.4),
-              width: 4.5,
-              height: _baseHeights[i],
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
   }
 }

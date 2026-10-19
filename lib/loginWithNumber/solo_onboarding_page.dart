@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../core/utils/app_size.dart';
@@ -20,46 +21,48 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
   int page = 0;
   final FocusNode nameFocusNode = FocusNode();
   bool isFocused = false;
+  final SoloButtonController soloController = SoloButtonController();
+  Timer? _typingTimer;
 
   @override
   void initState() {
     super.initState();
+    nameController.addListener(() {
+      soloController.soloButtonLookDown();
+      _typingTimer?.cancel();
+      _typingTimer = Timer(const Duration(seconds: 1), () {
+        soloController.soloButtonResume();
+      });
+    });
+
     nameFocusNode.addListener(() {
       setState(() {
         isFocused = nameFocusNode.hasFocus;
       });
+      if (nameFocusNode.hasFocus) {
+        soloController.soloButtonLookDown();
+      } else {
+        _typingTimer?.cancel();
+        soloController.soloButtonResume();
+      }
     });
   }
 
   @override
   void dispose() {
+    _typingTimer?.cancel();
     nameFocusNode.dispose();
     nameController.dispose();
+    soloController.dispose();
     super.dispose();
   }
 
-  String _getMascotAsset() {
-    if (page == 0) {
-      return isFocused ? 'assets/svg/second.svg' : 'assets/svg/first.svg';
-    } else if (page == 1 || page == 2) {
-      return 'assets/svg/third.svg';
-    } else {
-      return 'assets/svg/fourth.svg';
-    }
-  }
-
   Widget _buildMascot() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(opacity: animation, child: child);
-      },
-      child: SvgPicture.asset(
-        _getMascotAsset(),
-        key: ValueKey(_getMascotAsset()),
-        width: AppSize.w(195.13),
-        height: AppSize.w(195.13),
-      ),
+    return SoloTurquoiseAnimation(
+      controller: soloController,
+      width: AppSize.w(195.13),
+      height: AppSize.w(195.13),
+      isHappy: page == 1,
     );
   }
 
@@ -294,7 +297,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
           ),
           SizedBox(height: AppSize.h(10)),
           Text(
-            "I’m SOLO your daily\nCheck-in Buddy",
+            "I'm SOLO your daily\nCheck-in Buddy",
             style: TextStyle(
               fontSize: AppSize.sp(36),
               fontWeight: FontWeight.w600,
@@ -303,7 +306,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
           ),
           SizedBox(height: AppSize.h(10)),
           Text(
-            "I’ll be here for you",
+            "I'll be here for you",
             style: TextStyle(
               fontSize: AppSize.sp(36),
               fontWeight: FontWeight.w600,
@@ -329,7 +332,7 @@ class _SoloOnboardingPageState extends State<SoloOnboardingPage> {
           Text(
             "How SOLO works",
             style: TextStyle(
-              fontSize: AppSize.sp(46),
+              fontSize: AppSize.sp(44),
               fontWeight: FontWeight.w600,
               color: const Color(0xFF0B3948),
             ),

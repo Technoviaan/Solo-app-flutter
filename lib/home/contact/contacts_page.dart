@@ -12,6 +12,7 @@ import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
 import 'package:solo_app/home/contact/resume_checkin_page.dart';
 import 'package:solo_app/subscription/subscription_page.dart';
+import 'package:solo_app/subscription/subscription_api.dart';
 import 'package:solo_app/core/widgets/solo_toast.dart';
 
 import '../../core/network/api_config.dart';
@@ -23,7 +24,8 @@ class ContactsPage extends StatefulWidget {
   State<ContactsPage> createState() => _ContactsPageState();
 }
 
-class _ContactsPageState extends State<ContactsPage> {
+class _ContactsPageState extends State<ContactsPage>
+    with WidgetsBindingObserver {
   Map<String, dynamic>? manualContact1;
   Map<String, dynamic>? manualContact2;
 
@@ -46,6 +48,7 @@ class _ContactsPageState extends State<ContactsPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     loadContacts();
     _checkSubStatus();
     _consentSub = NotificationService.consentStream.stream.listen((event) {
@@ -57,11 +60,36 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _consentSub?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkSubStatus();
+    }
+  }
+
   Future<void> _checkSubStatus() async {
+    try {
+      final wasPending = await TokenStorage.getPendingCheckout();
+      if (wasPending) {
+        for (int i = 0; i < 3; i++) {
+          await SubscriptionApi.getSubscriptionStatus();
+          final status = await TokenStorage.getSubscriptionStatus();
+          if (status >= 2) {
+            await TokenStorage.savePendingCheckout(false);
+            break;
+          }
+          if (i < 2) await Future.delayed(const Duration(seconds: 1));
+        }
+      } else {
+        await SubscriptionApi.getSubscriptionStatus();
+      }
+    } catch (_) {}
+
     final status = await TokenStorage.getSubscriptionStatus();
     if (mounted) {
       setState(() {
@@ -70,7 +98,21 @@ class _ContactsPageState extends State<ContactsPage> {
     }
   }
 
+  void _sanitizeContactSlots() {
+    if (manualContact1 == null && manualContact2 != null) {
+      manualContact1 = manualContact2;
+      isContact1Enabled = isContact2Enabled;
+      manualContact2 = null;
+      isContact2Enabled = false;
+    }
+  }
+
   void _showUpgradePrompt() {
+    SoloToast.show(
+      context,
+      "Please upgrade your plan to add a second contact",
+      isDark: false,
+    );
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -454,22 +496,29 @@ class _ContactsPageState extends State<ContactsPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
 
-                      setState(() {
-                        if (index == 1) {
-                          manualContact1 = null;
-                          isContact1Enabled = false;
-                        } else {
-                          manualContact2 = null;
-                          isContact2Enabled = false;
-                        }
-                      });
+                        setState(() {
+                          if (index == 1) {
+                            if (manualContact2 != null) {
+                              manualContact1 = manualContact2;
+                              isContact1Enabled = isContact2Enabled;
+                              manualContact2 = null;
+                              isContact2Enabled = false;
+                            } else {
+                              manualContact1 = null;
+                              isContact1Enabled = false;
+                            }
+                          } else {
+                            manualContact2 = null;
+                            isContact2Enabled = false;
+                          }
+                        });
 
-                      sendContactsToApi();
-                    },
+                        sendContactsToApi();
+                      },
                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 17),
                     label: const Text("Remove", style: TextStyle(color: Colors.redAccent)),
                   ),
@@ -665,12 +714,15 @@ class _ContactsPageState extends State<ContactsPage> {
           isContact2Enabled =
               (status2 == "accepted") && (storedEnabled2 != "false");
         }
+        _sanitizeContactSlots();
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    _sanitizeContactSlots();
+
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -679,78 +731,71 @@ class _ContactsPageState extends State<ContactsPage> {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Let your loved\nOnes know\nYou’re Okay",
-                      style: TextStyle(
-                        color: Color(0xFF002C3E),
-                        fontSize: 44,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0,
-                        height: 1.1,
-                      ),
-                    ),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        double screenWidth = MediaQuery.of(context).size.width;
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    double screenWidth = MediaQuery.of(context).size.width;
+                    double titleFontSize = screenWidth < 360 ? 36 : (screenWidth < 400 ? 40 : 44);
 
-                        return SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start, // Left alignment fix rakhne ke liye
-                            children: [
-                              const SizedBox(height: 16),
-                              Text(
-                                "You can add the people who care about you. If you\nmiss a scheduled check-in, I'll alert them after 2\nhours with your last known location. You can\nupdate your contacts anytime.",
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: const Color(0xFF5A6C7D),
-                                  fontSize: screenWidth < 360 ? 13 : 14, // Chote phone ke liye font thoda adjust
-                                  height: 20 / 14,
-                                  letterSpacing: 0,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-
-                              // Contact Section
-                              const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
-                              _contactRow(index: 1),
-                              const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
-                              _contactRow(index: 2),
-                              const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
-
-                              const SizedBox(height: 24),
-
-                              // Useful Tip SVG - Aspect ratio maintain rakhne ke liye
-                              SvgPicture.asset(
-                                'assets/svg/usefultip.svg',
-                                width: 111,
-                                height: 37,
-                                fit: BoxFit.contain,
-                              ),
-                              const SizedBox(height: 12),
-
-                              Text(
-                                "Let your contacts know they're added as\nemergency contacts so they'll recognize alerts\nfrom your SOLO app.",
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: _subtitleColor, // Apka defined color variable
-                                  fontSize: screenWidth < 360 ? 13 : 14,
-                                  fontWeight: FontWeight.w400,
-                                  height: 20 / 14,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Let your loved\nOnes know\nYou’re Okay",
+                          style: TextStyle(
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF002C3E),
+                            letterSpacing: 0,
+                            height: 1.1,
                           ),
-                        );
-                      },
-                    ),
-                  ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "You can add the people who care about you. If you miss a scheduled check-in, I’ll alert them after 2 hours with your last known location. You can update your contacts anytime.",
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: const Color(0xFF5A6C7D),
+                            fontSize: screenWidth < 360 ? 13 : 14,
+                            height: 1.45,
+                            letterSpacing: 0,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Contact Section
+                        const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                        _contactRow(index: 1),
+                        const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+                        _contactRow(index: 2),
+                        const Divider(height: 1, thickness: 1, color: Color(0x808A99A6)),
+
+                        const SizedBox(height: 24),
+
+                        // Useful Tip SVG - Aspect ratio maintain rakhne ke liye
+                        SvgPicture.asset(
+                          'assets/svg/usefultip.svg',
+                          width: 111,
+                          height: 37,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 12),
+
+                        Text(
+                          "Let your contacts know they’re added as emergency contacts so they’ll recognize alerts from your SOLO app.",
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: _subtitleColor,
+                            fontSize: screenWidth < 360 ? 13 : 14,
+                            fontWeight: FontWeight.w400,
+                            height: 1.45,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -861,7 +906,7 @@ class _ContactsPageState extends State<ContactsPage> {
                   if (!hasContact) {
                     if (index == 2 && manualContact1 == null) {
                       SoloToast.show(
-                          context, "Please add Contact 1 first", isDark: false);
+                          context, "Please add contact 1 first", isDark: false);
                       return;
                     }
                     pickContact(index);
@@ -929,7 +974,7 @@ class _ContactsPageState extends State<ContactsPage> {
                   }
                   if (manualContact1 == null) {
                     SoloToast.show(
-                        context, "Please add Contact 1 first", isDark: false);
+                        context, "Please add contact 1 first", isDark: false);
                     return;
                   }
                 }
@@ -937,8 +982,16 @@ class _ContactsPageState extends State<ContactsPage> {
                 if (hasContact) {
                   setState(() {
                     if (index == 1) {
-                      manualContact1 = null;
-                      isContact1Enabled = false;
+                      // If Contact 2 exists, shift it up to Contact 1 slot
+                      if (manualContact2 != null) {
+                        manualContact1 = manualContact2;
+                        isContact1Enabled = isContact2Enabled;
+                        manualContact2 = null;
+                        isContact2Enabled = false;
+                      } else {
+                        manualContact1 = null;
+                        isContact1Enabled = false;
+                      }
                     } else {
                       manualContact2 = null;
                       isContact2Enabled = false;
@@ -989,7 +1042,7 @@ class _ContactsPageState extends State<ContactsPage> {
                 if (!hasContact) {
                   if (index == 2 && manualContact1 == null) {
                     SoloToast.show(
-                        context, "Please add Contact 1 first", isDark: false);
+                        context, "Please add contact 1 first", isDark: false);
                   } else {
                     SoloToast.show(
                         context, "Please add a contact first", isDark: false);
@@ -1000,7 +1053,7 @@ class _ContactsPageState extends State<ContactsPage> {
                 // Inactive when Pending or Declined per PDF Page 6
                 if (isPending) {
                   SoloToast.show(
-                      context, "Waiting for contact's consent via SMS",
+                      context, "Waiting for consent",
                       isDark: false);
                   return;
                 }

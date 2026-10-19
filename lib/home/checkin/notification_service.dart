@@ -85,24 +85,27 @@ class NotificationService {
         if (alarmSet.alarms.isEmpty) return;
         final active = alarmSet.alarms.first;
 
-        print("🔔 ALARM RINGING TRIGGERED: id ${active.id}");
+        print("🔔 ALARM RINGING TRIGGERED: id ${active.id} (time: ${active.dateTime})");
 
-        // 🚀 Force app to foreground
+        // 🚀 Always force app to foreground & wake up screen on EVERY phase
         bringToForeground();
 
-        // Show Full-Screen Intent Notification
+        // 🚀 Always show Full-Screen Intent Notification on EVERY phase
         await _showFullScreenNotification(active);
 
-        // Auto-stop alarm after 20 seconds
-        Timer(const Duration(seconds: 20), () async {
+        // Auto-stop alarm after 15 seconds if still ringing
+        Timer(const Duration(seconds: 15), () async {
           if (await Alarm.isRinging(active.id)) {
-            print("⏱️ 20 seconds passed. Auto-stopping alarm ${active.id}");
+            print("⏱️ Auto-stopping alarm ${active.id}");
             await Alarm.stop(active.id);
             await _localNotifications.cancel(active.id);
           }
         });
 
-        await navigateToCheckin(active);
+        // 🚀 If CheckinScreen is not already showing on display, navigate to it!
+        if (!isCheckinScreenActive) {
+          await navigateToCheckin(active);
+        }
       } catch (e) {
         print("❌ Error in alarm listener: $e");
       }
@@ -276,10 +279,17 @@ class NotificationService {
     const NotificationDetails notificationDetails =
     NotificationDetails(android: androidDetails);
 
+    final title = settings.notificationSettings.title.isNotEmpty
+        ? settings.notificationSettings.title
+        : 'Check-in Required';
+    final body = settings.notificationSettings.body.isNotEmpty
+        ? settings.notificationSettings.body
+        : 'Please check in now to stay safe.';
+
     await _localNotifications.show(
       settings.id,
-      'Check-in Required',
-      'Please check in now to stay safe.',
+      title,
+      body,
       notificationDetails,
       payload: settings.id.toString(),
     );
@@ -288,7 +298,7 @@ class NotificationService {
   static void bringToForeground() {
     if (Platform.isAndroid) {
       try {
-        final intent = AndroidIntent(
+        const intent = AndroidIntent(
           action: 'android.intent.action.MAIN',
           package: 'com.solo.app',
           componentName: 'com.solo.app.MainActivity',
@@ -385,6 +395,10 @@ class NotificationService {
   }
 
   static Future<void> navigateToSavedCheckin(DateTime scheduledTime) async {
+    if (isCheckinScreenActive) {
+      print("📺 CheckinScreen is already active on display. Skipping duplicate push.");
+      return;
+    }
     if (_isNavigationInProgress) {
       print("⏩ Navigation already in progress, skipping duplicate.");
       return;
@@ -465,13 +479,13 @@ class NotificationService {
       id: id,
       dateTime: scheduledTime,
       assetAudioPath: audioPath,
-      loopAudio: true,
+      loopAudio: false,
       vibrate: true,
       warningNotificationOnKill: true,
       androidFullScreenIntent: true,
       volumeSettings: VolumeSettings.fade(
         volume: 1.0,
-        fadeDuration: const Duration(seconds: 2),
+        fadeDuration: const Duration(milliseconds: 300),
         volumeEnforced: true,
       ),
       notificationSettings: NotificationSettings(
@@ -542,14 +556,15 @@ class NotificationService {
 
     final totalMinutes = alertWindowHours * 60;
     final reminderMinutes = _buildReminderOffsets(totalMinutes);
-    // 🔊 Chronological phase voice lines for each of the reminder
-    // checkpoints below (2nd, 3rd, 4th regular reminders, then the 5th
-    // "final warning" ~2 minutes before the alert fires).
+    // 🔊 Chronological phase voice lines for each of the 4 reminder checkpoints:
+    // 0: Phase 2 (15m in 1hr / 30m in 2hr)
+    // 1: Phase 3 (30m in 1hr / 60m in 2hr)
+    // 2: Phase 4 (45m in 1hr / 90m in 2hr)
+    // 3: Phase 5 (58m in 1hr / 118m in 2hr - Final Warning)
     final phaseAudioForReminder = [
       SoloSounds.phaseReminder(voice, 2),
       SoloSounds.phaseReminder(voice, 3),
       SoloSounds.phaseReminder(voice, 4),
-      SoloSounds.phaseFinalWarning(voice),
       SoloSounds.phaseFinalWarning(voice),
     ];
     for (var i = 0; i < reminderMinutes.length; i++) {
@@ -560,13 +575,11 @@ class NotificationService {
         await scheduleNotification(
           triggerTime,
           id: 1100 + i,
-          title: "Missed Check-in Reminder",
-          body: left > 0
-              ? "$left minutes left before emergency alert."
-              : "Final reminder before emergency alert.",
-          audioPathOverride: i < phaseAudioForReminder.length
-              ? phaseAudioForReminder[i]
-              : SoloSounds.phaseFinalWarning(voice),
+          title: i == 3 ? "Final Warning" : "Missed Check-in Reminder",
+          body: i == 3
+              ? "Only two minutes left. Please check in now."
+              : "$left minutes left before emergency alert.",
+          audioPathOverride: phaseAudioForReminder[i],
         );
       }
     }
@@ -660,16 +673,14 @@ class NotificationService {
   }
 
   static List<int> _buildReminderOffsets(int totalMinutes) {
-    final checkpoints = <int>{
-      3, // 3 minutes after check-in
-      (totalMinutes * 0.25).round(),
-      (totalMinutes * 0.5).round(),
-      (totalMinutes * 0.75).round(),
-      totalMinutes - 2, // Changed from totalMinutes - 10 to totalMinutes - 2
-    };
-    final result = checkpoints.where((m) => m > 0 && m < totalMinutes).toList()
-      ..sort();
-    return result;
+    // Phase 2 (25%), Phase 3 (50%), Phase 4 (75%), Phase 5 (2 mins before alert)
+    // 2-Hour Grace Period (totalMinutes = 120): [30, 60, 90, 118]
+    // 1-Hour Grace Period (totalMinutes = 60):  [15, 30, 45, 58]
+    final p2 = (totalMinutes * 0.25).round();
+    final p3 = (totalMinutes * 0.50).round();
+    final p4 = (totalMinutes * 0.75).round();
+    final p5 = totalMinutes - 2;
+    return [p2, p3, p4, p5];
   }
 
   static DateTime nextOccurrenceFromTimeOfDay(TimeOfDay time) {

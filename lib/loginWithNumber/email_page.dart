@@ -374,8 +374,8 @@ class _EmailPageState extends State<EmailPage> {
                                   prefixIcon: Padding(
                                     padding: const EdgeInsets.all(10.0),
                                     child: Container(
-                                      width: 35,
-                                      height: 42,
+                                      width: 36,
+                                      height: 36,
                                       decoration: const BoxDecoration(
                                         color: Color(0xFF002C3E),
                                         shape: BoxShape.circle,

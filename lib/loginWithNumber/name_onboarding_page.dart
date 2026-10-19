@@ -7,6 +7,7 @@ import '../core/utils/app_size.dart';
 import '../home/privacy_policy_page.dart';
 import '../home/terms_of_use_page.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'user_name_api.dart';
 import 'registration_email_page.dart';
 import '../widgets/solo_turquoise_animation.dart';
@@ -417,7 +418,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
           SizedBox(height: AppSize.h(24)),
           Text.rich(
             TextSpan(
-              text: "I’m ",
+              text: "I'm ",
               style: TextStyle(
                 fontSize: AppSize.sp(36),
                 fontWeight: FontWeight.w600,
@@ -443,7 +444,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                     fontSize: AppSize.sp(36),
                   ),
                 ),
-                const TextSpan(text: "\nI’ll be here for you"),
+                const TextSpan(text: "\nI'll be here for you"),
               ],
             ),
           ),
@@ -488,34 +489,43 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(height: AppSize.h(180)),
+                  SizedBox(height: AppSize.h(195)),
                   Text.rich(
-                    const TextSpan(
+                    TextSpan(
                       text: "How\n",
                       children: [
                         TextSpan(
                           text: "SOLO",
-                          style: TextStyle(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
-                            fontFamily: 'Inter',
                             fontWeight: FontWeight.w600,
+                            fontSize: AppSize.sp(42),
+                            height: 1.0,
                           ),
                         ),
-                        TextSpan(text: " works"),
+                        TextSpan(
+                          text: " works",
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF002C3E),
+                            fontWeight: FontWeight.w600,
+                            fontSize: AppSize.sp(42),
+                            height: 1.0,
+                          ),
+                        ),
                       ],
                     ),
-                    style: TextStyle(
+                    style: GoogleFonts.inter(
                       fontSize: AppSize.sp(42),
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF002C3E),
-                      height: 1.1,
+                      height: 1.0,
                     ),
                   ),
-                  SizedBox(height: AppSize.h(16)),
+                  SizedBox(height: AppSize.h(12)),
                   buildStep(
                     "1",
                     "Choose when I check in on you each day",
-                    "Tap SOLO’s button during check-ins",
+                    "Tap SOLO's button during check-ins",
                   ),
                   buildStep(
                     "2",
@@ -560,7 +570,7 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 number,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: AppSize.sp(24),
+                  fontSize: AppSize.sp(20),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -574,16 +584,17 @@ class _NameOnboardingPageState extends State<NameOnboardingPage> {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: AppSize.sp(19),
+                    fontSize: AppSize.sp(18),
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF002C3E),
+                    height: 0.0,
                   ),
                 ),
                 SizedBox(height: AppSize.h(4)),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: AppSize.sp(13),
+                    fontSize: AppSize.sp(14),
                     color: const Color(0xFF002C3E),
                     fontWeight: FontWeight.w400,
                   ),

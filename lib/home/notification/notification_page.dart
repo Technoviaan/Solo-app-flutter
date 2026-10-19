@@ -4,9 +4,6 @@ import 'package:solo_app/core/widgets/solo_logo.dart';
 import 'package:solo_app/core/utils/app_size.dart';
 import 'package:solo_app/home/checkin/local_storage.dart';
 import 'package:solo_app/home/checkin/notification_service.dart';
-import 'checkin_history_page.dart';
-import 'alert_history_page.dart';
-import 'clear_history_dialog.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -73,17 +70,20 @@ class _NotificationPageState extends State<NotificationPage> {
               const Text(
                 "Notification",
                 style: TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF002C3E),
+                  height: 1.0,
+                  letterSpacing: 0,
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Expanded(
                     child: Column(
@@ -92,25 +92,27 @@ class _NotificationPageState extends State<NotificationPage> {
                         Text(
                           "Missed Check-in Notification",
                           style: TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: 14,
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.w500,
                             color: Color(0xFF002C3E),
                           ),
                         ),
                         SizedBox(height: 4),
                         Text(
-                          "Get a push notification after a missed check-in,\nbefore the alert is sent.",
+                          "Get a push notification after a missed check-in, before the alert is sent.",
                           style: TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                             color: Color(0xFF8A99A6),
-                            height: 1.3,
+                            height: 1.4,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   customSwitch(
                     value: _notificationsEnabled,
                     onChanged: _toggleNotifications,

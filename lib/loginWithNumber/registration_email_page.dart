@@ -160,23 +160,22 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
     final screenHeight = MediaQuery.of(context).size.height;
     final isSmallScreen = screenHeight < 700;
 
-    final titleFontSize = isSmallScreen ? AppSize.sp(30) : AppSize.sp(40);
-
     final topSpacing = isSmallScreen ? AppSize.h(24) : AppSize.h(30);
-
-    final mascotSize = isSmallScreen ? 280.0 : 300.0;
+    final mascotSize = isSmallScreen ? 255.0 : 275.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF7),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            double screenWidth = MediaQuery.of(context).size.width;
+            double titleFontSize = screenWidth < 360 ? 36 : 44;
+
             return SingleChildScrollView(
               physics: keyboardOpen
                   ? const AlwaysScrollableScrollPhysics()
                   : const NeverScrollableScrollPhysics(),
               padding: EdgeInsets.only(
-                left: AppSize.w(0),
                 right: AppSize.w(24),
                 bottom: keyboardOpen ? AppSize.h(40) : AppSize.h(16),
               ),
@@ -197,10 +196,9 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             "Let’s keep\nyou connected\nand cared for",
-                            
                             textAlign: TextAlign.left,
                             style: TextStyle(
-                              fontSize: AppSize.sp(44),
+                              fontSize: titleFontSize,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF002C3E),
                               height: 1.1,
@@ -208,7 +206,8 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                             ),
                           ),
                         ),
-                      ),                      SizedBox(height: AppSize.h(20)),
+                      ),
+                      SizedBox(height: AppSize.h(20)),
                       // Email Error
                       SizedBox(
                         height: AppSize.h(20),
@@ -268,27 +267,25 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                               fontWeight: FontWeight.w400,
                             ),
                             decoration: InputDecoration(
-                              hintText: "Email",
+                              hintText: "Your Email",
                               hintStyle: const TextStyle(
-                                color: Color(0xFF5A6C7D),
+                                color: Color(0xFF8A99A6),
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.w400,
                               ),
-                              prefixIcon: SizedBox(
-                                width: 55,
-                                child: Center(
-                                  child: Container(
-                                    width: 35,
-                                    height: 35,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF002C3E),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.email_outlined,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.all(10.0),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF002C3E),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.email_outlined,
+                                    color: Colors.white,
+                                    size: 20,
                                   ),
                                 ),
                               ),
@@ -353,26 +350,32 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                                       text: "Privacy Policy",
                                       recognizer: _privacyRecognizer,
                                       style: const TextStyle(
-                                        color: Color(0xFF5A6C7D),
+                                        color: Color(0xFF8A99A6),
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w700,
                                         decoration: TextDecoration.underline,
-                                        fontWeight: FontWeight.w600,
+                                        decorationColor: Color(0xFF8A99A6),
                                       ),
                                     ),
                                     const TextSpan(text: " & "),
                                     TextSpan(
-                                      text: "Terms of Service",
+                                      text: "Terms of Use",
                                       recognizer: _termsRecognizer,
                                       style: const TextStyle(
-                                        color: Color(0xFF5A6C7D),
+                                        color: Color(0xFF8A99A6),
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w700,
                                         decoration: TextDecoration.underline,
-                                        fontWeight: FontWeight.w600,
+                                        decorationColor: Color(0xFF8A99A6),
                                       ),
                                     ),
                                   ],
                                 ),
                                 style: TextStyle(
+                                  fontFamily: 'Inter',
                                   fontSize: AppSize.sp(12),
-                                  color: const Color(0xFF5A6C7D),
+                                  color: const Color(0xFF8A99A6),
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -399,22 +402,30 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                         ),
                       ),
 
-                      if (!keyboardOpen)
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.bottomLeft,
-                            child: FractionalTranslation(
-                                translation: const Offset(-0.25, 0),
-                                child:
-                                AnimatedSoloEmailButton(size: mascotSize)),
-                          ),
-                        )
-                      else
-                        const Spacer(),
-
-                      // Bottom Continue Action Row
+                      if (!keyboardOpen) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Transform.translate(
+                              offset: const Offset(-78, 0),
+                              child: Padding(
+                                padding: EdgeInsets.only(top: AppSize.h(10)),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: AnimatedSoloEmailButton(size: mascotSize),
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                          ],
+                        ),
+                      ],
+                      const Spacer(),
                       Padding(
-                        padding: EdgeInsets.only(bottom: AppSize.h(10)),
+                        padding: EdgeInsets.only(
+                          right: AppSize.w(0),
+                          bottom: AppSize.h(10),
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -470,6 +481,7 @@ class _RegistrationEmailPageState extends State<RegistrationEmailPage> {
                           ],
                         ),
                       ),
+
                     ],
                   ),
                 ),
